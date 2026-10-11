@@ -1,0 +1,34 @@
+# Human-readable app slug used by Agent Engine tooling.
+# `agentengine create` should rewrite this when generating a new app from the template.
+name: kg-approval
+# Python import path to the SDK App instance.
+# Format: <module path>:<variable name>. This template exposes `app` from
+# src/agent_kg_approval/main.py.
+entrypoint: agent_kg_approval.main:app
+framework: langgraph
+# Runtime feature flags controlled by agent.yaml, not .env. A key that is
+# present here wins over any ENABLE_* environment variable, so declaring memory
+# keeps ambient environment state from switching it on behind your back.
+# Set memory to true to enable long-term profile memory; VOYAGE_API_KEY must be
+# present in .env when memory is enabled.
+features:
+    durable_workflow: true
+    memory: false
+# Tool placement and pass-through secrets. All three tools run in the agent sandbox: human_review
+# calls interrupt(), and the other two reach the KG through the gate user (KG_MONGODB_URI_GATE).
+sandboxes:
+    agent:
+        secrets: ["*"]
+        tools:
+            - approval_context
+            - human_review
+            - record_decision
+        # Only the linked Atlas cluster (base policy). Add api.raindrop.ai here if KG_RAINDROP is turned on.
+        network:
+            egress_mode: deny_all
+    tool:
+        secrets: []
+        tools: []
+        network:
+            egress_mode: deny_all
+version: 0.1.0

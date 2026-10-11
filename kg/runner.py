@@ -94,7 +94,7 @@ class HttpRunner:
         return SettingsResponse.model_validate(r.json())
 
 
-FAKE_HEALTH = {"ok": True, "engine_sha": "fake", "spec_id": "warehouse-humanoid", "mode": "fake"}
+FAKE_HEALTH = {"ok": True, "engine_sha": "fake", "spec_id": "warehouse-humanoid", "spec_hash": "fake", "mode": "fake"}
 
 
 def stair_threshold(brain: Brain) -> float:

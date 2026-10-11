@@ -17,7 +17,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = process.env.TWINFORGE_DIR ?? path.resolve(here, "../../../physical-ai");
 const { fakeRunShift } = await import(pathToFileURL(path.join(dir, "src/harness/fake.ts")).href);
 
-const HEALTH = { ok: true, engine_sha: "fake", spec_id: "warehouse-humanoid", mode: "fake" };
+const HEALTH = { ok: true, engine_sha: "fake", spec_id: "warehouse-humanoid", spec_hash: "fake", mode: "fake" };
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];

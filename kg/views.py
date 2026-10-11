@@ -5,6 +5,7 @@ suggest(V)         top untested candidates, plus "passed but not promoted"
 explain(id)        rule → habit + clip → episodes → gate run, plus heldout_passed
 lineage(V)         $graphLookup over brain_versions.parent, joined to promoting runs and habits
 graph_snapshot(V)  nodes and links for one version, added/retired components marked
+get_signals(shift) Raindrop's signals for one shift, grouped by category (reads the Query API)
 
 Nothing here reads heldout_* collections, so every view works with the improver client
 and can never leak a held-out seed or score.
@@ -14,9 +15,13 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Optional
 
+import httpx
+
 from . import metrics
+from .contract import FAILURE_TYPES
 from .hashing import same_value
-from .ontology import COMPONENT_KINDS, FAILURE_GROUPS, SKELETON_KINDS, TIME_STATES, failure_group_of
+from .ontology import FAILURE_GROUPS, SKELETON_KINDS, TIME_STATES, failure_group_of
+from .raindrop_sink import EVENT_NAME, SIGNALS
 from .registry import LEVER_GROUPS
 
 
@@ -86,6 +91,17 @@ def lever_group_order(kg, A: Optional[dict], learned: Optional[dict] = None) -> 
     return order
 
 
+def brain_summary(kg, V: int, split: str = "train", patch_hash: Optional[str] = None) -> Optional[dict]:
+    """Section A: brain V pooled over its recorded shifts on one split, in the current env (None if none yet,
+    or if no runner env is set, e.g. in the approval agent: callers then fall back to brain_versions.scores)."""
+    if kg._env is None:
+        return None
+    H = patch_hash or kg.validate(kg.export_brain(V)).patch_hash
+    results = [s["result"] for s in kg.c("shifts").find({"env_key": kg.env.key, "patch_hash": H, "split": split},
+                                                        {"result": 1})]
+    return metrics.summarize(results) if results else None
+
+
 def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None) -> dict:
     env = kg.env
     base = kg.export_brain(V)
@@ -93,9 +109,7 @@ def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None
     H = val.patch_hash
 
     # A. the current brain
-    results = [s["result"] for s in kg.c("shifts").find({"env_key": env.key, "patch_hash": H, "split": split},
-                                                        {"result": 1})]
-    A = metrics.summarize(results) if results else None
+    A = brain_summary(kg, V, split, patch_hash=H)
 
     # B. everything evaluated on this brain, in this env
     runs = list(kg.c("gate_runs").find({"env_key": env.key, "base_patch_hash": H}).sort("created_at", 1))
@@ -120,7 +134,7 @@ def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None
         if not s.is_lever:
             continue
         d = envelope.get(s.target, {})
-        cur = current.get(s.target)
+        cur = current.get(s.target, d.get("engine_default", s.engine_default))  # absent: the engine default runs
         tried = sorted(tested.get(s.target, []))
         nxt = [v for v in s.candidates() if not same_value(v, cur) and not any(same_value(v, t) for t in tried)]
         rows.append({"target": s.target, "lever_group": s.group, "status": d.get("status", s.status),
@@ -355,3 +369,83 @@ def graph_snapshot(kg, V: int, compare_to: Optional[int] = None) -> dict:
                           "status": "evidence"})
     counts = Counter(n["status"] for n in nodes)
     return {"version": V, "compare_to": prev, "nodes": nodes, "links": links, "counts": dict(counts)}
+
+
+# Signal names by category. Gate signals come from the KG itself; hard metrics are the runner's
+# failure types (sent by whoever instruments them, on the KG's event ids); Self Diagnostics are
+# iteration 03's warehouse categories plus Raindrop's defaults.
+SIGNAL_CATEGORIES = {
+    "gate": set(SIGNALS),
+    "hard_metrics": {t.lower() for t in FAILURE_TYPES},
+    "self_diagnostics": {"capability_gap", "guardrail_conflict", "repeated_failure", "sop_gap",
+                         "missing_context", "repeatedly_broken_tool", "complete_task_failure"},
+}
+SIGNAL_SPLITS = ("train", "val")
+
+
+def signal_category(name: str) -> str:
+    n = (name or "").lower()
+    return next((c for c, names in SIGNAL_CATEGORIES.items() if n in names), "other")
+
+
+def get_signals(kg, shift_id: str, client) -> dict:
+    """Raindrop's signals for one shift, grouped by category, for the supervisor's first call after a shift.
+
+    The KG sends one candidate_brain event per proposal, not per shift, so a shift maps to the gate runs
+    that used it (base or candidate side) and, through their gate_run_id property, to those events and
+    the signals on them. Events carrying a `shift_id` property themselves (worker agents, Self
+    Diagnostics) match directly. Events whose `split` or `seed_set` is anything but train or val are dropped."""
+    shift = kg.c("shifts").find_one({"_id": shift_id}, {"seed": 1, "split": 1, "brain_version": 1,
+                                                         "patch_hash": 1, "env_key": 1})
+    runs = list(kg.c("gate_runs").find({"$or": [{"shift_ids.base": shift_id}, {"shift_ids.cand": shift_id}]},
+                                       {"env_key": 1, "shift_ids": 1, "verdict": 1}))
+    side = {r["_id"]: "base" if shift_id in r["shift_ids"]["base"] else "cand" for r in runs}
+
+    found: dict[str, dict] = {}
+    error = None
+    try:
+        for key in sorted({r["env_key"] for r in runs}):
+            for e in client.events(event_name=EVENT_NAME, properties={"env_key": key}):
+                if (e.get("properties") or {}).get("gate_run_id") in side:
+                    found.setdefault(e["id"], e)
+        for e in client.events(properties={"shift_id": shift_id}):
+            found.setdefault(e["id"], e)
+    except httpx.HTTPError as e:  # Raindrop is never on the critical path
+        error = f"Raindrop query failed: {e}"
+    if shift is None and not runs and not found and error is None:
+        raise KeyError(f"no shift {shift_id!r} in the KG or in Raindrop")
+
+    events, dropped = [], 0
+    categories: dict[str, dict] = {c: {} for c in (*SIGNAL_CATEGORIES, "other")}
+    for e in sorted(found.values(), key=lambda e: e.get("timestamp") or ""):
+        p = e.get("properties") or {}
+        if any(p.get(k) not in (None, *SIGNAL_SPLITS) for k in ("split", "seed_set")):  # iteration 03 tags seed_set
+            dropped += 1
+            continue
+        names = [s["name"] for s in e.get("signals") or []]
+        gid = p.get("gate_run_id")
+        events.append({"id": e["id"], "event_name": e.get("event_name"), "timestamp": e.get("timestamp"),
+                       "gate_run_id": gid, "side": side.get(gid), "brain_version": p.get("brain_version"),
+                       "status": p.get("status"), "signals": names})
+        for n in names:
+            slot = categories[signal_category(n)].setdefault(n, {"count": 0, "event_ids": []})
+            slot["count"] += 1
+            slot["event_ids"].append(e["id"])
+
+    head = f"Shift {shift_id}"
+    if shift:
+        head += f" (seed {shift.get('seed')}, {shift.get('split')}, brain v{shift.get('brain_version')})"
+    head += f", Raindrop project {client.project_id or 'default'}: {len(events)} events from {len(runs)} gate runs."
+    lines = [head]
+    if error:
+        lines.append(error)
+    elif runs and not events:
+        lines.append("No Raindrop events yet: the KG sends them once a gate run's outcome is known, and "
+                     "ingestion can lag.")
+    for c, sigs in categories.items():
+        body = ", ".join(f"{n} ×{v['count']}" for n, v in sorted(sigs.items(), key=lambda kv: -kv[1]["count"]))
+        lines.append(f"- {c.replace('_', ' ')}: {body or 'none'}")
+    return {"shift_id": shift_id, "shift": shift, "project": client.project_id,
+            "gate_runs": [{"gate_run_id": r["_id"], "side": side[r["_id"]], "verdict": r.get("verdict")} for r in runs],
+            "events": events, "categories": categories, "dropped_other_splits": dropped, "error": error,
+            "markdown": "\n".join(lines)}

@@ -39,8 +39,9 @@ def user_uris():
 
 
 def reset(db):
+    """Empty every collection but keep it and its indexes: far fewer storage files than drop and recreate."""
     for name in db.list_collection_names():
-        db.drop_collection(name)
+        db[name].delete_many({})
 
 
 @pytest.fixture

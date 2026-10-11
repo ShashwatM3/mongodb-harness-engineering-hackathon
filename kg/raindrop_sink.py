@@ -104,7 +104,11 @@ class RaindropSink:
             log.warning("raindrop flush failed: %s", e)
 
 
-def sink_from_config(cfg) -> Sink:
-    if cfg.raindrop_enabled and cfg.raindrop_write_key:
-        return RaindropSink(cfg.raindrop_write_key)
-    return NullSink()
+def sink_from_config(cfg, dev: Optional[bool] = None) -> Sink:
+    if not (cfg.raindrop_enabled and cfg.raindrop_write_key):
+        return NullSink()
+    dev, project = cfg.raindrop_target(dev)
+    if dev and not project:
+        log.warning("raindrop: dev run (no KG_RUNNER_URL) and no RAINDROP_DEV_PROJECT_ID, so nothing is sent")
+        return NullSink()
+    return RaindropSink(cfg.raindrop_write_key, project_id=project)

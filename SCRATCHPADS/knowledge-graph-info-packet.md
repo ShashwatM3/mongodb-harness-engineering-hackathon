@@ -313,7 +313,7 @@ The held-out firewall has five layers, so no single mistake breaks it:
 - Collection-level permissions cannot make a collection append-only. The improver has `update` on `brain_nodes`, `gate_runs`, `shifts` and `episodes`, so "history is never rewritten" is enforced by the KG code (writes use `$setOnInsert`, `promote()` is gate-only) and not by Atlas. In the current code the improver client never writes `brain_nodes`, so its `insert` and `update` there could be tightened to `find`. This follows the brain graph document's wording, and is worth revisiting.
 - `brain_versions.final` holds the final-set verdict and zone deltas, and the improver can read it. It is written once, after the 14:30 freeze, when the improver loop has stopped.
 - On Atlas, users and roles cannot be created by `createUser`/`createRole` over a driver connection (Atlas rolls them back). `kg.db.atlas_cli_commands()` prints the Atlas CLI commands instead. Roles take about 30 seconds to apply on M0 and Flex. Creating them needs Project Owner.
-- **Managed MCP Server** (iteration 03). Its configuration is documented to scope at the project level. Whether it accepts a collection-scoped custom role is unconfirmed. So the gate keeps a native connection, and any MCP configuration an agent can reach should be read-only. Never write the brain through `aggregate` with `$merge` or `$out`.
+- **Managed MCP Server** (iteration 03). **Can a custom, collection-scoped role be assigned to it? No** (checked 2026-10-11 against MongoDB's docs and the Admin API schema). A Managed MCP configuration is granted Atlas *project roles* such as `GROUP_OWNER` or `GROUP_DATA_ACCESS_READ_ONLY`, not database roles, and its data access is at most project-wide: "Up to project-level dataplane access" ([overview](https://www.mongodb.com/docs/mcp-server/overview/), [access models](https://www.mongodb.com/docs/mcp-server/remote-mcp/access-models.md)). The create call (`POST /api/atlas/v2/groups/{groupId}/mcpConfigs`) takes only `mcpConfigName`, `roles` ("List of project roles") and `ipAccessList`. So an MCP configuration with data access can read `heldout_results` and `heldout_seeds`: no agent in the improver loop should get one. The gate keeps its native connection, any MCP configuration should be read-only, and the brain is never written through `aggregate` with `$merge` or `$out`.
 
 ---
 
@@ -554,7 +554,8 @@ Iteration 03 names a supervisor toolbelt and a worker agent's tools. This is how
 | --- | --- |
 | `get_brain_context(task_node)` | `load_brain(V, node_id)`. Its `scope` field lists the node ids from task to site, and the components carry ids, so a wrapper can emit the node-light-up event with exactly the nodes that were read. The KG has no websocket by design. |
 | `get_trajectories(shift_id)` | The data is in `shifts` (raw result) and `episodes`. No wrapper function yet. |
-| `get_signals(shift_id)`, `report_issue`, `run_experiment` | Raindrop. The KG tags events with `brain_version` so Experiments can filter. |
+| `get_signals(shift_id)` | `kg.get_signals(shift_id)` (or `python -m kg signals SHIFT_ID`): the shift's gate runs, their Raindrop events, and the signals on them, grouped as `gate`, `hard_metrics`, `self_diagnostics` and `other`. Reads Raindrop's Query API, so it needs `RAINDROP_QUERY_API_KEY`. Events that carry a `shift_id` property (worker agents, Self Diagnostics) match directly. |
+| `report_issue`, `run_experiment` | Raindrop. The KG tags events with `brain_version` so Experiments can filter. |
 | `get_playbook(task_node)` | `playbook` exists, but habits carry `lever_group`, not a task node. Needs an optional `applies_to` field (additive). Proposed, not built. |
 | `propose_edit`, `run_gate`, `commit_brain_version` | `record_proposal` and `evaluate`, the gate (Person B), and `promote`. |
 | `call_robotics_lead` | ElevenLabs. The answer goes to `record_approval`. |
@@ -565,7 +566,7 @@ Iteration 03 names a supervisor toolbelt and a worker agent's tools. This is how
 - Reads through the MCP `aggregate` tool are fine: `load_brain` is a single read pipeline, so the brain can be reached as a tool call.
 - Writes go through the `kg` package, which uses `$setOnInsert` upserts and gate-only promotion. Never use `$merge` or `$out`.
 - Keep the gate on a native, collection-scoped connection, as the KG already does.
-- Someone with Atlas Project Owner creates the MCP configuration and spends two minutes checking whether a collection-scoped custom role is accepted.
+- A custom collection-scoped role cannot be assigned to an MCP configuration (section 5), so `heldout_*` is out of an MCP agent's reach only by convention. Give MCP only to agents that may see the whole project.
 
 Iteration 03's four Track 1 items map to KG kinds as: rules, guardrails (live), context policies and tool grants (reserved, D2).
 
@@ -617,7 +618,7 @@ Iteration 03's four Track 1 items map to KG kinds as: rules, guardrails (live), 
 | D9 | Where does `save_preference` write? Add a `preferences` collection? | Yes, additive. | No |
 | D10 | Components carry `label` and `compiles_to` in place of the interface contract's `when` and `then`, and `commit_brain_version` is a wrapper over `promote(gate_run_id)` rather than a free add/retire call (11.1). | Yes: free text cannot run on the engine, and a free add/retire would skip the gate. | Yes, as the KG's native API |
 
-Also open from iteration 03 and relevant here: who owns the Managed MCP Server setup, and who checks whether a custom collection-scoped role works for it.
+Also open from iteration 03: who owns the Managed MCP Server setup. Whether a custom collection-scoped role works for it is answered: no (section 5).
 
 **Robot form.** Iterations 02 and 03 describe wheeled AMRs. The KG's settings registry is built on TwinForge's humanoid overlay (`class.HUM-1.*` keys). The KG's structure is identical either way, and only a handful of registry keys and notes would change. This needs one team-wide answer.
 
@@ -686,6 +687,7 @@ Plan clock: ring 0 by about 12:30, ring 1 by 13:15, go/no-go with the real runne
 | `KG_TICKS`, `KG_PROFILE` | Shift length and scenario profile | 12000, `standard` |
 | `RAINDROP_WRITE_KEY` | Enables Raindrop events and signals | unset (off) |
 | `KG_RAINDROP` | `0` disables Raindrop even when the key is set | on |
+| `RAINDROP_QUERY_API_KEY` | Query API key for `get_signals` (from auth.raindrop.ai/org/api_keys; not the write key) | unset |
 | `TWINFORGE_DIR` | Path to the TwinForge checkout, for the fake runner and fixtures | `../physical-ai` |
 
 Never commit connection strings or keys.
