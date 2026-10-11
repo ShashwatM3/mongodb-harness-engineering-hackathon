@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/server/app';
+import type { CallProvider } from '../src/server/calls/providers';
 import { loadConfig, type Config } from '../src/server/config';
 import { createGateway, type Gateway } from '../src/server/gateway';
 import { MockHarness } from '../src/server/harness/mock/mock-harness';
@@ -16,7 +17,7 @@ export interface TestEnv {
   close(): Promise<void>;
 }
 
-export async function setup(overrides: Partial<Record<keyof Config, unknown>> = {}): Promise<TestEnv> {
+export async function setup(overrides: Partial<Record<keyof Config, unknown>> = {}, opts: { provider?: CallProvider } = {}): Promise<TestEnv> {
   const config = loadConfig({
     NODE_ENV: 'test',
     MONGODB_URI: 'memory',
@@ -33,7 +34,7 @@ export async function setup(overrides: Partial<Record<keyof Config, unknown>> = 
     ...overrides,
   });
   const mock = new MockHarness(new FactLookupSupervisor());
-  const gw = await createGateway(config, { harness: mock });
+  const gw = await createGateway(config, { harness: mock, provider: opts.provider });
   const app = await buildApp(gw);
   return {
     gw,

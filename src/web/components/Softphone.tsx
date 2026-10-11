@@ -27,6 +27,9 @@ type Phase = 'ringing' | 'connecting' | 'live' | 'unconfigured' | 'ended';
 export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring: Ringing; onClose: () => void; onOpenIncident: (id: string) => void; onAnswered: (callId: string) => void }) {
   const [phase, setPhase] = useState<Phase>('ringing');
   const [mode, setMode] = useState<string>('');
+  /** Manual mute, and optional half-duplex: mic muted while the agent is speaking so room noise can't cut it off. */
+  const [muted, setMuted] = useState(false);
+  const [autoMute, setAutoMute] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [left, setLeft] = useState(() => Math.max(0, Math.round((new Date(ring.ring_deadline).getTime() - Date.now()) / 1000)));
   const conv = useRef<Conversation | null>(null);
@@ -61,6 +64,11 @@ export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring:
   }, [phase]);
 
   useEffect(() => () => void conv.current?.endSession(), []);
+
+  const micOff = muted || (autoMute && mode === 'speaking');
+  useEffect(() => {
+    if (phase === 'live') conv.current?.setMicMuted(micOff);
+  }, [micOff, phase]);
 
   const end = async (reason: string) => {
     if (ended.current) return;
@@ -137,8 +145,18 @@ export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring:
       {(phase === 'live' || phase === 'unconfigured' || phase === 'connecting') && (
         <div className="row">
           <button className="bad" onClick={() => end('hung up by human')}>Hang up</button>
-          <span className="muted small">Tip: a headset keeps background voices out.</span>
+          {phase === 'live' && (
+            <button className={muted ? 'primary' : 'ghost'} onClick={() => setMuted((m) => !m)}>{muted ? 'Unmute' : 'Mute'}</button>
+          )}
         </div>
+      )}
+      {phase === 'live' && (
+        <label className="row small muted">
+          <input type="checkbox" checked={autoMute} onChange={(e) => setAutoMute(e.target.checked)} />
+          Mute my mic while the agent talks
+          <span className="spacer" />
+          <span className={micOff ? 'mic-off' : 'good'}>{micOff ? 'mic off' : 'mic on'}</span>
+        </label>
       )}
       {phase === 'ended' && (
         <div className="row">

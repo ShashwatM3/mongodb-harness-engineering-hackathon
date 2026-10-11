@@ -8,7 +8,7 @@ Harness supervisor POSTs an incident + proposed fix → gateway persists it and 
 
 ## Hard rules (do not break these)
 - **Keep it simple.** The user explicitly asked for a simple system: plain-language summaries, no identity code, no execution step, no forced read-back before approval. Don't reintroduce them without being asked.
-- **No Twilio for now.** Calls are simulated: `SimulatedCallProvider` rings the dashboard softphone; answering starts a real ElevenLabs browser conversation. Only the tab holding the `answer_token` can end/annotate a call.
+- **Two call transports, same agent and tools.** `CALL_MODE=simulated`: `SimulatedCallProvider` rings the dashboard softphone, which starts a real ElevenLabs browser conversation; only the tab holding the `answer_token` can end/annotate it; it has Mute and auto-mute-while-agent-speaks. `CALL_MODE=twilio`: `ElevenLabsTwilioProvider` places a real phone call (SDK `twilio.outboundCall`) and polls `conversations.get` for progress; it **only dials numbers in `CALL_ALLOWED_NUMBERS`**; `PHONE_ROUTE=twilio|sip` picks `twilio.outboundCall` vs `sipTrunk.outboundCall` (Telnyx). Twilio *trial* accounts can't work (they strip `<Stream>`); see `docs/TELEPHONY_OPTIONS.md`. Never place real calls in tests (inject a fake client like `tests/e2e/twilio.test.ts`).
 - **The voice model never controls robots.** It can only read, ask, request a plan change (typed `set_param` within harness-declared `editable_parameters` bounds; the harness creates the revision), or send feedback.
 - **Feedback is bound to an exact revision.** `revision == proposal_heads.latest_revision` and head `UNDER_REVIEW`, enforced atomically. A stale revision returns `STALE_REVISION` with the new plan in plain words — never silently upgraded.
 - **Persist before acknowledging**, then deliver via the outbox (`decisions.submission`, idempotency key). Never call the harness inline from a tool handler.
@@ -38,6 +38,8 @@ TypeScript (TS 7), Node 24, one npm package. Fastify · React 19 + Vite 8 · Zod
 - `npm run tunnel`: Cloudflare quick tunnel (no account) → put the https URL in `PUBLIC_BASE_URL`, then `npm run provision:agent` (URL changes on every restart)
 - `npm run check:setup`: verifies Atlas (incl. transactions), ElevenLabs key/agent/signed URL, and the tunnel
 - `npm run reset:db -- --yes`: empty the gateway's collections in Atlas for a clean demo
+- `npm run phone:numbers`: list phone numbers imported into ElevenLabs (id for `ELEVENLABS_PHONE_NUMBER_ID`)
+- `.env` changes are NOT picked up by `tsx watch`; restart the server (or touch a source file) after editing `.env`
 
 ## Known pitfalls
 - `MONGODB_URI=memory` is non-durable. Use Atlas for anything that must survive a restart.

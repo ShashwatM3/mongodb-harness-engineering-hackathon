@@ -54,7 +54,7 @@ export function IncidentDetail(props: { agg: Aggregate; trajectory: Trajectory |
       <section className="card">
         <div className="card-head">
           <h3>Call</h3>
-          <span className="muted small">{call ? callLabel(call.status, call.end_reason) : 'not called yet'}</span>
+          <span className="muted small">{call ? callLabel(call.status, call.end_reason, call.provider) : 'not called yet'}</span>
           <span className="spacer" />
           {!callActive && ['AWAITING_DECISION', 'DEFERRED', 'UNREACHED', 'CALL_PENDING'].includes(agg.state) && (
             <button className="ghost" onClick={() => api('POST', `/api/incidents/${agg.incident_id}/call`).then(() => notify('Calling you…'), (e: ApiError) => notify(e.message))}>
@@ -130,8 +130,8 @@ export function IncidentDetail(props: { agg: Aggregate; trajectory: Trajectory |
   );
 }
 
-function callLabel(status: string, reason: string | null) {
-  if (status === 'RINGING') return 'ringing…';
+function callLabel(status: string, reason: string | null, provider?: string) {
+  if (status === 'RINGING') return provider === 'twilio' || provider === 'sip' ? 'ringing your phone…' : 'ringing…';
   if (status === 'ANSWERED') return 'on the call';
   if (status === 'NO_ANSWER') return 'no answer';
   if (status === 'DECLINED') return 'declined';

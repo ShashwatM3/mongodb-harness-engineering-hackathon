@@ -62,7 +62,8 @@ export function App() {
     es.onerror = () => setConnected(false);
     es.onmessage = (msg) => {
       const e = JSON.parse(msg.data) as ServerEvent;
-      if (e.type === 'call.ringing') {
+      if (e.type === 'call.ringing' && e.data.provider && e.data.provider !== 'simulated') notify('Calling your phone…');
+      else if (e.type === 'call.ringing') {
         setRing({ call_id: e.data.call_id, incident_id: e.incident_id!, supervisor: e.data.supervisor, severity: e.data.severity, robot_id: e.data.robot_id, summary: e.data.summary, ring_deadline: e.data.ring_deadline });
       }
       if (['call.no_answer', 'call.declined', 'call.failed'].includes(e.type)) setRing((r) => (r && r.call_id === e.data.call_id ? null : r));

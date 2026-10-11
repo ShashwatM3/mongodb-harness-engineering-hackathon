@@ -4,7 +4,7 @@ import { DecisionRequest, ReviseRequest } from '../../shared/schemas';
 import { GatewayError } from '../domain/errors';
 import type { Requester } from '../domain/proposals';
 import type { Gateway } from '../gateway';
-import { buildBriefing } from '../domain/briefing';
+import { buildCallVariables } from '../calls/variables';
 import { bearer, safeEqual } from './common';
 
 /**
@@ -117,21 +117,7 @@ async function sessionFor(gw: Gateway, call_id: string) {
   const call = await gw.db.c.calls.findOne({ _id: call_id });
   if (!call) throw new GatewayError('NOT_FOUND', 'Call not found.', 404);
   const inc = await gw.incidents.get(call.incident_id);
-  const { head, revision } = await gw.proposals.current(inc._id);
-  const [metrics, trajectory] = await Promise.all([
-    gw.harness.getMetrics(inc.incident).catch(() => []),
-    gw.harness.getTrajectory(inc.incident).catch(() => null),
-  ]);
-  const brief = buildBriefing(inc.incident, revision.content, head.latest_revision, metrics, trajectory);
-  const dynamic_variables = {
-    incident_id: inc._id,
-    call_id: call._id,
-    supervisor_name: inc.incident.responsible_supervisor.name,
-    current_revision: head.latest_revision,
-    incident_brief: brief.incident_brief,
-    proposal_brief: brief.proposal_brief,
-    incident_context: brief.incident_context,
-  };
+  const dynamic_variables = await buildCallVariables(gw, inc, call._id);
   const { ELEVENLABS_API_KEY: key, ELEVENLABS_AGENT_ID: agent } = gw.config;
   if (!key || !agent) return { mode: 'unconfigured' as const, call_id, dynamic_variables };
   // Private agent: the browser gets a short-lived signed URL; the API key never leaves the server.

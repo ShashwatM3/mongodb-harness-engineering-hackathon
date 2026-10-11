@@ -48,7 +48,8 @@ export function buildBriefing(inc: IncidentInput, plan: ProposalContent, revisio
   return { incident_brief, proposal_brief, incident_context: lines.join('\n') };
 }
 
-function oneOrTwoSentences(text: string): string {
-  const parts = text.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [text];
-  return parts.slice(0, 2).join('').trim();
+/** First two sentences. A sentence ends at . ! or ? followed by whitespace (or the end) — not at a decimal point like 0.45. */
+export function oneOrTwoSentences(text: string): string {
+  const parts = text.trim().split(/(?<=[.!?])\s+/);
+  return parts.slice(0, 2).join(' ').trim();
 }

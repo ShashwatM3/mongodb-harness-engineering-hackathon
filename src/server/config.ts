@@ -18,7 +18,16 @@ const Env = z.object({
   HARNESS_OUTBOUND_TOKEN: z.string().default(''),
   HARNESS_TIMEOUT_MS: z.coerce.number().int().default(10_000),
 
-  CALL_MODE: z.enum(['simulated', 'scripted']).default('simulated'),
+  /** simulated = dashboard softphone; twilio = real phone call via ElevenLabs' Twilio integration; scripted = tests. */
+  CALL_MODE: z.enum(['simulated', 'twilio', 'scripted']).default('simulated'),
+  /** twilio = number imported via ElevenLabs' native Twilio integration; sip = imported "From SIP Trunk" (e.g. Telnyx). */
+  PHONE_ROUTE: z.enum(['twilio', 'sip']).default('twilio'),
+  /** ElevenLabs id of the imported phone number (`npm run phone:numbers`). */
+  ELEVENLABS_PHONE_NUMBER_ID: z.string().default(''),
+  /** E.164 number to call when the incident's supervisor has no allowed contact number. */
+  SUPERVISOR_PHONE: z.string().default(''),
+  /** Comma-separated E.164 allowlist; the gateway refuses to dial anything else. */
+  CALL_ALLOWED_NUMBERS: z.string().default(''),
   CALL_RING_TIMEOUT_MS: z.coerce.number().int().default(45_000),
   CALL_RETRY_DELAY_MS: z.coerce.number().int().default(120_000),
   CALL_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(2),

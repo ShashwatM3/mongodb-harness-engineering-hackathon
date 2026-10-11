@@ -70,6 +70,33 @@ async function checkElevenLabs() {
   }
 }
 
+async function checkPhone() {
+  if (process.env.CALL_MODE !== 'twilio') return console.log('· CALL_MODE is not twilio (calls ring the dashboard softphone)');
+  const key = process.env.ELEVENLABS_API_KEY ?? '';
+  const id = process.env.ELEVENLABS_PHONE_NUMBER_ID ?? '';
+  if (!id) {
+    failed = true;
+    return bad('ELEVENLABS_PHONE_NUMBER_ID is not set (npm run phone:numbers)');
+  }
+  const r = await fetch(`https://api.elevenlabs.io/v1/convai/phone-numbers/${encodeURIComponent(id)}`, { headers: { 'xi-api-key': key }, signal: AbortSignal.timeout(10_000) });
+  if (!r.ok) {
+    failed = true;
+    return bad(`Phone number ${id} → HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  }
+  const n = (await r.json()) as { phone_number?: string; supports_outbound?: boolean };
+  if (n.supports_outbound === false) {
+    failed = true;
+    bad(`Phone number ${n.phone_number} does not support outbound calls`);
+  } else ok(`Phone number ${n.phone_number} is imported and can call out`);
+  const allowed = (process.env.CALL_ALLOWED_NUMBERS ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const target = (process.env.SUPERVISOR_PHONE ?? '').trim();
+  if (!target || !allowed.includes(target)) {
+    failed = true;
+    bad('SUPERVISOR_PHONE must be set and listed in CALL_ALLOWED_NUMBERS (E.164, e.g. +14155550123)');
+  } else ok(`Will call ${target.slice(0, -4).replace(/\d/g, '•')}${target.slice(-4)} (allow-listed)`);
+}
+
 await checkMongo();
 await checkElevenLabs();
+await checkPhone();
 process.exit(failed ? 1 : 0);

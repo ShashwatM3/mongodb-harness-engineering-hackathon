@@ -60,7 +60,16 @@ async function main() {
         llm,
         temperature: 0.2,
         toolIds,
-        builtInTools: { endCall: { type: 'system' as const, name: 'end_call', description: 'End the call when the supervisor is done.', params: { systemToolType: 'end_call' as const } } },
+        builtInTools: {
+          endCall: { type: 'system' as const, name: 'end_call', description: 'End the call when the supervisor is done.', params: { systemToolType: 'end_call' as const } },
+          // Phone calls: on voicemail, hang up without leaving incident details (no voicemail message is set).
+          voicemailDetection: {
+            type: 'system' as const,
+            name: 'voicemail_detection',
+            description: 'Use when the call reaches voicemail or an answering machine.',
+            params: { systemToolType: 'voicemail_detection' as const },
+          },
+        },
       },
     },
     // Focus on the person on the call: wait for complete turns, don't let back-channel words or background speech

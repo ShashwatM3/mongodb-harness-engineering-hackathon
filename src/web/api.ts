@@ -43,6 +43,7 @@ export interface Decision {
 
 export interface Call {
   _id: string;
+  provider?: string;
   attempt: number;
   status: string;
   conversation_id: string | null;

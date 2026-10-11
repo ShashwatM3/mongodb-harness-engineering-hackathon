@@ -48,7 +48,7 @@ export function registerAgentTools(app: FastifyInstance, gw: Gateway) {
     }
     const args = parsed.data;
     try {
-      const call = await gw.calls.activeCallFor(args.call_id, args.incident_id);
+      const call = await gw.calls.activeCallFor(args.call_id, args.incident_id, args.conversation_id);
       if (args.conversation_id && !args.conversation_id.startsWith('{{')) {
         if (call.conversation_id && call.conversation_id !== args.conversation_id) {
           return reply.code(403).send({ ok: false, error_code: 'CALL_BINDING', message: 'This conversation is not bound to this call.' });
