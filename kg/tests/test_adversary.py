@@ -309,10 +309,12 @@ def test_the_stress_set_is_gate_only_and_never_enters_the_curriculum(agate, stub
     # never recorded in the KG, never cached by the runner
     assert agate.c("shifts").count_documents({"env.profile": f"script:{h}"}) == 0
     assert all(c["held_out"] for c in stub.calls if c["profile"] == f"script:{h}")
-    # a curriculum turn proposing the same script withholds it
+    # a curriculum turn proposing the same script withholds it, and leaves no trace of the script anywhere
     t = a.turn(m=1)
-    assert t["outcomes"][0]["status"] == "withheld"
+    assert t["withheld"] == 1 and t["outcomes"] == []
     assert agate.c("scenarios").count_documents({"scenario_hash": h}) == 0
+    turn_doc = agate.c("adversary_turns").find_one({"turn": t["turn"]})
+    assert turn_doc["proposals"] == [] and "raw" not in turn_doc and json.dumps(stress_script) not in json.dumps(turn_doc, default=str)
     # even if one leaked into scenarios, curriculum() on the gate drops it
     agate.c("scenarios").insert_one({"_id": f"sc-{h}", "scenario_hash": h, "status": ACTIVE, "regret": 0.5, "script": stress_script})
     assert all(c["scenario_hash"] != h for c in curriculum(agate))
@@ -344,7 +346,10 @@ def test_the_context_shows_the_brain_the_alternatives_and_the_history(agate):
               "### The other brains", "sim.STAIR_MIN_LIFT_QUEUE 1 (v1: 99)", "[accepted] LIFT-1 down 04:00–09:00",
               "[invalid]", "### Rules", "never more than 1 lift down at a time"):
         assert s in md, s
-    assert ctx["data"]["kinds"]["LIFT_FAULT"] == {"proposed": 2, "accepted": 1}
+    assert ctx["data"]["kinds"]["LIFT_FAULT"] == {"proposed": 2, "accepted": 1} and "hint" not in ctx["data"]
+    a.proposer = FixedProposer([[EASY]])
+    a.turn(m=1)  # nothing accepted against v1: the next context asks for a different structure
+    assert "Change the structure of your attack" in get_adversary_context(a, cur, a.alternatives(cur), turn=4)["markdown"]
     fresh = get_adversary_context(a, cur, a.alternatives(cur), turn=3, fresh=True)
     assert "Your last scenarios" not in fresh["markdown"] and "history" not in fresh["data"]
 
@@ -379,8 +384,11 @@ def test_claude_proposer_command_and_parsing(monkeypatch, agate):
     assert t["proposer"]["model"] == "claude-opus-5-5"
     assert [o["status"] for o in t["outcomes"]] == ["accepted", "too_easy"]
     turn = agate.c("adversary_turns").find_one({"turn": t["turn"]})
-    assert turn["raw"]["scenarios"][0]["rationale"].startswith("lift 1") and turn["context_markdown"].startswith("## The current brain")
+    assert turn["proposals"][0]["rationale"].startswith("lift 1") and turn["context_markdown"].startswith("## The current brain")
 
+    monkeypatch.setattr(adversary.subprocess, "run", lambda *a, **k: FakeCompleted(0, "[1, 2]"))
+    with pytest.raises(ProposerError, match="unexpected output"):
+        ClaudeProposer(retries=0).propose({"markdown": "x"}, 2)
     monkeypatch.setattr(adversary.subprocess, "run", lambda *a, **k: FakeCompleted(1, "", "rate limited"))
     with pytest.raises(ProposerError):
         ClaudeProposer(retries=1).propose({"markdown": "x"}, 2)
@@ -452,3 +460,87 @@ def test_claude_improver_prompt_and_parsing(monkeypatch, agate):
     assert "### C. Untested settings" in seen["input"] and "LIFT-1 down 04:00–09:00" in seen["input"]
     assert "v1 + stairs" not in seen["input"]  # the improver never sees the alternatives the regret came from
     assert imp.last["model"] == "claude-opus-5-5"
+
+
+# ── fixes from the review ───────────────────────────────────
+
+SPEED = "class.HUM-1.max_speed"
+
+
+def test_locked_candidates_go_to_the_call_only_when_they_pass_on_the_numbers(agate):
+    a = adv(agate, [[ACCEPT]])
+    a.turn(m=1)
+    regress = {STAIR: 1, SPEED: 1.35, "sim.WAIT_REPLAN_TICKS": 15}
+    res = Epochs(agate, a, FixedImprover([{STAIR: 1, SPEED: 1.35}, regress]), EpochConfig(k=2)).run(adversary_turn=False)
+    good, bad = res["candidates"]
+    assert good["verdict"] == "needs_approval" and "needs the Robotics Lead's approval" in good["reason"]
+    assert bad["verdict"] == "rejected" and "regresses the standard profile" in bad["reason"]
+    assert res["promoted_to"] is None
+    assert agate.c("gate_runs").find_one({"_id": good["val"]["std"]["gate_run_id"]})["verdict"] == "needs_approval"
+    assert agate.c("gate_runs").find_one({"_id": bad["val"]["std"]["gate_run_id"]})["verdict"] == "rejected"
+    # the Robotics Lead declines; the improver tries the same change again: no second call
+    agate.record_approval(SPEED, 1.35, "reject", by="Robotics Lead", ref="call:test")
+    again = Epochs(agate, a, FixedImprover([{STAIR: 1, SPEED: 1.35}]), EpochConfig(k=1)).run(adversary_turn=False)
+    (c,) = again["candidates"]
+    assert c["verdict"] == "rejected" and "declined by the Robotics Lead" in c["reason"]
+    assert agate.c("gate_runs").find_one({"_id": c["val"]["std"]["gate_run_id"]})["verdict"] == "rejected"
+
+
+def test_candidates_that_compile_to_the_same_brain_share_one_verdict(agate):
+    a = adv(agate, [[ACCEPT], [EASY]])
+    a.turn(m=1)
+    res = Epochs(agate, a, FixedImprover([{STAIR: 1}, {STAIR: 1.0}, {STAIR: 1}]), EpochConfig(k=3)).run()
+    assert res["promoted_to"] == 2 and res["status"] == "done"
+    assert [c["verdict"] for c in res["candidates"]] == ["passed", "duplicate"]  # the exact repeat is dropped
+
+
+def test_a_failed_adversary_turn_keeps_the_promotion_and_graduation(agate):
+    a = adv(agate, [[ACCEPT]])  # no batch left for the epoch's turn: the proposer raises
+    a.turn(m=1)
+    res = Epochs(agate, a, FixedImprover([{STAIR: 1}]), EpochConfig(k=1)).run()
+    assert res["status"] == "done_without_adversary_turn" and "no batches left" in res["adversary_error"]
+    assert res["promoted_to"] == 2 and len(res["graduated"]) == 1
+    doc = agate.c("epochs").find_one({"k": 1})
+    assert doc["promoted_to"] == 2 and doc["graduated"] == res["graduated"]
+
+
+def test_an_epoch_regrades_the_curriculum_after_a_promotion_outside_the_loop(agate):
+    a = adv(agate, [[ACCEPT]])
+    a.turn(m=1)
+    promote_stairs(agate)  # e.g. the phone-call path promoted v2
+    res = Epochs(agate, a, FixedImprover([]), EpochConfig(k=1)).run(adversary_turn=False)
+    doc = agate.c("epochs").find_one({"k": 1})
+    assert len(doc["regraded"]) == 1 and doc["curriculum"] == [] and res["promoted_to"] is None
+    assert agate.c("scenarios").find_one({"status": "graduated"})["graduated_by"]["version"] == 2
+
+
+def test_a_scenario_displaced_on_arrival_is_not_reported_as_accepted(agate, sink):
+    a = adv(agate, [[ACCEPT], [ACCEPT_SMALLER]], cap=1)
+    a.turn(m=1)
+    t = a.turn(m=1)
+    (o,) = t["outcomes"]
+    assert o["status"] == "displaced" and o["displaced"] == [] and "holds 1 harder" in o["reason"]
+    assert t["counts"] == {"displaced": 1} and sink.signal_names().count("scenario_accepted") == 1
+
+
+def test_stored_evals_count_only_for_the_same_env_and_seeds(agate):
+    a = adv(agate, [[ACCEPT], [ACCEPT]])
+    first = a.turn(m=1)["outcomes"][0]
+    agate.c("scenarios").update_one({"_id": first["scenario_id"]}, {"$set": {"evals.0.env_key": "env-older-engine"}})
+    again = a.turn(m=1)["outcomes"][0]
+    assert again["status"] == ACTIVE  # re-measured, not cached
+    assert len(agate.c("scenarios").find_one({"_id": first["scenario_id"]})["evals"]) == 2
+
+
+def test_seeds_outside_the_splits_are_scored_but_not_recorded_and_held_out_seeds_are_refused(agate):
+    t = adv(agate, [[ACCEPT]], seeds=[901, 902, 903]).turn(m=1)
+    assert t["outcomes"][0]["status"] in (ACTIVE, "too_easy")
+    assert agate.c("shifts").count_documents({"seed": {"$in": [901, 902, 903]}}) == 0
+    agate.c("heldout_seeds").insert_one({"_id": "test-locked", "seeds": [777]})
+    with pytest.raises(KGError, match="held-out seeds"):
+        adv(agate, [], seeds=[101, 777])
+
+
+def test_malformed_scripts_never_crash_the_check():
+    _, probs = check_script_local([{"kind": ["LIFT_FAULT"], "at_tick": 900}, {"kind": {"x": 1}}], 12000)
+    assert [p["index"] for p in probs] == [0, 1] and all("not allowed" in p["reason"] for p in probs)

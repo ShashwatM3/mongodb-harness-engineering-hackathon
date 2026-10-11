@@ -112,6 +112,7 @@ def main(argv=None) -> int:
     p.add_argument("--proposer", choices=("claude", "random"), default="claude", help="the adversary's proposer")
     p.add_argument("--k", type=int, default=3, help="improver candidates per epoch")
     p.add_argument("--no-adversary", action="store_true", help="skip the adversary turn")
+    p.add_argument("--real", action="store_true", help="allow epochs on the real `kg` database (they promote new versions)")
     p = sub.add_parser("demo")
     p.add_argument("--raindrop", action="store_true", help="send events to Raindrop's dev project (needs RAINDROP_WRITE_KEY and RAINDROP_DEV_PROJECT_ID)")
     p.add_argument("--keep", action="store_true", help="don't empty the demo database first")
@@ -238,6 +239,8 @@ def _epoch(args, cfg, ap) -> int:
     from .raindrop_sink import NullSink, sink_from_config
     if not cfg.runner_url:
         ap.error("epochs run on the runner: set KG_RUNNER_URL (a TwinForge runner with WP-C2)")
+    if cfg.db_name == "kg" and not args.real:
+        ap.error("an epoch promotes new brain versions: on the real `kg` database pass --real (the team decides when)")
     if args.dev_events:
         cfg.raindrop_dev = True
     g = connect("gate", cfg, sink=NullSink() if args.no_raindrop else sink_from_config(cfg))
@@ -256,7 +259,7 @@ def _epoch(args, cfg, ap) -> int:
               + (f"promoted v{res['promoted_to']}" if res["promoted_to"] else "nothing promoted"))
         for c in res["candidates"]:
             t = c["train"].get("all")
-            print(f"  [{'pass' if c['passed'] else 'fail'}] {c['edits']}  train {('%+.3f' % t) if t is not None else '-'}"
+            print(f"  [{c['verdict']}] {c['edits']}  train {('%+.3f' % t) if t is not None else '-'}"
                   f"  · {c['reason']}")
         if res["graduated"]:
             print(f"  graduated: {', '.join(res['graduated'])}")

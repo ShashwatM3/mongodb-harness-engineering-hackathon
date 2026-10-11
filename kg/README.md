@@ -167,6 +167,7 @@ python -m kg adversary show | curriculum | trace               # scenarios, the 
 python -m kg adversary graduate 2                              # after promote(): re-score the active scenarios
 python -m kg adversary replay sc-<hash>                        # TwinForge's compare.html URL: v1 and v2 on that script
 python -m kg epoch --epochs 3 --improver claude                # improver step, gate, graduation, adversary turn
+                                                               # (on the real `kg` database it needs --real: it promotes)
 python -m kg adversary stress                                  # at go/no-go: the stress set, against v1
 python -m kg adversary stress-report 1 5                       # once, at the end: v1 and v5 on the stress set
 ```

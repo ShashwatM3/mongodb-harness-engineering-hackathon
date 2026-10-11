@@ -160,7 +160,7 @@ def check_script_local(script: Any, ticks: int, lift_ids=DEFAULT_LIFTS, zone_ids
             bad("an injection must be an object")
             continue
         kind = o.get("kind")
-        if kind not in FIELDS:
+        if not isinstance(kind, str) or kind not in FIELDS:
             bad(f"kind {json.dumps(kind)} is not allowed (allowed: {', '.join(SCRIPT_KINDS)})")
             continue
         req, opt, ints = FIELDS[kind]
@@ -585,6 +585,8 @@ class ClaudeProposer:
                 if p.returncode != 0:
                     raise ProposerError(f"claude exited {p.returncode}: {(p.stderr or p.stdout).strip()[-400:]}")
                 out = json.loads(p.stdout)
+                if not isinstance(out, dict):
+                    raise ProposerError(f"unexpected output: {p.stdout[:200]}")
                 so = out.get("structured_output")
                 if out.get("is_error") or not isinstance(so, dict) or not isinstance(so.get("scenarios"), list):
                     raise ProposerError(f"no structured output: {str(out.get('result') or out)[:400]}")
@@ -615,6 +617,11 @@ class Adversary:
             raise KGError("the adversary needs a runner: kg.use_runner(...) first")
         self.cfg = config or AdversaryConfig.from_env()
         self.seeds = sorted(set(self.cfg.seeds or kg.seed_sets["train"]))
+        locked = {int(s) for d in kg.c("heldout_seeds").find({}, {"seeds": 1}) for s in d.get("seeds") or []}
+        if set(self.seeds) & locked:  # scores land in `scenarios`, which the improver reads
+            raise KGError(f"adversary seeds {sorted(set(self.seeds) & locked)} are held-out seeds")
+        # shifts are recorded under the split their seeds belong to; seeds outside both are scored, not recorded
+        self.split = next((s for s in ("train", "val") if set(self.seeds) <= set(kg.seed_sets[s])), None)
         self.ticks = kg.env.ticks
         self.proposer: Proposer = proposer or RandomProposer()
         self.sink = sink if sink is not None else adversary_sink(kg)
@@ -716,11 +723,11 @@ class Adversary:
             resps = list(pool.map(lambda r: self._run(r, script, held_out), refs))
         out = {}
         target = None
-        if record and not held_out:
+        if record and not held_out and self.split:
             target = self.kg if script is None else scenario_kg(self.kg, script, h, runner=self.runner)
         for ref, resp in zip(refs, resps):
             if target is not None:
-                target.record_shifts(resp, "train", brain=ref.brain)
+                target.record_shifts(resp, self.split, brain=ref.brain)
             out[ref.label] = scored_from(resp)
         return out
 
@@ -763,6 +770,7 @@ class Adversary:
         """Check, deduplicate, score and decide one proposed script; writes `scenarios` and Raindrop."""
         chk = self.check(raw)
         at = now()
+        rationale = rationale if isinstance(rationale, str) else json.dumps(rationale)[:500]
         prop = {"turn": turn, "epoch": epoch, "against_version": cur.version, "against": cur.patch_hash,
                 "proposer": proposer, "rationale": rationale, "at": at}
         if not chk["ok"]:
@@ -786,10 +794,10 @@ class Adversary:
         if stress and h in stress:
             return {"scenario_id": None, "status": "withheld", "reason": "matches a held-out stress scenario"}
         doc = self.c("scenarios").find_one({"_id": sid})
-        if doc and any(e["against"] == cur.patch_hash for e in doc.get("evals", [])):
+        if doc and any(self._same_eval(e, cur) for e in doc.get("evals", [])):
             self.c("scenarios").update_one({"_id": sid}, {"$push": {"proposals": {**prop, "outcome": "cached"}},
                                                           "$set": {"updated_at": at}})
-            e = next(e for e in reversed(doc["evals"]) if e["against"] == cur.patch_hash)
+            e = next(e for e in reversed(doc["evals"]) if self._same_eval(e, cur))
             self._emit(sid, turn, "proposed", {"status": doc["status"], "scenario_hash": h, "regret": e["regret"],
                                                "kinds": doc.get("kinds")}, cur, epoch, proposer, ["re_proposed"],
                        attempt=len(doc.get("proposals", [])))
@@ -799,12 +807,16 @@ class Adversary:
         verdict = self.judge(cur, scored, self.quiet(cur))
         status = self._transition(doc, verdict)
         ev = {"against": cur.patch_hash, "against_version": cur.version, "at": at, "turn": turn, "epoch": epoch,
-              "phase": "proposed", "seeds": self.seeds, "regret": verdict["regret"], "harm": verdict["harm"],
+              "phase": "proposed", "env_key": self.kg.env.key, "seeds": self.seeds, "regret": verdict["regret"], "harm": verdict["harm"],
               "best": verdict["best"], "agree": verdict["agree"], "status": status, "reason": verdict["reason"],
               "scores": {k: v.to_doc() for k, v in scored.items()},
               "patch_hashes": {r.label: r.patch_hash for r in [cur] + alts}}
         self._write_eval(sid, h, script, rationale, doc, ev, status, verdict, prop, cur)
         displaced = self._enforce_cap(sid) if status == ACTIVE else []
+        if sid in displaced:  # accepted, but easier than every scenario already in a full curriculum
+            status = "displaced"
+            displaced = [d for d in displaced if d != sid]
+            verdict = {**verdict, "reason": verdict["reason"] + f"; but the curriculum holds {self.cfg.cap} harder ones"}
         signals = {"accepted": ["scenario_accepted"], "too_easy": ["scenario_too_easy"],
                    "impossible": ["scenario_impossible"], "graduated": ["scenario_graduated"]}.get(status, [])
         self._emit(sid, turn, "proposed", {"status": status, "scenario_hash": h, "regret": verdict["regret"],
@@ -814,6 +826,10 @@ class Adversary:
         return {"scenario_id": sid, "status": status, "regret": verdict["regret"], "harm": verdict["harm"],
                 "best": verdict["best"], "agree": verdict["agree"], "reason": verdict["reason"],
                 "description": describe_script(script), "displaced": displaced}
+
+    def _same_eval(self, e: dict, cur: BrainRef) -> bool:
+        """A stored evaluation counts only for the same brain, the same env (engine, spec, ticks) and the same seeds."""
+        return e.get("against") == cur.patch_hash and e.get("env_key") == self.kg.env.key and e.get("seeds") == self.seeds
 
     def _transition(self, doc: Optional[dict], verdict: dict) -> str:
         """An active scenario re-measured against a new brain graduates or stays active; anything else is decided
@@ -901,17 +917,24 @@ class Adversary:
             self.c("adversary_turns").update_one({"_id": tid}, {"$set": {"status": "failed", "error": str(e)[:1000],
                                                                          "finished_at": now()}})
             raise
+        # a script that matches the stress set is dropped here, script and outcome alike: adversary_turns is
+        # improver-readable, and pairing a raw script with "withheld" would reveal a held-out scenario
+        kept = [(s, o) for s, o in zip(props.scenarios, outcomes) if o["status"] != "withheld"]
+        withheld = len(outcomes) - len(kept)
+        outcomes = [o for _, o in kept]
         counts = Counter(o["status"] for o in outcomes)
         snap = self.snapshot()
         doc = {"status": "done", "proposer": {"name": props.proposer, "model": props.model, "usage": props.usage,
                                                "seconds": props.seconds},
-               "context_markdown": ctx["markdown"], "raw": props.raw, "outcomes": outcomes, "counts": dict(counts),
+               "context_markdown": ctx["markdown"], "withheld": withheld,
+               "proposals": [{"script": s.get("script"), "rationale": s.get("rationale")} for s, _ in kept],
+               "outcomes": outcomes, "counts": dict(counts),
                "acceptance_rate": round(counts.get("accepted", 0) / max(1, len(outcomes)), 3), **snap,
                "finished_at": now(), "wall_s": round(time.monotonic() - t0, 1)}
         self.c("adversary_turns").update_one({"_id": tid}, {"$set": doc})
         self.sink.flush()
         return {"turn": n, "against_version": V, "alternatives": [a.label for a in alts], "outcomes": outcomes,
-                "counts": dict(counts), "proposer": doc["proposer"], "wall_s": doc["wall_s"], **snap}
+                "counts": dict(counts), "withheld": withheld, "proposer": doc["proposer"], "wall_s": doc["wall_s"], **snap}
 
     def snapshot(self) -> dict:
         """The curriculum chart's numbers right now: active scenarios, their mean regret, graduations so far."""
@@ -930,7 +953,7 @@ class Adversary:
         n = self._next_turn()
         rows = []
         for doc in list(self.c("scenarios").find({"status": ACTIVE}).sort([("regret", DESCENDING), ("_id", ASCENDING)])):
-            prior = next((e for e in reversed(doc.get("evals", [])) if e["against"] == cur.patch_hash), None)
+            prior = next((e for e in reversed(doc.get("evals", [])) if self._same_eval(e, cur)), None)
             if prior is not None:
                 verdict = {k: prior[k] for k in ("regret", "harm", "best", "agree")} | {"status": prior["status"], "reason": prior["reason"]}
                 scores = prior["scores"]
@@ -942,7 +965,7 @@ class Adversary:
             reason = (f"{cur.label} handles it: regret {verdict['regret']:+.3f} < {self.cfg.graduate_regret}" if status == "graduated"
                       else f"still active against {cur.label}: regret {verdict['regret']:+.3f}")
             ev = {"against": cur.patch_hash, "against_version": V, "at": now(), "turn": n, "epoch": None, "phase": "rescore",
-                  "seeds": self.seeds, "regret": verdict["regret"], "harm": verdict["harm"], "best": verdict["best"],
+                  "env_key": self.kg.env.key, "seeds": self.seeds, "regret": verdict["regret"], "harm": verdict["harm"], "best": verdict["best"],
                   "agree": verdict["agree"], "status": status, "reason": reason, "scores": scores,
                   "patch_hashes": {r.label: r.patch_hash for r in [cur] + alts}}
             self._write_eval(doc["_id"], doc["scenario_hash"], doc["script"], doc.get("rationale"), doc, ev, status,
@@ -1153,6 +1176,11 @@ def get_adversary_context(adv: Adversary, cur: BrainRef, alts: list[BrainRef], *
                 kinds[k]["proposed"] += 1
                 kinds[k]["accepted"] += d["status"] in (ACTIVE, "graduated")
         data["kinds"] = dict(kinds)
+        last = kg.c("adversary_turns").find_one({"kind": "curriculum", "status": "done"}, {"counts": 1, "against": 1},
+                                                sort=[("turn", DESCENDING)])
+        if last and not (last.get("counts") or {}).get("accepted") and (last.get("against") or {}).get("version") == cur.version:
+            data["hint"] = (f"Your last turn against {cur.label} had no accepted scenario. Change the structure of your "
+                            "attack (which kinds, how many, which lift or zone, how they overlap), not just its timing.")
     return {"markdown": render_adversary_context(data), "data": data}
 
 
@@ -1192,6 +1220,8 @@ def render_adversary_context(d: dict) -> str:
             out.append("### What has worked, by kind (scenarios containing it)")
             out += [f"- {k}: {v['accepted']} accepted of {v['proposed']} proposed" for k, v in sorted(d["kinds"].items())]
             out.append("")
+        if d.get("hint"):
+            out += [f"**{d['hint']}**", ""]
     out.append("### Rules (the runner refuses anything else)")
     out += [f"- {r}" for r in d["envelope"]["rules"]]
     return "\n".join(out)

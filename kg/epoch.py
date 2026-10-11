@@ -120,6 +120,8 @@ class ClaudeImprover:
                 if p.returncode != 0:
                     raise ProposerError(f"claude exited {p.returncode}: {(p.stderr or p.stdout).strip()[-400:]}")
                 out = json.loads(p.stdout)
+                if not isinstance(out, dict):
+                    raise ProposerError(f"unexpected output: {p.stdout[:200]}")
                 so = out.get("structured_output")
                 if out.get("is_error") or not isinstance(so, dict) or not isinstance(so.get("candidates"), list):
                     raise ProposerError(f"no structured output: {str(out.get('result') or out)[:400]}")
@@ -127,8 +129,12 @@ class ClaudeImprover:
                 self.last = {"model": max(usage, key=lambda m: usage[m].get("outputTokens", 0)) if usage else self.model,
                              "seconds": round(time.monotonic() - t0, 1), "cost_usd": out.get("total_cost_usd"), "raw": so}
                 cands = []
+                num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
                 for c in so["candidates"][:k]:
-                    edits = {e["target"]: e["value"] for e in c.get("edits") or [] if isinstance(e, dict) and "target" in e}
+                    if not isinstance(c, dict) or not isinstance(c.get("edits"), list):
+                        continue
+                    edits = {e["target"]: e["value"] for e in c["edits"]
+                             if isinstance(e, dict) and isinstance(e.get("target"), str) and num(e.get("value"))}
                     if edits:
                         cands.append({"edits": edits, "why": str(c.get("why") or "")})
                 return cands
@@ -179,22 +185,41 @@ class Epochs:
         out["all"] = _mean([out["std"]["delta"]] + [x["delta"] for x in out["scenarios"]])
         return out
 
-    def gate(self, active: list[dict], c: dict) -> tuple[bool, str]:
-        """Document 07's extra rule: better on the curriculum AND no worse than the tolerance on ordinary shifts."""
+    def gate(self, active: list[dict], c: dict) -> tuple[str, str]:
+        """Document 07's extra rule, on the validation seeds: better on the curriculum AND no worse than the
+        tolerance on ordinary shifts. Returns (verdict, reason): "passed", "needs_approval" (passed on the numbers
+        but changes a locked setting: the Robotics Lead's call), "rejected" or "invalid"."""
         val = c["val"]
         if val.get("invalid"):
-            return False, f"invalid: {val['invalid']}"
-        if val.get("locked"):
-            return False, f"changes locked settings ({', '.join(val['locked'])}): needs the Robotics Lead's approval"
+            return "invalid", f"invalid: {val['invalid']}"
         std = val["std"]["delta"] or 0.0
         if std < -self.cfg.tolerance:
-            return False, f"regresses the standard profile on the validation seeds by {-std:.3f} (tolerance {self.cfg.tolerance})"
+            return "rejected", f"regresses the standard profile on the validation seeds by {-std:.3f} (tolerance {self.cfg.tolerance})"
         gain = val["curriculum"] if active else std
         if gain is None or gain <= self.cfg.min_gain:
             what = "the curriculum" if active else "the standard profile"
-            return False, f"does not improve {what} on the validation seeds ({(gain or 0):+.3f})"
-        return True, (f"curriculum {val['curriculum']:+.3f}, standard {std:+.3f} on the validation seeds" if active
-                      else f"standard {std:+.3f} on the validation seeds (no curriculum yet)")
+            return "rejected", f"does not improve {what} on the validation seeds ({(gain or 0):+.3f})"
+        why = (f"curriculum {val['curriculum']:+.3f}, standard {std:+.3f} on the validation seeds" if active
+               else f"standard {std:+.3f} on the validation seeds (no curriculum yet)")
+        if val.get("locked"):
+            env = self.kg._envelope()
+            for t in val["locked"]:
+                v = c["edits"].get(t)
+                if any(a.get("decision") == "reject" and v is not None and abs(float(a["value"]) - float(v)) < 1e-9
+                       for a in (env.get(t) or {}).get("approvals") or []):
+                    return "rejected", f"{t}={v} was declined by the Robotics Lead on the call"
+            return "needs_approval", f"passed on the numbers ({why}) but changes locked settings ({', '.join(val['locked'])}): needs the Robotics Lead's approval"
+        return "passed", why
+
+    def _ensure_graded(self, V: int) -> Optional[dict]:
+        """Re-grade the curriculum when the brain changed since it was scored (a promotion outside the loop, or a
+        graduation that failed): the improver must train against scenarios measured on the current brain."""
+        ph = self.adv.brain_ref(V).patch_hash
+        stale = self.kg.c("scenarios").count_documents({"status": "accepted", "against.patch_hash": {"$ne": ph}})
+        return self.adv.graduate(V) if stale else None
+
+    def _save(self, doc_id: str, **fields):
+        self.kg.c("epochs").update_one({"_id": doc_id}, {"$set": fields})
 
     def run(self, k: Optional[int] = None, adversary_turn: bool = True) -> dict:
         t0 = time.monotonic()
@@ -202,50 +227,94 @@ class Epochs:
             last = self.kg.c("epochs").find_one({}, {"k": 1}, sort=[("k", -1)])
             k = int(last["k"]) + 1 if last else 1
         V = self.kg.latest_version()
-        active = curriculum(self.kg)
-        doc: dict[str, Any] = {"_id": f"epoch-{k:03d}", "k": k, "base_version": V, "improver": self.improver.name,
-                               "curriculum": [a["scenario_id"] for a in active], "started_at": now(), "status": "running"}
-        self.kg.c("epochs").replace_one({"_id": doc["_id"]}, doc, upsert=True)
+        doc_id = f"epoch-{k:03d}"
+        self.kg.c("epochs").replace_one({"_id": doc_id}, {"_id": doc_id, "k": k, "base_version": V, "improver": self.improver.name,
+                                                          "started_at": now(), "status": "running"}, upsert=True)
+        promoted, grad, turn, cands = None, None, None, []
         try:
-            cands = self.improver.candidates(self.kg, V, active, self.cfg.k)
+            regraded = self._ensure_graded(V)
+            active = curriculum(self.kg)
+            self._save(doc_id, curriculum=[a["scenario_id"] for a in active],
+                       regraded=[g["scenario_id"] for g in (regraded or {}).get("rows", [])])
+            seen_edits = set()
+            for c in self.improver.candidates(self.kg, V, active, self.cfg.k):
+                key = json.dumps(c["edits"], sort_keys=True)
+                if key not in seen_edits:
+                    seen_edits.add(key)
+                    cands.append(c)
             for c in cands:
                 c["train"] = self.measure(V, c["edits"], active, "train", k, c.get("why", ""))
-            ranked = sorted((c for c in cands if not c["train"].get("invalid") and (c["train"].get("all") or 0) > 0),
-                            key=lambda c: -c["train"]["all"])[: self.cfg.val_top]
+            # best training gain first, one candidate per brain: two edit sets that compile to the same patch share
+            # their gate runs, and a gate run can carry only one verdict
+            ranked, seen_runs = [], set()
+            for c in sorted((c for c in cands if not c["train"].get("invalid") and (c["train"].get("all") or 0) > 0),
+                            key=lambda c: -c["train"]["all"]):
+                gid = c["train"]["std"]["gate_run_id"]
+                if gid in seen_runs:
+                    c["verdict"], c["reason"] = "duplicate", "compiles to the same brain as a better-ranked candidate"
+                    continue
+                seen_runs.add(gid)
+                ranked.append(c)
+            ranked = ranked[: self.cfg.val_top]
             for c in ranked:
                 c["val"] = self.measure(V, c["edits"], active, "val", k, c.get("why", ""))
-                c["passed"], c["reason"] = self.gate(active, c)
+                c["verdict"], c["reason"] = self.gate(active, c)
+                if c["verdict"] == "invalid":
+                    continue
+                run = self.kg.c("gate_runs").find_one({"_id": c["val"]["std"]["gate_run_id"]}, {"verdict": 1, "promoted_to": 1})
+                if run and run.get("verdict") == "promoted":  # the brain came back to a patch it had before
+                    c["verdict"], c["reason"] = "kept", f"this exact change was already promoted to v{run['promoted_to']}"
+                elif run and run.get("verdict") == "needs_approval" and c["verdict"] == "needs_approval":
+                    c["verdict"], c["reason"] = "kept", "its approval call is already pending"
             for c in cands:
-                c.setdefault("passed", False)
-                c.setdefault("reason", "invalid: " + c["train"]["invalid"] if c["train"].get("invalid")
-                             else f"no gain on the training seeds ({(c['train'].get('all') or 0):+.3f})"
-                             if c not in ranked else c.get("reason"))
-            winners = sorted((c for c in ranked if c["passed"]),
+                if "verdict" not in c:
+                    c["verdict"] = "invalid" if c["train"].get("invalid") else "rejected"
+                    c["reason"] = (f"invalid: {c['train']['invalid']}" if c["train"].get("invalid")
+                                   else f"no gain on the training seeds ({(c['train'].get('all') or 0):+.3f})"
+                                   if c not in ranked else "not validated")
+            winners = sorted((c for c in ranked if c["verdict"] == "passed"),
                              key=lambda c: (-(c["val"]["curriculum"] or 0), -(c["val"]["std"]["delta"] or 0)))
-            promoted = None
             for c in ranked:
                 gid = c["val"]["std"]["gate_run_id"]
+                if c["verdict"] in ("invalid", "kept"):
+                    continue
                 if winners and c is winners[0]:
                     self.kg.record_verdict(gid, "passed", reason=f"epoch {k}: {c['reason']}")
                     promoted = self.kg.promote(gid, hypothesis=c.get("why") or None)
-                elif c["val"].get("locked"):
+                elif c["verdict"] == "needs_approval":
                     self.kg.record_verdict(gid, "needs_approval", reason=f"epoch {k}: {c['reason']}")
-                elif not c["val"].get("invalid"):
-                    self.kg.record_verdict(gid, "rejected", reason=f"epoch {k}: {c['reason'] if not c['passed'] else 'another candidate did better'}")
-            grad = self.adv.graduate(promoted["version"]) if promoted else None
-            turn = self.adv.turn(epoch=k) if adversary_turn else None
+                else:
+                    if c["verdict"] == "passed":
+                        c["verdict"], c["reason"] = "rejected", f"passed, but another candidate did better ({c['reason']})"
+                    self.kg.record_verdict(gid, "rejected", reason=f"epoch {k}: {c['reason']}")
+            self._save(doc_id, status="decided", promoted_to=promoted["version"] if promoted else None,
+                       candidates=self._candidates_doc(cands))  # persisted before anything else can fail
+            if promoted:
+                grad = self.adv.graduate(promoted["version"])
+                self._save(doc_id, graduated=[g["scenario_id"] for g in grad.get("graduated", [])])
         except Exception as e:
-            self.kg.c("epochs").update_one({"_id": doc["_id"]}, {"$set": {"status": "failed", "error": str(e)[:1000],
-                                                                         "finished_at": now()}})
+            self._save(doc_id, status="failed", error=str(e)[:1000], finished_at=now())
             raise
+        turn_error = None
+        if adversary_turn:
+            try:
+                turn = self.adv.turn(epoch=k)
+            except Exception as e:  # the promotion and graduation stand; the next epoch's turn tries again
+                turn_error = str(e)[:1000]
+                log.warning("epoch %s: adversary turn failed: %s", k, e)
         summary = {
-            "status": "done", "promoted_to": promoted["version"] if promoted else None,
-            "candidates": [{"edits": c["edits"], "why": c.get("why"), "passed": c["passed"], "reason": c["reason"],
-                            "train": c["train"], "val": c.get("val")} for c in cands],
+            "status": "done" if not turn_error else "done_without_adversary_turn",
+            "promoted_to": promoted["version"] if promoted else None, "candidates": self._candidates_doc(cands),
             "improver_meta": {k_: v for k_, v in getattr(self.improver, "last", {}).items() if k_ != "raw"},
             "graduated": [g["scenario_id"] for g in (grad or {}).get("graduated", [])],
-            "adversary_turn": turn["turn"] if turn else None,
-            "adversary_counts": turn["counts"] if turn else None,
-            "active_after": self.adv.snapshot(), "finished_at": now(), "wall_s": round(time.monotonic() - t0, 1)}
-        self.kg.c("epochs").update_one({"_id": doc["_id"]}, {"$set": summary})
+            "adversary_turn": turn["turn"] if turn else None, "adversary_counts": turn["counts"] if turn else None,
+            "adversary_error": turn_error, "active_after": self.adv.snapshot(), "finished_at": now(),
+            "wall_s": round(time.monotonic() - t0, 1)}
+        self._save(doc_id, **summary)
         return {"k": k, "base_version": V, **summary}
+
+    @staticmethod
+    def _candidates_doc(cands: list[dict]) -> list[dict]:
+        return [{"edits": c["edits"], "why": c.get("why"), "passed": c.get("verdict") == "passed",
+                 "verdict": c.get("verdict"), "reason": c.get("reason"), "train": c.get("train"), "val": c.get("val")}
+                for c in cands]
