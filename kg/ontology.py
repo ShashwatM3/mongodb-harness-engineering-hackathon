@@ -5,7 +5,8 @@ Concepts say what went wrong, where time goes, and what can be changed:
   failure  congestion / throughput / energy / disruption, each with candidate lever groups
   time     the time_split states; non-productive ones point at lever groups
   outcome  late and dropped tasks (from uncapped ZoneMetrics) → dispatch, energy
-  lever    floor_change, waiting, energy, dispatch, motion (locked), yielding (empty on purpose)
+  lever    floor_change, waiting, energy, dispatch, motion (locked), yielding (empty on purpose),
+           manipulation (placeholder until the engine has an arm)
 """
 from __future__ import annotations
 

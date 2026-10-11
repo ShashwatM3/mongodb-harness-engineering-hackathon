@@ -112,3 +112,17 @@ def test_skeleton_and_ontology_shapes():
     assert groups <= ids
     # every setting the brain may change belongs to a lever group or is pinned (min == max)
     assert all(s.group or not s.gets_v1_component for s in SETTINGS)
+
+
+def test_manipulation_placeholders_stay_out_of_reach():
+    """The arm group exists for the brain to learn on later, but the engine has no arm yet: its settings are
+    pinned, so the improver never proposes them and brain v1 doesn't set them."""
+    from kg.registry import group_for, rule_text
+    arm = [s for s in SETTINGS if s.group == "manipulation"]
+    assert [s.target for s in arm] == [f"sim.GRASP_SPEED_PCT_L{n}" for n in (1, 2, 3, 4)]
+    assert not any(s.is_lever or s.gets_v1_component for s in arm)
+    group = next(d for d in concept_docs() if d["_id"] == "c:lever/manipulation")
+    assert group["capability_gap"] is True
+    assert group_for("sim.GRASP_SPEED_PCT_L2") == "manipulation"
+    assert rule_text("sim.GRASP_SPEED_PCT_L4", 60) == ("picking from or placing on shelf level 4",
+                                                       "move the arm at 60% of its top speed")

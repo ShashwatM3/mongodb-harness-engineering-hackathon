@@ -169,7 +169,7 @@ To test against Atlas instead, set `KG_TEST_GATE_URI` and `KG_TEST_IMPROVER_URI`
 - **There is an extra verdict, `passed`.** It means passed but not promoted, which `suggest()` lists.
 - **Brain v1 has two components, not one per setting.** It sets exactly the settings whose v1 differs from the engine default: the stair threshold (0 → 99) and `max_speed` (1.5 → 1.2). That keeps the plan's guard against engine defaults leaking in, and it makes `export_brain(1)` compile to the same patch hash as `brains/v1.json`, which the plan's go/no-go requires. `seed(v1_brain=path)` takes v1 from that file verbatim. The envelope and the lever tree still list every setting.
 - **The registry mirrors TwinForge's `src/harness/settings.ts`, not the plan's draft table.** That means capacities for every zone, `sim.MIN_SEP` as fixed, its ranges, and its whole-number flags. `sync_settings()` replaces the registry with `GET /settings` once the runner serves it.
-- **The concept ontology has 52 documents, not "about 40".**
+- **The concept ontology has 53 documents, not "about 40".**
 - **Components carry `when`/`then` next to `compiles_to`.** `when`/`then` are for people and agents; only `compiles_to` runs on the engine.
 - **The stale-base check compares patch hashes, not version numbers.** So a saved preference doesn't invalidate pending runs.
 - **Some fields and collections are additions:** `brain_versions.status` (pending/committed), `gate_runs.env_key`, `hash_source`, `gate_decision`, `context`, and the `brain_reads` collection.
