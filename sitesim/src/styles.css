@@ -318,3 +318,61 @@ table.dt tbody tr:hover td { background: var(--panel-2); }
 .gen-dialog h3 { margin: 0 0 16px; font-size: 15px; }
 .gen-error { color: #fca5a5; font-size: 12.5px; margin: 14px 0 0; }
 .gen-ok { color: #86efac; font-size: 12.5px; margin: 14px 0 0; }
+
+/* ── Workers view ─────────────────────────────── */
+.workers-grid { position: absolute; inset: 0; padding: 56px 10px 10px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; background: var(--panel); }
+.worker-tile { display: grid; grid-template-rows: minmax(0, 1fr) 96px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #000; min-height: 0; }
+.worker-cam { position: relative; min-height: 0; }
+.worker-cam canvas { display: block; }
+.worker-cam .tag { position: absolute; left: 8px; top: 8px; font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,.6); padding: 2px 6px; border-radius: 3px; }
+.worker-cam .live { position: absolute; top: 8px; right: 8px; background: var(--red); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 3px; letter-spacing: .06em; }
+.worker-traj { background: var(--panel-2); overflow: auto; padding: 4px 8px; font-size: 11px; }
+.worker-task { font-weight: 600; color: var(--text); padding: 2px 0 4px; cursor: pointer; }
+.traj-row { display: grid; grid-template-columns: 44px 1fr; gap: 6px; color: var(--muted); padding: 1px 0; }
+.traj-row .t { font-family: var(--mono); color: var(--faint); }
+.traj-row.dec { color: #93c5fd; }
+.traj-row.dec .t { color: #60a5fa; }
+
+/* ── Brain panel ── */
+.brain-act { display: flex; align-items: center; gap: 3px; }
+.vchip { min-width: 18px; height: 18px; padding: 0 4px; border-radius: 4px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); }
+.vchip.on, .vchip:hover { color: #fff; background: #1e3a8a; border-color: #1e40af; }
+.brain-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+.btile { display: flex; flex-direction: column; align-items: center; padding: 6px 2px 5px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); }
+.btile.worst { border-color: #7f1d1d; }
+.btile .z { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; }
+.btile .n { font-family: var(--mono); font-size: 22px; font-weight: 600; line-height: 1.1; margin-top: 1px; }
+.btile .d { font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+.brain-tree { max-height: 190px; overflow: auto; font-size: 11.5px; padding-right: 2px; }
+.bn { padding: 2px 4px; border-radius: 4px; transition: background .4s, box-shadow .4s; }
+.bn.pulse > .bn-h { background: rgba(34,211,238,.18); box-shadow: 0 0 10px rgba(34,211,238,.45); }
+.bn-h { display: flex; align-items: baseline; gap: 6px; padding: 1px 4px; border-radius: 4px; transition: background .4s, box-shadow .4s; }
+.bn-k { font-family: var(--mono); font-size: 9.5px; color: var(--faint); text-transform: uppercase; }
+.bn-l { font-weight: 600; }
+.bn-chips { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 3px 14px; }
+.bchip { display: inline-flex; gap: 4px; align-items: baseline; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--panel-2); font-family: var(--mono); font-size: 10px; max-width: 100%; transition: box-shadow .4s; }
+.bchip-l { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bchip-v { color: #93c5fd; }
+.bchip.added { border-color: #166534; box-shadow: 0 0 8px rgba(34,197,94,.45); }
+.bchip.added .bchip-l { color: #86efac; }
+.bchip.retired { opacity: .5; text-decoration: line-through; }
+.bchip.pulse { box-shadow: 0 0 10px rgba(34,211,238,.7); border-color: var(--cyan); }
+.brain-empty { color: var(--faint); font-size: 11.5px; padding: 6px 0; }
+.brain-sup { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; }
+.brain-sup-h { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 4px; }
+.brain-sup-h .btn { padding: 3px 8px; font-size: 11px; }
+.brain-sup-h .btn:disabled { opacity: .5; cursor: default; }
+.rnd { margin-left: 8px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.rnd.on { color: var(--cyan); animation: rnd-blink 1.2s ease-in-out infinite; }
+@keyframes rnd-blink { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.brain-row { display: grid; grid-template-columns: 72px 1fr; gap: 8px; font-size: 11.5px; padding: 3px 0; border-top: 1px solid var(--border); }
+.brain-row .tag { font-family: var(--mono); font-size: 10.5px; color: #93c5fd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brain-row .txt { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brain-verdict { font-family: var(--mono); font-size: 11px; padding: 3px 0; color: var(--muted); }
+.brain-verdict.promote, .brain-verdict.accept, .brain-verdict.pass { color: var(--green); }
+.brain-verdict.reject, .brain-verdict.fail { color: var(--red); }
+.brain-incident { border: 1px solid #b91c1c; background: #2a0b0b; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; animation: inc-in .4s ease-out; }
+.brain-incident .t { font-weight: 700; color: #fca5a5; font-size: 12.5px; }
+.brain-incident .s { color: var(--text); font-size: 11.5px; margin: 4px 0 6px; }
+.brain-incident .row { display: flex; gap: 6px; }
+@keyframes inc-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

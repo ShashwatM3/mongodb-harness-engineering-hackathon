@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fmtTime, type Aggregate, type IncidentRow, type Metric, type ServerEvent, type Trajectory } from './api';
 import { IncidentDetail } from './components/IncidentDetail';
+import { MeetView } from './components/MeetView';
 import { StatusPill } from './components/bits';
-import { Softphone, type Ringing } from './components/Softphone';
+import { Softphone, inCall, useSoftphone, type Ringing } from './components/Softphone';
 
 interface Config {
   harness: string;
@@ -10,6 +11,9 @@ interface Config {
   elevenlabs_configured: boolean;
   scenarios: Array<{ name: string; title: string; description: string }>;
 }
+
+/** `?incident=<id>` deep link: keep looking for the incident in the list for this long before giving up. */
+const DEEP_LINK_WAIT_MS = 30_000;
 
 export function App() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -27,6 +31,8 @@ export function App() {
   selRef.current = selected;
   /** Call answered in this tab; other tabs dismiss their ringing card when the call is answered elsewhere. */
   const answeredHere = useRef<string | null>(null);
+  /** Incident requested through `?incident=`; cleared once selected. */
+  const deepLink = useRef<string | null>(new URLSearchParams(location.search).get('incident'));
 
   const notify = useCallback((m: string) => {
     setToast(m);
@@ -44,6 +50,25 @@ export function App() {
     void loadList();
   }, [loadList]);
 
+  // Deep link: select the incident as soon as it shows up in the list (it may still be in flight from the harness).
+  useEffect(() => {
+    const want = deepLink.current;
+    if (!want) return;
+    if (rows.some((r) => r.incident_id === want)) {
+      deepLink.current = null;
+      setSelected(want);
+    }
+  }, [rows]);
+  useEffect(() => {
+    if (!deepLink.current) return;
+    const started = Date.now();
+    const id = setInterval(() => {
+      if (!deepLink.current || Date.now() - started > DEEP_LINK_WAIT_MS) return clearInterval(id);
+      void loadList();
+    }, 1000);
+    return () => clearInterval(id);
+  }, [loadList]);
+
   useEffect(() => {
     setAgg(null);
     setTrajectory(null);
@@ -53,6 +78,27 @@ export function App() {
     void api<{ trajectory: Trajectory | null }>('GET', `/api/incidents/${selected}/trajectory`).then((r) => selRef.current === selected && setTrajectory(r.trajectory));
     void api<{ metrics: Metric[] }>('GET', `/api/incidents/${selected}/metrics`).then((r) => selRef.current === selected && setMetrics(r.metrics));
   }, [selected, loadDetail]);
+
+  // A call that was already ringing before this tab connected (e.g. opened from a deep link) is not replayed on SSE:
+  // recover it from the incident's own call record so the ring UI comes up.
+  useEffect(() => {
+    if (!agg) return;
+    const call = agg.calls.at(-1) as (Aggregate['calls'][number] & { ring_deadline?: string | null }) | undefined;
+    if (!call || call.status !== 'RINGING') return;
+    setRing((r) =>
+      r && r.call_id === call._id
+        ? r
+        : {
+            call_id: call._id,
+            incident_id: agg.incident_id,
+            supervisor: agg.incident.responsible_supervisor.name,
+            severity: agg.incident.severity,
+            robot_id: agg.incident.robot_id,
+            summary: agg.incident.plain_summary ?? agg.incident.failure_summary,
+            ring_deadline: call.ring_deadline ?? new Date(Date.now() + 45_000).toISOString(),
+          },
+    );
+  }, [agg]);
 
   // Live sync: every committed change arrives as an event; the UI re-reads authoritative state.
   useEffect(() => {
@@ -82,13 +128,18 @@ export function App() {
     return () => es.close();
   }, [loadList, loadDetail, notify]);
 
+  const phone = useSoftphone(ring, { onOpenIncident: setSelected, onAnswered: (id) => (answeredHere.current = id) });
+
   const trigger = async () => {
     const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${scenario}/trigger`);
     setSelected(r.incident_id);
   };
 
+  // Meet-like screen while the selected incident is the one ringing / on the call; the floating card otherwise.
+  const meet = Boolean(ring && agg && agg.incident_id === ring.incident_id && (phone.phase === 'ringing' || inCall(phone.phase)));
+
   return (
-    <div className="app">
+    <div className={`app ${meet ? 'in-meet' : ''}`}>
       <header className="topbar">
         <h1>Robot Fleet · Human Review</h1>
         <span className={`dot ${connected ? 'on' : ''}`} title={connected ? 'live' : 'disconnected'} />
@@ -106,7 +157,7 @@ export function App() {
         ) : null}
       </header>
       <aside className="sidebar">
-        {rows.length === 0 && <p className="muted empty">No incidents yet.</p>}
+        {rows.length === 0 && <p className="muted empty">{deepLink.current ? 'Waiting for the incident…' : 'No incidents yet.'}</p>}
         {rows.map((r) => (
           <button key={r.incident_id} className={`inc ${selected === r.incident_id ? 'sel' : ''}`} onClick={() => setSelected(r.incident_id)}>
             <div className="row">
@@ -119,12 +170,13 @@ export function App() {
           </button>
         ))}
       </aside>
-      <main className="main">
+      <main className={`main ${meet ? 'meet-main' : ''}`}>
         {!selected && <p className="muted empty">Select an incident, or simulate one.</p>}
         {selected && !agg && <p className="muted empty">Loading…</p>}
-        {agg && <IncidentDetail agg={agg} trajectory={trajectory} metrics={metrics} focus={focus?.incident === agg.incident_id ? focus : null} notify={notify} />}
+        {agg && meet && <MeetView agg={agg} phone={phone} notify={notify} />}
+        {agg && !meet && <IncidentDetail agg={agg} trajectory={trajectory} metrics={metrics} focus={focus?.incident === agg.incident_id ? focus : null} notify={notify} />}
       </main>
-      {ring && <Softphone key={ring.call_id} ring={ring} onClose={() => setRing(null)} onOpenIncident={setSelected} onAnswered={(id) => (answeredHere.current = id)} />}
+      {ring && !meet && <Softphone phone={phone} onClose={() => setRing(null)} onOpenIncident={setSelected} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

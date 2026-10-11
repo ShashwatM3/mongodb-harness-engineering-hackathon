@@ -130,12 +130,21 @@ describe("engine determinism & behavior", () => {
     });
   }
 
-  it("warehouse: lifts complete cross-floor trips", () => {
-    const site = compileSite(warehouse);
+  it("warehouse: lifts complete cross-floor trips when the brain says lifts only (STAIR_MIN_LIFT_QUEUE 99)", () => {
+    const site = compileSite({ ...warehouse, sim: { ...(warehouse.sim ?? {}), STAIR_MIN_LIFT_QUEUE: 99 } });
     const eng = new SimEngine(site, { seed: 42 });
     for (let i = 0; i < 18000; i++) eng.step(); // 30 sim-minutes
     const trips = Object.values(eng.state.lifts).reduce((a, l) => a + l.trips, 0);
     expect(trips).toBeGreaterThan(0);
+    expect(eng.harness.stair_trips).toBe(0);
+  });
+
+  it("warehouse: legged robots take the west stairs when the lift queue is long enough (engine default 0 = always)", () => {
+    const eng = new SimEngine(compileSite(warehouse), { seed: 42 });
+    for (let i = 0; i < 12000; i++) eng.step();
+    expect(eng.harness.stair_trips).toBeGreaterThan(0);
+    expect(Object.values(eng.state.lifts).reduce((a, l) => a + l.trips, 0)).toBe(0);
+    expect(eng.harness.time.M?.stairs ?? 0).toBeGreaterThan(0);
   });
 
   it("robot failure re-queues its task and marks the robot OFFLINE", () => {

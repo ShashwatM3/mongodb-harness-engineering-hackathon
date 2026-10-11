@@ -20,9 +20,10 @@ export function ZoneOverlay({ labels = true }: { labels?: boolean }) {
         const xs = z.polygon.map((p) => p[0]), zs = z.polygon.map((p) => p[1]);
         const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
         const w = Math.max(...xs) - Math.min(...xs), d = Math.max(...zs) - Math.min(...zs);
-        // Label at the outer corner (relative to site center)
-        const lx = cx < W / 2 ? Math.min(...xs) + 4 : Math.max(...xs) - 4;
-        const lz = cz < D / 2 ? Math.min(...zs) - 1.5 : Math.max(...zs) + 1.5;
+        // Label just inside the zone's inner-facing edge, clamped away from the site boundary so it never clips the view
+        const inset = 7;
+        const lx = Math.min(W - inset, Math.max(inset, cx < W / 2 ? Math.min(...xs) + inset : Math.max(...xs) - inset));
+        const lz = Math.min(D - 3, Math.max(3, cz < D / 2 ? Math.min(...zs) + 2.5 : Math.max(...zs) - 2.5));
         const floor = z.floor ?? 1;
         return (
           <group key={z.id}>

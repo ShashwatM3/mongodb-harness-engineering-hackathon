@@ -48,7 +48,8 @@ export function buildBriefing(inc: IncidentInput, plan: ProposalContent, revisio
   return { incident_brief, proposal_brief, incident_context: lines.join('\n') };
 }
 
+/** First two sentences. Splits only on punctuation followed by whitespace, so decimals ("0.65 metres") stay intact. */
 function oneOrTwoSentences(text: string): string {
-  const parts = text.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [text];
-  return parts.slice(0, 2).join('').trim();
+  const parts = text.trim().split(/(?<=[.!?])\s+/);
+  return parts.slice(0, 2).join(' ').trim();
 }

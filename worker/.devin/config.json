@@ -1,0 +1,23 @@
+{
+  "disabled_tools": [
+    "exec",
+    "edit",
+    "write",
+    "notebook_edit",
+    "write_to_process",
+    "kill_shell",
+    "browser_preview",
+    "webfetch",
+    "web_search"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__twin-worker__*"
+    ],
+    "deny": [
+      "Exec(*)",
+      "Write(*)",
+      "Edit(*)"
+    ]
+  }
+}

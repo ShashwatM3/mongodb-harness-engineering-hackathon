@@ -139,9 +139,87 @@ function GroundRobotBase({ r, children, selected, onSelect, showLabel }: RobotVi
   return <group ref={ref} position={init.current}><group scale={RSCALE} onClick={(e) => { e.stopPropagation(); onSelect(); }}>{children}</group><RobotMarker r={r} selected={selected} onSelect={onSelect} showLabel={showLabel} /></group>;
 }
 
+/** Shelf level (1-4) → how far the torso rises above its rest height (m). Level 1 is a crouch. */
+const TORSO_LIFT = [0, -0.12, 0.1, 0.45, 0.85];
+
+/**
+ * HUM-1: a legged quadruped with a vertical torso lift and one two-joint arm with a two-finger gripper.
+ * Body, legs, lift column, arm and head are all driven per frame from the robot's FSM phase and its task's
+ * shelf level (same lerp pattern as RobotMesh). The head doubles as the status light and pulses when the
+ * brain was just read for this robot (store.brainPulse).
+ */
 function QuadrupedMesh(p: RobotVisualProps) {
-  const c = STATUS_COLOR[p.r.status];
-  return <GroundRobotBase {...p}><mesh position={[0, 0.52, 0]} castShadow><boxGeometry args={[0.72, 0.3, 0.42]} /><meshStandardMaterial color="#d1d5db" metalness={0.5} /></mesh>{[[-0.26, -0.16], [0.26, -0.16], [-0.26, 0.16], [0.26, 0.16]].map(([x, z], i) => <group key={i} position={[x, 0.3, z]}><mesh rotation-z={i % 2 ? -0.12 : 0.12}><boxGeometry args={[0.1, 0.48, 0.1]} /><meshStandardMaterial color="#475569" /></mesh><mesh position={[0, -0.23, 0]}><boxGeometry args={[0.16, 0.08, 0.18]} /><meshStandardMaterial color="#1e293b" /></mesh></group>)}<mesh position={[0.18, 0.73, 0]}><sphereGeometry args={[0.13, 12, 8]} /><meshStandardMaterial color={c} emissive={c} emissiveIntensity={0.3} /></mesh></GroundRobotBase>;
+  const { r } = p;
+  const c = STATUS_COLOR[r.status];
+  const torso = useRef<THREE.Group>(null!);
+  const shoulder = useRef<THREE.Group>(null!);
+  const elbow = useRef<THREE.Group>(null!);
+  const fingers = useRef<[THREE.Mesh | null, THREE.Mesh | null]>([null, null]);
+  const head = useRef<THREE.MeshStandardMaterial>(null!);
+  const legs = useRef<THREE.Group>(null!);
+  const task = useStore((s) => (r.current_task_id ? s.twin.tasks[r.current_task_id] : undefined));
+  const level = task?.level ?? 1;
+  const working = r.fsm === "PICKING" || r.fsm === "DELIVERING";
+  const loaded = r.load.current > 0;
+  useFrame(({ clock }, dt) => {
+    const k = 1 - Math.pow(0.02, dt);
+    // Torso lift: rise to the shelf level while picking or delivering, rest otherwise
+    const ty = working ? TORSO_LIFT[Math.min(4, Math.max(1, level))] : 0;
+    if (torso.current) torso.current.position.y += (ty - torso.current.position.y) * k;
+    // Arm: folded while travelling, reaching forward while working, slightly raised while carrying
+    const sh = working ? -0.35 : loaded ? -0.9 : -1.35;
+    const el = working ? 0.5 : loaded ? 1.6 : 2.3;
+    if (shoulder.current) shoulder.current.rotation.z += (sh - shoulder.current.rotation.z) * k;
+    if (elbow.current) elbow.current.rotation.z += (el - elbow.current.rotation.z) * k;
+    // Gripper: open when reaching, closed on the box when loaded
+    const gap = loaded ? 0.06 : working ? 0.16 : 0.1;
+    fingers.current.forEach((f, i) => { if (f) f.position.z += ((i ? gap : -gap) - f.position.z) * k; });
+    // Legs: a small gait bob while walking
+    if (legs.current) legs.current.position.y = r.velocity > 0.05 ? Math.abs(Math.sin(clock.elapsedTime * 9)) * 0.02 : 0;
+    // Head: brain read pulse
+    if (head.current) {
+      const pulse = useStore.getState().brainPulse[r.id];
+      const active = pulse !== undefined && Date.now() - pulse < 1800;
+      head.current.emissiveIntensity = active ? 1.2 + Math.sin(clock.elapsedTime * 14) * 0.8 : 0.3;
+      head.current.emissive.set(active ? "#60a5fa" : c);
+    }
+  });
+  const steel = <meshStandardMaterial color="#475569" metalness={0.6} roughness={0.4} />;
+  return (
+    <GroundRobotBase {...p}>
+      {/* Legs */}
+      <group ref={legs}>
+        {[[-0.26, -0.16], [0.26, -0.16], [-0.26, 0.16], [0.26, 0.16]].map(([x, z], i) => (
+          <group key={i} position={[x, 0.3, z]}>
+            <mesh rotation-z={i % 2 ? -0.12 : 0.12}><boxGeometry args={[0.1, 0.48, 0.1]} />{steel}</mesh>
+            <mesh position={[0, -0.23, 0]}><boxGeometry args={[0.16, 0.08, 0.18]} /><meshStandardMaterial color="#1e293b" /></mesh>
+          </group>
+        ))}
+      </group>
+      {/* Body */}
+      <mesh position={[0, 0.52, 0]} castShadow><boxGeometry args={[0.72, 0.3, 0.42]} /><meshStandardMaterial color="#d1d5db" metalness={0.5} /></mesh>
+      {/* Lift column (fixed) + torso (rises) */}
+      <mesh position={[-0.12, 0.78, 0]}><boxGeometry args={[0.12, 0.24, 0.12]} /><meshStandardMaterial color="#1f2937" metalness={0.7} /></mesh>
+      <group ref={torso} position={[0, 0, 0]}>
+        <mesh position={[-0.12, 1.0, 0]} castShadow><boxGeometry args={[0.3, 0.3, 0.3]} /><meshStandardMaterial color="#e5e7eb" metalness={0.45} roughness={0.4} /></mesh>
+        {/* Head / sensor pod = status light */}
+        <mesh position={[0.02, 1.22, 0]}><sphereGeometry args={[0.11, 12, 8]} /><meshStandardMaterial ref={head} color={c} emissive={c} emissiveIntensity={0.3} /></mesh>
+        {/* Arm: shoulder → upper arm → elbow → forearm → gripper */}
+        <group ref={shoulder} position={[0.04, 1.08, 0]} rotation-z={-1.35}>
+          <mesh position={[0.2, 0, 0]}><boxGeometry args={[0.4, 0.08, 0.08]} />{steel}</mesh>
+          <group ref={elbow} position={[0.4, 0, 0]} rotation-z={2.3}>
+            <mesh position={[0.18, 0, 0]}><boxGeometry args={[0.36, 0.07, 0.07]} /><meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.35} /></mesh>
+            <group position={[0.38, 0, 0]}>
+              <mesh><boxGeometry args={[0.06, 0.06, 0.2]} /><meshStandardMaterial color="#1f2937" /></mesh>
+              <mesh ref={(m) => { fingers.current[0] = m; }} position={[0.07, 0, -0.1]}><boxGeometry args={[0.12, 0.04, 0.03]} /><meshStandardMaterial color="#facc15" /></mesh>
+              <mesh ref={(m) => { fingers.current[1] = m; }} position={[0.07, 0, 0.1]}><boxGeometry args={[0.12, 0.04, 0.03]} /><meshStandardMaterial color="#facc15" /></mesh>
+              {loaded && <mesh position={[0.17, 0, 0]} castShadow><boxGeometry args={[0.26, 0.22, 0.26]} /><meshStandardMaterial color="#c49a6c" roughness={0.9} /></mesh>}
+            </group>
+          </group>
+        </group>
+      </group>
+    </GroundRobotBase>
+  );
 }
 
 function CrawlerMesh(p: RobotVisualProps) {

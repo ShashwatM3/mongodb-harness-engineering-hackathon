@@ -5,6 +5,7 @@ import { useSimulationRunner } from "./simulation/runner";
 import { Viewport } from "./components/views/Viewport";
 import { AlertsPanel, FleetOverviewPanel, SystemStatusPanel, TaskOverviewPanel } from "./components/panels/LeftPanels";
 import { EventLogPanel, LiveCameraPanel, SelectedRobotPanel } from "./components/panels/RightPanels";
+import { BrainPanel } from "./components/panels/BrainPanel";
 import { RobotStatusPanel, TaskQueuePanel, ThroughputPanel } from "./components/panels/BottomPanels";
 import { ScenariosDrawer } from "./components/ops/ScenariosDrawer";
 import { OpsDrawer } from "./components/ops/OpsDrawer";
@@ -70,6 +71,7 @@ function Console() {
         </aside>
         <main className="center"><Viewport /></main>
         <aside className="col-right">
+          <BrainPanel />
           <SelectedRobotPanel />
           <LiveCameraPanel />
           <EventLogPanel />

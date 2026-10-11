@@ -3,7 +3,7 @@ import { spec, site } from "../spec/registry";
 import type { SpecLocation } from "../spec/types";
 import type { TwinState, RobotId } from "../schema/twin_state";
 
-export type ViewTab = "3D" | "MAP" | "TRAFFIC" | "HEATMAP";
+export type ViewTab = "3D" | "MAP" | "TRAFFIC" | "HEATMAP" | "WORKERS";
 export type Quality = "low" | "medium" | "high";
 export type SceneTool = "select" | "pan" | "paths" | "labels" | "measure";
 export type TimeOfDay = "day" | "dusk" | "night";
@@ -43,6 +43,12 @@ interface Store {
   setDrawer: (d: null | "scenarios" | "ops") => void;
   timeOfDay: TimeOfDay;
   setTimeOfDay: (t: TimeOfDay) => void;
+  /** robot id → wall-clock ms of its last brain read (drives the head pulse); "*" = any reader */
+  brainPulse: Record<string, number>;
+  pulseBrain: (robotId: string) => void;
+  /** Brain panel open state (right column) */
+  brainPanel: boolean;
+  setBrainPanel: (b: boolean) => void;
 }
 
 /** Empty initial TwinState (replaced by the engine snapshot as soon as the runner mounts) */
@@ -67,6 +73,10 @@ export const useStore = create<Store>((set) => ({
   setDrawer: (drawer) => set((st) => ({ drawer: st.drawer === drawer ? null : drawer })),
   timeOfDay: "day",
   setTimeOfDay: (timeOfDay) => set({ timeOfDay }),
+  brainPulse: {},
+  pulseBrain: (robotId) => set((s) => ({ brainPulse: { ...s.brainPulse, [robotId]: Date.now() } })),
+  brainPanel: true,
+  setBrainPanel: (brainPanel) => set({ brainPanel }),
   setSpeed: (speed) => set({ speed, paused: speed === 0 }),
   setPaused: (paused) => set({ paused }),
   locations: site.locations,

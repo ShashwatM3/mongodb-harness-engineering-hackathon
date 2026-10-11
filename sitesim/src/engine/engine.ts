@@ -139,6 +139,9 @@ interface RobotRt {
   stairUntilTick: number;
   basePoint: [number, number];
   returningBase: boolean;
+  /** Worker-decision overrides (see applyDecision) */
+  holdUntilTick: number;
+  floorPref: "stairs" | "lift" | null;
 }
 
 export interface EngineOptions { seed?: number }
@@ -202,7 +205,7 @@ export class SimEngine {
     this.state = this.buildInitialState(seed);
     for (const id of Object.keys(this.state.robots)) {
       const r = this.state.robots[id];
-      this.rt[id] = { backingOff: false, resumePoint: null, dwell: 0, waitTicks: 0, target: null, goalLoc: null, phase: null, chargerId: null, idleTicks: 0, lastBatteryAlert: "NONE", frontId: null, frontDist: Infinity, lastPercEvent: -1e9, pending: null, liftId: null, liftExitPhase: null, plannedLiftId: null, liftStage: null, liftEnqueuedTick: 0, liftRetryTick: 0, liftExit: null, liftBlockedTicks: 0, stairId: null, stairUntilTick: 0, basePoint: [r.position[0], r.position[2]], returningBase: false };
+      this.rt[id] = { backingOff: false, resumePoint: null, dwell: 0, waitTicks: 0, target: null, goalLoc: null, phase: null, chargerId: null, idleTicks: 0, lastBatteryAlert: "NONE", frontId: null, frontDist: Infinity, lastPercEvent: -1e9, pending: null, liftId: null, liftExitPhase: null, plannedLiftId: null, liftStage: null, liftEnqueuedTick: 0, liftRetryTick: 0, liftExit: null, liftBlockedTicks: 0, stairId: null, stairUntilTick: 0, basePoint: [r.position[0], r.position[2]], returningBase: false, holdUntilTick: 0, floorPref: null };
     }
     this.nextTaskTick = this.state.sim.tick + 10;
   }
@@ -312,6 +315,27 @@ export class SimEngine {
   inject(inj: ScenarioInjection) {
     this.pendingInjections.push(inj);
     this.emit("SCENARIO_INJECTED", "USER", "INFO", `Scenario injected: ${inj.kind}${"zone_id" in inj ? " (Zone " + inj.zone_id + ")" : "robot_id" in inj ? " (" + inj.robot_id + ")" : "conveyor_id" in inj ? " (" + inj.conveyor_id + ")" : "camera_id" in inj ? " (" + inj.camera_id + ")" : ""}`);
+  }
+
+  /** Apply a worker-agent decision (see harness/worker_bridge WORKER_ACTIONS). Never throws; unknown robot/action → no-op. */
+  applyDecision(robotId: string, action: string, args: Record<string, unknown> = {}) {
+    const r = this.state.robots[robotId], rt = this.rt[robotId];
+    if (!r || !rt || r.fsm === "OFFLINE") return;
+    const rationale = typeof args.rationale === "string" && args.rationale ? ` — ${args.rationale}` : "";
+    let note = "";
+    switch (action) {
+      case "continue": break;
+      case "reroute": if (rt.target && !r.lift_id) this.setFsm(r, "OBSTACLE_DETECTED"); else note = " (no target)"; break;
+      case "wait_at_holding_point": { const n = Math.max(1, Math.min(600, Number(args.ticks) || 50)); rt.waitTicks = 0; rt.holdUntilTick = this.state.sim.tick + n; note = ` ${n} ticks`; break; }
+      case "go_charge": if (!r.load.current && !r.lift_id && this.freeCharger() && rt.phase !== "TO_CHARGER" && r.fsm !== "CHARGING") { this.transferTask(r); rt.pending = null; this.goCharge(r, rt); } else note = " (skipped)"; break;
+      case "swap_task": if (r.current_task_id) { this.transferTask(r); rt.phase = null; rt.target = null; rt.pending = null; r.path = []; r.path_index = 0; this.setFsm(r, "IDLE"); } else note = " (no task)"; break;
+      case "take_stairs": rt.floorPref = "stairs"; break;
+      case "take_lift": rt.floorPref = "lift"; break;
+      case "move_to": case "pick": case "place": note = " (intent noted; FSM handles it)"; break;
+      default: note = " (unknown action)";
+    }
+    this.emit("AI_DECISION", "AI_AGENT", "INFO", `${robotId} worker: ${action}${note}${rationale}`, { robot_id: robotId, task_id: r.current_task_id ?? undefined, zone_id: r.zone ?? undefined });
+    this.routeDecision(r, `${robotId} worker decision: ${action}${note}${rationale}`);
   }
 
   clearInjection(kind: ScenarioInjection["kind"], targetId: string) {
@@ -976,6 +1000,7 @@ export class SimEngine {
   private stepRobot(r: RobotState, rt: RobotRt) {
     const S = this.state; const tick = S.sim.tick;
     if (r.fsm === "OFFLINE") { r.velocity = 0; return; }
+    if (tick < rt.holdUntilTick) { r.velocity = 0; r.stats.wait_ticks++; return; }
     if (this.isStatic(r)) {
       r.velocity = 0; r.status = "ACTIVE"; r.fsm = "IDLE";
       if (r.monitoring) {
@@ -1203,6 +1228,7 @@ export class SimEngine {
         const best = this.pickLift(r);
         const queueLen = best ? Object.values(this.state.lifts[best.id].queue).reduce((a, q) => a + q.length, 0) + (this.state.lifts[best.id].reserved_by ? 1 : 0) : Infinity;
         useStairs = (best === null || queueLen >= this.P.STAIR_MIN_LIFT_QUEUE) && r.load.current <= this.P.STAIR_MAX_LOAD;
+        if (rt.floorPref) { useStairs = rt.floorPref === "stairs"; rt.floorPref = null; }
         if (this.onException) this.onException(r, "FLOOR_CHOICE", { stairs: useStairs, lift: best?.id ?? null, lift_queue: queueLen === Infinity ? null : queueLen, loaded: r.load.current > 0, from: r.floor, to: tf });
       }
       if (stair && useStairs) {
