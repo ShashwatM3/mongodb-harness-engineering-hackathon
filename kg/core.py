@@ -1178,6 +1178,19 @@ class KG:
         from .views import graph_snapshot
         return graph_snapshot(self, V, compare_to)
 
+    def get_signals(self, shift_id: str, client=None, dev: Optional[bool] = None) -> dict:
+        """Raindrop's signals for one shift, by category. Needs RAINDROP_QUERY_API_KEY unless `client`
+        (a raindrop_query.QueryClient) is given; reads the project the sink writes to."""
+        from .raindrop_query import query_client_from_config
+        from .views import get_signals
+        if client is not None:
+            return get_signals(self, shift_id, client)
+        client = query_client_from_config(self.cfg, dev)
+        try:
+            return get_signals(self, shift_id, client)
+        finally:
+            client.close()
+
 
 def order_time_states(ts: dict) -> list[str]:
     """Non-productive states of a time_split by share, largest first; lift_ride never ahead of lift_wait.

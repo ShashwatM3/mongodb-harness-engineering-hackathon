@@ -7,6 +7,7 @@
   context V | suggest V       what the improver sees for brain V
   brain-context NODE [-v V]   the supervisor's get_brain_context
   explain ID | lineage V      the demo's click path and version chain
+  signals SHIFT_ID [--json]   Raindrop's signals for one shift, by category (needs RAINDROP_QUERY_API_KEY)
   snapshot V [--compare-to N] nodes and links for the stage view (JSON)
   export V [--out FILE]       the contract Brain the runner receives
   check-v1 FILE               go/no-go: export_brain(1) vs brains/v1.json through /validate_brain
@@ -62,6 +63,10 @@ def main(argv=None) -> int:
     p.add_argument("--compare-to", type=int)
     p = sub.add_parser("explain")
     p.add_argument("component_id")
+    p = sub.add_parser("signals")
+    p.add_argument("shift_id")
+    p.add_argument("--dev", action="store_true", default=None, help="read the dev project (default: as the sink)")
+    p.add_argument("--json", action="store_true", help="the full result, not just the summary")
     p = sub.add_parser("brain-context")
     p.add_argument("node")
     p.add_argument("-v", "--version", type=int)
@@ -157,6 +162,9 @@ def main(argv=None) -> int:
         _print(g.lineage(args.version)["markdown"])
     elif args.cmd == "explain":
         _print(g.explain(args.component_id)["markdown"])
+    elif args.cmd == "signals":
+        res = g.get_signals(args.shift_id, dev=args.dev)
+        _print(res if args.json else res["markdown"])
     elif args.cmd == "snapshot":
         _print(g.graph_snapshot(args.version, args.compare_to))
     elif args.cmd == "brain-context":

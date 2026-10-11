@@ -14,6 +14,7 @@
   RAINDROP_PROJECT_ID      project slug for real-runner events, the Experiment cohorts (unset: the key's default)
   RAINDROP_DEV_PROJECT_ID  project slug for fake-runner, fixture and demo events; without it they aren't sent
   KG_RAINDROP_DEV          "1"/"0" forces the dev/real project (default: dev unless KG_RUNNER_URL is set)
+  RAINDROP_QUERY_API_KEY   Query API key for get_signals (read side; not the write key)
   TWINFORGE_DIR            the physical-ai checkout (for the fake runner and fixtures)
 """
 from __future__ import annotations
@@ -71,6 +72,7 @@ class Config:
     raindrop_dev_project_id: Optional[str] = field(default_factory=lambda: os.getenv("RAINDROP_DEV_PROJECT_ID") or None)
     raindrop_dev: Optional[bool] = field(
         default_factory=lambda: {"1": True, "0": False}.get(os.getenv("KG_RAINDROP_DEV", "").strip()))
+    raindrop_query_key: Optional[str] = field(default_factory=lambda: os.getenv("RAINDROP_QUERY_API_KEY") or None)
     twinforge_dir: Optional[str] = field(default_factory=lambda: os.getenv("TWINFORGE_DIR") or None)
 
     def uri_for(self, role: str) -> str:

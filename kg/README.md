@@ -38,6 +38,7 @@ The MongoDB MCP server can create users (`atlas-create-db-user`), but it can't c
 - `KG_ENV_EPOCH`: bump it whenever WP-T retunes the stair costs.
 - `KG_RUNNER_URL`: the real runner.
 - `RAINDROP_WRITE_KEY`.
+- `RAINDROP_QUERY_API_KEY`: for `get_signals` only. A Query API key from auth.raindrop.ai/org/api_keys, not the write key.
 - `TWINFORGE_DIR`: the physical-ai checkout, for the fake runner.
 
 ## Two clients, two roles
@@ -108,6 +109,13 @@ gate.commit_brain_version(add=[{kind, parent_id, key, ...}], retire=[ids], evide
 - Components that change no setting (context policies, tool grants, notes) commit freely.
 
 `promote()` is `commit_brain_version` built from a gate run.
+
+```python
+imp.get_signals("sh-...")     # also: python -m kg signals SHIFT_ID [--json]
+# -> {shift, gate_runs, events, categories: {gate, hard_metrics, self_diagnostics, other}, error, markdown}
+```
+
+Raindrop events are per proposal, not per shift, so `get_signals` goes shift → the gate runs that used it (base or candidate side) → their `candidate_brain` events → the signals Raindrop matched on them. Events that carry a `shift_id` property (worker agents, Self Diagnostics) match directly. It reads the project the sink writes to (`kg-dev` for fake-runner runs) and drops events whose `split` or `seed_set` is anything but train or val. If Raindrop is unreachable, the result carries `error` and nothing is raised.
 
 ## The phone call (Person C)
 
