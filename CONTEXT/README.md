@@ -23,17 +23,23 @@ Everything that is new, and everything that is the actual subject of this hackat
 | `01-warehouse-idea-evaluation.md` (+ `.txt`) | Evaluation round 1 of the warehouse robot onboarding idea. | First fact-based verdict, the correction that Harness the company is not a sponsor, who owns which layer among the sponsor tools, the first brain-graph proposal, and open questions. |
 | `02-warehouse-idea-research-and-workflow.md` (+ `.txt`) | Evaluation round 2, built on partner documentation, the New York edition's finalists, and a benchmark of TwinForge. | Chooses TwinForge as the simulator, explains how the improvement will be proven, and gives the end-to-end workflow, sponsor roles, demo script, and team split. |
 | `03-brain-hierarchical-knowledge-graph.md` (+ `.txt`) | Evaluation round 3, the detailed design of the robot's brain. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
+| `04-supervisor-dashboard-and-sponsor-depth.md` (+ `.txt`) | Evaluation round 4, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
 | `notebooklm-transcript-formatted.md` | A formatted copy of the brainstorm held the day before the hackathon, in a NotebookLM notebook. The wording is unchanged from the original. | Shows how the idea moved from CI/CD agents, to robotics, to simulation-first robotics, ending on an unrelated gripper concept the team later replaced with the warehouse idea. |
 | `hackathon_deep_dive.md` | The research brief an earlier planning session wrote the night before, uploaded as a source to the same NotebookLM notebook. | Background on the event's tracks, judging weights, sponsor tools, past winners, and demo strategy. Read it with the correction below in mind; the Wi-Fi credentials and Discord invite it originally held are redacted from this public copy. |
 | `chat-export.txt` | A raw transcript of the team's planning session with Claude Code on the morning of the hackathon. | Shows the actual working process: finding and reading the sources above, correcting the Harness mistake, researching sponsor tools and past winners, and drafting documents 01 through 03. |
 
 ## Suggested reading order
 
-1. `03-brain-hierarchical-knowledge-graph.md`, the most current and most detailed document.
-2. `02-warehouse-idea-research-and-workflow.md`, for the research, workflow, and team split behind it.
-3. `01-warehouse-idea-evaluation.md`, for the first verdict and the reasoning that led here.
-4. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
-5. `chat-export.txt`, for the full working process behind all of the above.
+1. `04-supervisor-dashboard-and-sponsor-depth.md`, the most current and most detailed document.
+2. `03-brain-hierarchical-knowledge-graph.md`, for the brain's design in full.
+3. `02-warehouse-idea-research-and-workflow.md`, for the research, workflow, and team split behind it.
+4. `01-warehouse-idea-evaluation.md`, for the first verdict and the reasoning that led here.
+5. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
+6. `chat-export.txt`, for the full working process behind all of the above.
+
+## Where new documents go from here
+
+Every document in this list, including this README, is written directly into this folder, `CONTEXT/` at the root of this repository. There is no separate working copy anywhere else; this is the one place to look.
 
 ## Known corrections to the earlier material
 
