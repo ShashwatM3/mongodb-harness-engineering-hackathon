@@ -207,7 +207,14 @@ describe('11 — call interruption', () => {
       await postIncident(sim, inc);
       await sim.gw.tick();
       const call = (await sim.gw.db.c.calls.findOne({ incident_id: inc.incident_id }))!;
+      expect((await sim.app.inject({ method: 'GET', url: '/api/calls/ringing' })).json()).toMatchObject({
+        call_id: call._id,
+        incident_id: inc.incident_id,
+        robot_id: inc.robot_id,
+        summary: inc.plain_summary,
+      });
       const a = await sim.app.inject({ method: 'POST', url: `/api/calls/${call._id}/answer` });
+      expect((await sim.app.inject({ method: 'GET', url: '/api/calls/ringing' })).json()).toBeNull();
       const token = a.json().answer_token as string;
       expect(a.json().dynamic_variables).toMatchObject({ incident_id: inc.incident_id, current_revision: 1 });
       expect((await sim.app.inject({ method: 'POST', url: `/api/calls/${call._id}/answer` })).json().error_code).toBe('CALL_NOT_RINGING');

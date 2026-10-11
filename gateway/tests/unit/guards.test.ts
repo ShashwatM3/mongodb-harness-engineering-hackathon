@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateChanges } from '../../src/server/domain/proposals';
+import { oneOrTwoSentences } from '../../src/server/domain/briefing';
 import { canTransition, INCIDENT_TRANSITIONS } from '../../src/server/domain/state';
 import { signElevenLabs, verifyElevenLabsSignature } from '../../src/server/routes/webhooks';
 import { GatewayError } from '../../src/server/domain/errors';
@@ -53,5 +54,12 @@ describe('ElevenLabs webhook signature', () => {
     const old = signElevenLabs(body, 's3cret', Math.floor(Date.now() / 1000) - 3600);
     expect(verifyElevenLabsSignature(body, old, 's3cret')).toBe(false);
     expect(verifyElevenLabsSignature(body, undefined, 's3cret')).toBe(false);
+  });
+});
+
+describe('oneOrTwoSentences', () => {
+  it('keeps decimals intact and cuts after two sentences', () => {
+    expect(oneOrTwoSentences('Use 0.65 metres instead of 0.45, which adds 2 seconds per trip.')).toBe('Use 0.65 metres instead of 0.45, which adds 2 seconds per trip.');
+    expect(oneOrTwoSentences('One. Two is 1.5 m. Three.')).toBe('One. Two is 1.5 m.');
   });
 });

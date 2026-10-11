@@ -4,7 +4,7 @@ import { DecisionRequest, ReviseRequest } from '../../shared/schemas';
 import { GatewayError } from '../domain/errors';
 import type { Requester } from '../domain/proposals';
 import type { Gateway } from '../gateway';
-import { buildBriefing } from '../domain/briefing';
+import { buildCallVariables } from '../calls/variables';
 import { bearer, safeEqual } from './common';
 
 /**
@@ -65,9 +65,33 @@ export function registerApiRoutes(app: FastifyInstance, gw: Gateway) {
   });
 
   // ---- simulated phone leg (softphone in the dashboard) ----
+  app.get('/api/calls/ringing', async (_req, reply) => {
+    reply.header('cache-control', 'no-store');
+    const call = await gw.db.c.calls.findOne(
+      { provider: 'simulated', status: 'RINGING', ring_deadline: { $gt: new Date() } },
+      { sort: { created_at: -1 } },
+    );
+    if (!call?.ring_deadline) return null;
+    const inc = await gw.incidents.get(call.incident_id);
+    return {
+      call_id: call._id,
+      incident_id: call.incident_id,
+      supervisor: inc.incident.responsible_supervisor.name,
+      severity: inc.incident.severity,
+      robot_id: inc.incident.robot_id,
+      summary: inc.incident.plain_summary ?? inc.incident.failure_summary,
+      ring_deadline: call.ring_deadline.toISOString(),
+    };
+  });
   app.post<{ Params: { id: string } }>('/api/calls/:id/answer', async (req) => {
     const call = await gw.calls.answer(req.params.id, true);
-    return { ...(await sessionFor(gw, call._id)), answer_token: call.answer_token };
+    try {
+      return { ...(await sessionFor(gw, call._id)), answer_token: call.answer_token };
+    } catch (error) {
+      // The call was already marked answered. Release it immediately if the voice session cannot be prepared.
+      await gw.calls.end(call._id, 'voice session unavailable');
+      throw error;
+    }
   });
   app.post<{ Params: { id: string } }>('/api/calls/:id/decline', async (req) => {
     await gw.calls.decline(req.params.id);
@@ -117,21 +141,7 @@ async function sessionFor(gw: Gateway, call_id: string) {
   const call = await gw.db.c.calls.findOne({ _id: call_id });
   if (!call) throw new GatewayError('NOT_FOUND', 'Call not found.', 404);
   const inc = await gw.incidents.get(call.incident_id);
-  const { head, revision } = await gw.proposals.current(inc._id);
-  const [metrics, trajectory] = await Promise.all([
-    gw.harness.getMetrics(inc.incident).catch(() => []),
-    gw.harness.getTrajectory(inc.incident).catch(() => null),
-  ]);
-  const brief = buildBriefing(inc.incident, revision.content, head.latest_revision, metrics, trajectory);
-  const dynamic_variables = {
-    incident_id: inc._id,
-    call_id: call._id,
-    supervisor_name: inc.incident.responsible_supervisor.name,
-    current_revision: head.latest_revision,
-    incident_brief: brief.incident_brief,
-    proposal_brief: brief.proposal_brief,
-    incident_context: brief.incident_context,
-  };
+  const dynamic_variables = await buildCallVariables(gw, inc, call._id);
   const { ELEVENLABS_API_KEY: key, ELEVENLABS_AGENT_ID: agent } = gw.config;
   if (!key || !agent) return { mode: 'unconfigured' as const, call_id, dynamic_variables };
   // Private agent: the browser gets a short-lived signed URL; the API key never leaves the server.

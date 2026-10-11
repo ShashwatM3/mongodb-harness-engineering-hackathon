@@ -179,8 +179,16 @@ def build_incident(st: State, gate_run_id: str, summary: str | None = None, ques
                        "current_value": e.get("base_value"), "proposed_value": e["value"]})
         changes.append({"op": "set_param", "key": e["target"], "value": e["value"]})
     edits_txt = "; ".join(f"{e['target']} {e.get('base_value')}→{e['value']}" for e in edits)
-    plain = summary or (f"The fleet wants to change {len(locked)} locked setting{'s' if len(locked) != 1 else ''}: {edits_txt}. "
-                        f"In the twin this moved {moved}." + (f" It cut {signal.replace('_', ' ').lower()} failures from {fails[signal]['base']} to {fails[signal]['cand']}." if signal else ""))
+    def human_name(t: str) -> str:
+        return {"class.HUM-1.max_speed": "walking speed", "sim.PERC_STOP": "stopping distance", "sim.PERC_SLOW": "slow-down distance"}.get(t, (_envelope(st, t).get("description") or t).lower())
+    def human_val(t: str, v) -> str:
+        return f"{v} m/s" if t.endswith("max_speed") else (f"{v} m" if "PERC" in t else str(v))
+    e0 = edits[0] if edits else None
+    ask = (f"The robots want a higher {human_name(e0['target'])}: {human_val(e0['target'], e0.get('base_value'))} to {human_val(e0['target'], e0['value'])}."
+           if e0 else "The robots want to change a locked setting.")
+    effect = (f" In the twin, zone {best} went from {round(zones[best]['base'] * 100)} to {round(zones[best]['cand'] * 100)}" if best else "") + \
+             (f" and {signal.replace('_', ' ').lower()} fell from {fails[signal]['base']} to {fails[signal]['cand']}." if signal else ".")
+    plain = summary or (ask + effect + " It is a locked safety setting, so it needs your OK.")
     incident_id = f"inc-{gate_run_id[3:15]}"
     event_id = f"evt-{hashlib.sha256(gate_run_id.encode()).hexdigest()[:16]}"
     body = {
@@ -197,8 +205,8 @@ def build_incident(st: State, gate_run_id: str, summary: str | None = None, ques
         "proposal": {
             "proposal_id": f"prop-{gate_run_id[3:15]}", "revision": 1, "source_agent": "harness-supervisor", "risk": "HIGH",
             "summary": f"Set {edits_txt} (gate run {gate_run_id}).",
-            "plain_summary": (f"Let the robots {'walk up to ' + str(edits[0]['value']) + ' metres per second' if edits and edits[0]['target'].endswith('max_speed') else 'change ' + edits_txt}; "
-                              f"the twin says {best or 'the worst'} zone goes {zones[best]['base']:.2f} to {zones[best]['cand']:.2f}." if best else f"Change {edits_txt}.")[:400],
+            "plain_summary": ((f"Let the robots walk up to {edits[0]['value']} metres per second" if edits and edits[0]['target'].endswith('max_speed') else f"Set {human_name(edits[0]['target'])} to {human_val(edits[0]['target'], edits[0]['value'])}" if edits else "Change the setting")
+                              + (f"; the twin says zone {best} goes from {round(zones[best]['base'] * 100)} to {round(zones[best]['cand'] * 100)}." if best else "."))[:400],
             "justification": f"Measured on {len(run['env']['seeds'])} deterministic training shifts: {moved}." + (f" {signal} failures {fails[signal]['base']}→{fails[signal]['cand']}." if signal else ""),
             "constraints": ["Locked settings change only with the Robotics Lead's approval.", "The gate re-checks the exact approved value on held-out shifts before promotion."],
             "affected_resources": ["envelope", *[f"zone:{z}" for z in zones]],

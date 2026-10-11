@@ -3,7 +3,9 @@ import { GatewayError, notFound } from '../domain/errors';
 import type { EventLog } from '../domain/events';
 import type { IncidentService } from '../domain/incidents';
 import { CALLABLE_STATES } from '../domain/state';
-import type { CallProvider } from './providers';
+import type { CallProgress, CallProvider } from './providers';
+import type { CallVariables } from './variables';
+import type { IncidentDoc } from '../db';
 
 export interface CallPolicy {
   ringTimeoutMs: number;
@@ -24,7 +26,10 @@ export class CallOrchestrator {
     private readonly incidents: IncidentService,
     private readonly provider: CallProvider,
     private readonly policy: CallPolicy,
+    private readonly variablesFor: (call: CallDoc, incident: IncidentDoc) => Promise<CallVariables> = async () => ({}),
   ) {}
+
+  private lastPolled = new Map<string, number>();
 
   /** Periodic work: place due calls, expire unanswered rings. Safe to run concurrently with request handlers. */
   async tick(now = new Date()) {
@@ -38,6 +43,47 @@ export class CallOrchestrator {
       .project({ _id: 1 })
       .toArray();
     for (const c of stuck) await this.end(c._id, 'voice session never connected');
+    // Real phone calls: nobody clicks Answer, so ask the provider how the call is going.
+    if (this.provider.poll) {
+      const live = await this.db.c.calls.find({ active: true, provider: this.provider.name, status: { $in: ['RINGING', 'ANSWERED'] } }).toArray();
+      for (const c of live) {
+        if (Date.now() - (this.lastPolled.get(c._id) ?? 0) < 2000) continue;
+        this.lastPolled.set(c._id, Date.now());
+        await this.provider
+          .poll(c)
+          .then((p) => this.applyProgress(c, p))
+          .catch((err) => console.error('[calls] poll failed', c._id, (err as Error).message));
+      }
+    }
+  }
+
+  /** Mirror a polled provider call into our lifecycle. Nothing here ever records a decision. */
+  async applyProgress(call: CallDoc, p: CallProgress): Promise<void> {
+    if (p.state === 'ringing') return;
+    if (p.transcript.length > call.transcript.length) {
+      const now = new Date();
+      await this.db.c.calls.updateOne({ _id: call._id }, { $set: { transcript: p.transcript.map((t) => ({ ...t, at: now })) } });
+      this.events.signal('call.transcript', call.incident_id, { call_id: call._id });
+    }
+    if (p.state === 'in_call') {
+      if (call.status === 'RINGING') await this.answerFromProvider(call._id);
+      return;
+    }
+    this.lastPolled.delete(call._id);
+    if (call.status === 'RINGING' && !p.answered) return this.finishUnanswered(call._id, 'NO_ANSWER', p.reason);
+    if (call.status === 'RINGING') await this.answerFromProvider(call._id);
+    await this.end(call._id, p.reason);
+  }
+
+  /** Polls and tool calls may observe the same ringing snapshot; the first one owns the transition. */
+  private async answerFromProvider(call_id: string): Promise<void> {
+    try {
+      await this.answer(call_id);
+    } catch (error) {
+      if (!(error instanceof GatewayError) || error.code !== 'CALL_NOT_RINGING') throw error;
+      const current = await this.db.c.calls.findOne({ _id: call_id });
+      if (current?.status !== 'ANSWERED' && current?.status !== 'ENDED') throw error;
+    }
   }
 
   async place(incident_id: string): Promise<CallDoc | null> {
@@ -84,12 +130,18 @@ export class CallOrchestrator {
     this.events.publish(...audits);
 
     try {
-      const res = await this.provider.place(call, inc);
+      const res = await this.provider.place(call, inc, () => this.variablesFor(call, inc));
       if (res.status === 'RINGING') {
-        const ring_deadline = new Date(Date.now() + this.policy.ringTimeoutMs);
-        await this.db.c.calls.updateOne({ _id: call._id, status: 'QUEUED' }, { $set: { status: 'RINGING', ring_deadline, updated_at: new Date() } });
+        // Polled providers report the outcome themselves; our deadline is only a safety net behind theirs.
+        const ring_deadline = new Date(Date.now() + this.policy.ringTimeoutMs + (this.provider.poll ? 60_000 : 0));
+        await this.db.c.calls.updateOne(
+          { _id: call._id, status: 'QUEUED' },
+          { $set: { status: 'RINGING', ring_deadline, updated_at: new Date(), ...(res.conversation_id ? { conversation_id: res.conversation_id } : {}) } },
+        );
         await this.events.emit('call.ringing', incident_id, 'SYSTEM', {
           call_id: call._id,
+          provider: this.provider.name,
+          provider_call_id: res.provider_call_id ?? null,
           attempt: call.attempt,
           ring_deadline: ring_deadline.toISOString(),
           supervisor: inc.incident.responsible_supervisor.name,
@@ -198,9 +250,11 @@ export class CallOrchestrator {
     }
   }
 
-  async activeCallFor(call_id: string, incident_id: string): Promise<CallDoc> {
-    const call = await this.db.c.calls.findOne({ _id: call_id, incident_id });
+  async activeCallFor(call_id: string, incident_id: string, conversation_id?: string): Promise<CallDoc> {
+    let call = await this.db.c.calls.findOne({ _id: call_id, incident_id });
     if (!call) throw new GatewayError('CALL_BINDING', 'This call does not belong to this incident.', 403);
+    // A real phone call whose agent is already using tools has been answered, even if the poll hasn't caught up yet.
+    if (call.status === 'RINGING' && call.conversation_id && conversation_id === call.conversation_id) call = await this.answer(call._id);
     if (call.status !== 'ANSWERED') throw new GatewayError('CALL_NOT_ACTIVE', `This call is ${call.status}.`, 409);
     return call;
   }

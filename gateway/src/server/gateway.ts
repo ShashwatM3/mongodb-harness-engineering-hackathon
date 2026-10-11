@@ -1,5 +1,6 @@
 import { CallOrchestrator } from './calls/orchestrator';
 import { ElevenLabsTwilioProvider, ScriptedCallProvider, SimulatedCallProvider, type CallProvider } from './calls/providers';
+import { buildCallVariables } from './calls/variables';
 import type { Config } from './config';
 import { connectDatabase, type Database } from './db';
 import { DecisionService, FeedbackDispatcher } from './domain/decisions';
@@ -46,6 +47,21 @@ async function defaultBrain(config: Config): Promise<SupervisorBrain> {
   return new ClaudeGroundedSupervisor(config.ANTHROPIC_API_KEY, config.MOCK_SUPERVISOR_MODEL, new FactLookupSupervisor());
 }
 
+async function defaultProvider(config: Config): Promise<CallProvider> {
+  if (config.CALL_MODE === 'scripted') return new ScriptedCallProvider();
+  if (config.CALL_MODE === 'simulated') return new SimulatedCallProvider();
+  const { ElevenLabsClient } = await import('@elevenlabs/elevenlabs-js');
+  if (!config.ELEVENLABS_API_KEY) throw new Error('CALL_MODE=twilio needs ELEVENLABS_API_KEY');
+  return new ElevenLabsTwilioProvider(new ElevenLabsClient({ apiKey: config.ELEVENLABS_API_KEY }) as never, {
+    route: config.PHONE_ROUTE,
+    agentId: config.ELEVENLABS_AGENT_ID,
+    phoneNumberId: config.ELEVENLABS_PHONE_NUMBER_ID,
+    allowedNumbers: config.CALL_ALLOWED_NUMBERS.split(',').map((n) => n.trim()).filter(Boolean),
+    defaultNumber: config.SUPERVISOR_PHONE,
+    ringingTimeoutSecs: Math.round(config.CALL_RING_TIMEOUT_MS / 1000),
+  });
+}
+
 export async function createGateway(config: Config, o: GatewayOverrides = {}): Promise<Gateway> {
   const db = o.db ?? (await connectDatabase(config.MONGODB_URI, config.MONGODB_DB));
   const events = new EventLog(db);
@@ -57,20 +73,26 @@ export async function createGateway(config: Config, o: GatewayOverrides = {}): P
   else harness = mock = new MockHarness(o.brain ?? (await defaultBrain(config)));
   if (o.harness instanceof MockHarness) mock = o.harness;
 
-  const provider = o.provider ?? (config.CALL_MODE === 'scripted' ? new ScriptedCallProvider() : new SimulatedCallProvider());
-  void ElevenLabsTwilioProvider; // documented stub, intentionally not selectable
+  const provider = o.provider ?? (await defaultProvider(config));
 
   const incidents = new IncidentService(db, events);
   const proposals = new ProposalEngine(db, events, incidents, harness, config.HARNESS_TIMEOUT_MS);
   const dispatcher = new FeedbackDispatcher(db, events, incidents, harness, config.HARNESS_TIMEOUT_MS);
   let kick = () => {};
   const decisions = new DecisionService(db, events, incidents, () => kick());
-  const calls = new CallOrchestrator(db, events, incidents, provider, {
+  const calls = new CallOrchestrator(
+    db,
+    events,
+    incidents,
+    provider,
+    {
     ringTimeoutMs: config.CALL_RING_TIMEOUT_MS,
     connectTimeoutMs: config.CALL_CONNECT_TIMEOUT_MS,
     retryDelayMs: config.CALL_RETRY_DELAY_MS,
     maxAttempts: config.CALL_MAX_ATTEMPTS,
-  });
+    },
+    (call, inc) => buildCallVariables({ proposals, harness }, inc, call._id),
+  );
   const queries = new SupervisorQueries(db, events, incidents, harness, config.SUPERVISOR_SYNC_BUDGET_MS, config.HARNESS_TIMEOUT_MS * 6);
 
   let timer: NodeJS.Timeout | null = null;

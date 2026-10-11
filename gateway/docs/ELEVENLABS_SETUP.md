@@ -68,6 +68,26 @@ ElevenLabs dashboard → Agents platform settings → Webhooks → post-call →
 - If tools fail with 401: the secret value must be exactly `Bearer <TOOL_SECRET>`. Re-run provisioning.
 - If tools fail with 403 `CALL_BINDING`: the conversation used dynamic variables from a different call. Start a fresh call.
 
-## 6. Adding Twilio later
+## 6. Real phone calls (Twilio)
 
-Implement `ElevenLabsTwilioProvider.place()` (`src/server/calls/providers.ts`). It should call `POST /v1/convai/twilio/outbound-call` with the same dynamic variables and enable `twilio_machine_detection` (voicemail does not produce `call_initiation_failure`). Map the webhook's `call_initiation_failure` to `CallOrchestrator.decline`/`end`. On a Twilio trial, only verified numbers can be called.
+**Step 1, by hand, before any code (catches a wrong SID or token, or an unverified number):**
+1. In Twilio, get a phone number. A trial account can only call **verified** numbers, so verify the Robotics Lead's phone in the Twilio console.
+2. In the ElevenLabs dashboard → **Phone Numbers** → **Import** → Twilio, enter: label, number, Account SID (or API Key SID) and the matching Auth Token (or secret).
+3. Use that number's **Outbound call** button once to call your own phone. Confirm the agent talks and the tools work. This is a real, billed call, so do it once.
+
+**Step 2, switch the gateway:**
+```
+CALL_MODE=twilio
+ELEVENLABS_PHONE_NUMBER_ID=<from `npm run phone:numbers`>
+SUPERVISOR_PHONE=+1…            # E.164
+CALL_ALLOWED_NUMBERS=+1…        # the gateway refuses to dial anything else
+```
+Restart `npm run dev` (`.env` changes are not hot-reloaded), then run `npm run check:setup`.
+
+**How it works** (`ElevenLabsTwilioProvider`, SDK `conversationalAi.twilio.outboundCall`, i.e. `POST /v1/convai/twilio/outbound-call`):
+- The call carries the same dynamic variables as the softphone: ids, plain-language opening, full context.
+- Progress comes from polling `GET /v1/convai/conversations/:id` every 2 s. `initiated` means ringing; `in-progress` means answered (and the live transcript is copied to the dashboard); `done` or `failed` means ended.
+- A call that ends with no human speech counts as no answer, which triggers one retry.
+- A tool call during "ringing" also counts as answered.
+- The built-in `voicemail_detection` tool hangs up on voicemail without leaving details.
+- The four tools are unchanged.

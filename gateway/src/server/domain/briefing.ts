@@ -48,8 +48,8 @@ export function buildBriefing(inc: IncidentInput, plan: ProposalContent, revisio
   return { incident_brief, proposal_brief, incident_context: lines.join('\n') };
 }
 
-/** First two sentences. Splits only on punctuation followed by whitespace, so decimals ("0.65 metres") stay intact. */
-function oneOrTwoSentences(text: string): string {
+/** First two sentences. A sentence ends at . ! or ? followed by whitespace (or the end) — not at a decimal point like 0.45. */
+export function oneOrTwoSentences(text: string): string {
   const parts = text.trim().split(/(?<=[.!?])\s+/);
   return parts.slice(0, 2).join(' ').trim();
 }

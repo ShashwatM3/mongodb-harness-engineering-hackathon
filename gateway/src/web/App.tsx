@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { installAudioUnlock, isAudioUnlocked, onAudioUnlockChange } from './audio';
 import { api, fmtTime, type Aggregate, type IncidentRow, type Metric, type ServerEvent, type Trajectory } from './api';
 import { IncidentDetail } from './components/IncidentDetail';
-import { MeetView } from './components/MeetView';
 import { StatusPill } from './components/bits';
-import { Softphone, inCall, useSoftphone, type Ringing } from './components/Softphone';
+import { Softphone, type Ringing } from './components/Softphone';
 
 interface Config {
   harness: string;
@@ -11,9 +11,6 @@ interface Config {
   elevenlabs_configured: boolean;
   scenarios: Array<{ name: string; title: string; description: string }>;
 }
-
-/** `?incident=<id>` deep link: keep looking for the incident in the list for this long before giving up. */
-const DEEP_LINK_WAIT_MS = 30_000;
 
 export function App() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -27,12 +24,14 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [scenario, setScenario] = useState('A');
+  const [soundOn, setSoundOn] = useState(isAudioUnlocked());
   const selRef = useRef<string | null>(null);
   selRef.current = selected;
   /** Call answered in this tab; other tabs dismiss their ringing card when the call is answered elsewhere. */
   const answeredHere = useRef<string | null>(null);
-  /** Incident requested through `?incident=`; cleared once selected. */
-  const deepLink = useRef<string | null>(new URLSearchParams(location.search).get('incident'));
+  const ringEventVersion = useRef(0);
+  const ringPollVersion = useRef(0);
+  const lastApiSuccess = useRef(0);
 
   const notify = useCallback((m: string) => {
     setToast(m);
@@ -40,9 +39,40 @@ export function App() {
   }, []);
 
   const loadList = useCallback(() => api<IncidentRow[]>('GET', '/api/incidents').then(setRows).catch(() => {}), []);
+  // `?incident=<id>` deep link from the harness dashboard: select it as soon as it is in the list (it may still be in flight).
+  const deepLink = useRef<string | null>(new URLSearchParams(location.search).get('incident'));
+  useEffect(() => {
+    const want = deepLink.current;
+    if (!want) return;
+    if (rows.some((r) => r.incident_id === want)) { setSelected(want); deepLink.current = null; return; }
+    const t = setTimeout(() => void loadList(), 1000);
+    return () => clearTimeout(t);
+  }, [rows, loadList]);
   const loadDetail = useCallback(async (id: string) => {
     const a = await api<Aggregate>('GET', `/api/incidents/${id}`);
     if (selRef.current === id) setAgg(a);
+  }, []);
+
+  // A phone tunnel can keep ordinary requests working while its event stream disconnects.
+  // Reconcile the current ring independently so an incoming call still appears.
+  const pollRinging = useCallback(async () => {
+    const request = ++ringPollVersion.current;
+    const version = ringEventVersion.current;
+    const current = await api<Ringing | null>('GET', '/api/calls/ringing');
+    lastApiSuccess.current = Date.now();
+    setConnected(true);
+    if (request !== ringPollVersion.current || version !== ringEventVersion.current) return;
+    setRing((existing) => (existing && answeredHere.current === existing.call_id ? existing : current));
+  }, []);
+
+  // Phones block sound until the first tap: unlock it then, so an incoming call can ring.
+  useEffect(() => {
+    const removeUnlock = installAudioUnlock();
+    const removeListener = onAudioUnlockChange(setSoundOn);
+    return () => {
+      removeUnlock();
+      removeListener();
+    };
   }, []);
 
   useEffect(() => {
@@ -50,24 +80,11 @@ export function App() {
     void loadList();
   }, [loadList]);
 
-  // Deep link: select the incident as soon as it shows up in the list (it may still be in flight from the harness).
   useEffect(() => {
-    const want = deepLink.current;
-    if (!want) return;
-    if (rows.some((r) => r.incident_id === want)) {
-      deepLink.current = null;
-      setSelected(want);
-    }
-  }, [rows]);
-  useEffect(() => {
-    if (!deepLink.current) return;
-    const started = Date.now();
-    const id = setInterval(() => {
-      if (!deepLink.current || Date.now() - started > DEEP_LINK_WAIT_MS) return clearInterval(id);
-      void loadList();
-    }, 1000);
-    return () => clearInterval(id);
-  }, [loadList]);
+    void pollRinging().catch(() => {});
+    const id = window.setInterval(() => void pollRinging().catch(() => {}), 2000);
+    return () => window.clearInterval(id);
+  }, [pollRinging]);
 
   useEffect(() => {
     setAgg(null);
@@ -79,40 +96,30 @@ export function App() {
     void api<{ metrics: Metric[] }>('GET', `/api/incidents/${selected}/metrics`).then((r) => selRef.current === selected && setMetrics(r.metrics));
   }, [selected, loadDetail]);
 
-  // A call that was already ringing before this tab connected (e.g. opened from a deep link) is not replayed on SSE:
-  // recover it from the incident's own call record so the ring UI comes up.
-  useEffect(() => {
-    if (!agg) return;
-    const call = agg.calls.at(-1) as (Aggregate['calls'][number] & { ring_deadline?: string | null }) | undefined;
-    if (!call || call.status !== 'RINGING') return;
-    setRing((r) =>
-      r && r.call_id === call._id
-        ? r
-        : {
-            call_id: call._id,
-            incident_id: agg.incident_id,
-            supervisor: agg.incident.responsible_supervisor.name,
-            severity: agg.incident.severity,
-            robot_id: agg.incident.robot_id,
-            summary: agg.incident.plain_summary ?? agg.incident.failure_summary,
-            ring_deadline: call.ring_deadline ?? new Date(Date.now() + 45_000).toISOString(),
-          },
-    );
-  }, [agg]);
-
   // Live sync: every committed change arrives as an event; the UI re-reads authoritative state.
   useEffect(() => {
     const es = new EventSource('/api/stream');
     let pending: number | null = null;
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
+    es.onopen = () => {
+      setConnected(true);
+      void pollRinging().catch(() => {});
+    };
+    es.onerror = () => setConnected(Date.now() - lastApiSuccess.current < 10_000);
     es.onmessage = (msg) => {
       const e = JSON.parse(msg.data) as ServerEvent;
-      if (e.type === 'call.ringing') {
+      if (e.type === 'call.ringing' && e.data.provider && e.data.provider !== 'simulated') notify('Calling your phone…');
+      else if (e.type === 'call.ringing') {
+        ringEventVersion.current++;
         setRing({ call_id: e.data.call_id, incident_id: e.incident_id!, supervisor: e.data.supervisor, severity: e.data.severity, robot_id: e.data.robot_id, summary: e.data.summary, ring_deadline: e.data.ring_deadline });
       }
-      if (['call.no_answer', 'call.declined', 'call.failed'].includes(e.type)) setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
-      if (e.type === 'call.answered' && answeredHere.current !== e.data.call_id) setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
+      if (['call.no_answer', 'call.declined', 'call.failed', 'call.ended'].includes(e.type)) {
+        ringEventVersion.current++;
+        setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
+      }
+      if (e.type === 'call.answered' && answeredHere.current !== e.data.call_id) {
+        ringEventVersion.current++;
+        setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
+      }
       if (e.type === 'trajectory.focus') {
         setSelected(e.incident_id);
         setFocus({ incident: e.incident_id!, segment: e.data.segment_id ?? null, at: Date.now() });
@@ -126,21 +133,27 @@ export function App() {
       }, 120);
     };
     return () => es.close();
-  }, [loadList, loadDetail, notify]);
-
-  const phone = useSoftphone(ring, { onOpenIncident: setSelected, onAnswered: (id) => (answeredHere.current = id) });
+  }, [loadList, loadDetail, notify, pollRinging]);
 
   const trigger = async () => {
-    const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${scenario}/trigger`);
-    setSelected(r.incident_id);
+    try {
+      const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${scenario}/trigger`);
+      setSelected(r.incident_id);
+      void loadList();
+      void pollRinging().catch(() => {});
+    } catch (e) {
+      notify(e instanceof Error ? e.message : String(e));
+    }
   };
 
-  // Meet-like screen while the selected incident is the one ringing / on the call; the floating card otherwise.
-  const meet = Boolean(ring && agg && agg.incident_id === ring.incident_id && (phone.phase === 'ringing' || inCall(phone.phase)));
-
   return (
-    <div className={`app ${meet ? 'in-meet' : ''}`}>
+    <div className={`app ${selected ? 'has-selection' : ''}`}>
       <header className="topbar">
+        {selected && (
+          <button className="ghost back" onClick={() => setSelected(null)} aria-label="Back to incidents">
+            ‹
+          </button>
+        )}
         <h1>Robot Fleet · Human Review</h1>
         <span className={`dot ${connected ? 'on' : ''}`} title={connected ? 'live' : 'disconnected'} />
         <span className="spacer" />
@@ -157,7 +170,7 @@ export function App() {
         ) : null}
       </header>
       <aside className="sidebar">
-        {rows.length === 0 && <p className="muted empty">{deepLink.current ? 'Waiting for the incident…' : 'No incidents yet.'}</p>}
+        {rows.length === 0 && <p className="muted empty">No incidents yet.</p>}
         {rows.map((r) => (
           <button key={r.incident_id} className={`inc ${selected === r.incident_id ? 'sel' : ''}`} onClick={() => setSelected(r.incident_id)}>
             <div className="row">
@@ -170,14 +183,14 @@ export function App() {
           </button>
         ))}
       </aside>
-      <main className={`main ${meet ? 'meet-main' : ''}`}>
+      <main className="main">
         {!selected && <p className="muted empty">Select an incident, or simulate one.</p>}
         {selected && !agg && <p className="muted empty">Loading…</p>}
-        {agg && meet && <MeetView agg={agg} phone={phone} notify={notify} />}
-        {agg && !meet && <IncidentDetail agg={agg} trajectory={trajectory} metrics={metrics} focus={focus?.incident === agg.incident_id ? focus : null} notify={notify} />}
+        {agg && <IncidentDetail agg={agg} trajectory={trajectory} metrics={metrics} focus={focus?.incident === agg.incident_id ? focus : null} notify={notify} />}
       </main>
-      {ring && !meet && <Softphone phone={phone} onClose={() => setRing(null)} onOpenIncident={setSelected} />}
+      {ring && <Softphone key={ring.call_id} ring={ring} onClose={() => setRing(null)} onOpenIncident={setSelected} onAnswered={(id) => (answeredHere.current = id)} />}
       {toast && <div className="toast">{toast}</div>}
+      {!soundOn && !ring && <div className="unlock">Tap anywhere to enable call ringing</div>}
     </div>
   );
 }
