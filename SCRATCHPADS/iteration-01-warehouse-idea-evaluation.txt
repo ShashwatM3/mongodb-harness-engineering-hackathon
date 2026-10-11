@@ -1,56 +1,42 @@
-# Warehouse Robot Onboarding: Evaluation 01
+Warehouse Robot Onboarding: Iteration 01
 October 11, 2026
 
----
-
-## What changed since last night
+What changed since last night
 
 Before evaluating the idea, I need to correct something I got wrong in last night's deep dive document. That document treated Harness, the CI/CD company at harness.io, as the headline sponsor, but I checked the live event page this morning and the company is not mentioned anywhere on it. The phrase "Harness Engineering" in the event title refers to the technical concept, which is the work of engineering the scaffolding around a model: its rules, context policies, guardrails, and tool access. You were right about this when you pushed back in the NotebookLM chat. As a result, the warehouse idea needs no Harness integration, and the question of where Harness fits simply goes away.
 
 The event page also lists the judges, which the PDF did not: Jackson Ferrigno from Raindrop, Bosco Albuquerque from AWS, Steffan Mejia from MongoDB, and Aram S. from Modelence. The description says MongoDB is hosting, and it names Atlas Agent Engine as the product they want to see, calling it "one foundation for execution, memory, and governance" with semantic, episodic, taxonomic, and procedural long-term memory and retrieval powered by Voyage AI. The page even says they want "agents that adapt their own guardrails", which is close to a description of your idea. One more correction applies to my chat reply: the figure of $20,000 to $50,000 per robot deployment had no source behind it, so we should not say it on stage until we find a real statistic.
 
----
-
-## The verdict
+The verdict
 
 This idea is the strongest one we have produced so far, and it is a realistic contender for both a top three finish and the Raindrop RSI prize. Its central loop matches Track 1 almost word for word, because the agent rewrites its own rules, context policies, guardrails, and tool access after every round. It also has a learning signal that any judge understands in one second, which is footage of a human doing the same task correctly. Whether it wins depends on two things: the robot's execution being concrete on screen, and the team keeping the product to one trunk with a few strong branches. Neither of those is a flaw in the idea, but both have to be settled before anyone writes code.
 
----
-
-## Track fit
+Track fit
 
 Track 1, Recursive Harnessing, asks for a harness that "automatically evolves its own architecture: updating rules, context policies, guardrails, tool access, and more." Your idea updates exactly those four things, and it does so separately for each zone of the warehouse, which matches the track's phrase about adapting to "a specific user, task, or use case." Track 2 is partly covered as well, because the brain snapshots form a long-horizon memory. Even so, we should pitch Track 1 as the single track we answer, since pitching both would scatter the story, which is the mistake your own criteria warn against.
 
----
+Score against the judging criteria
 
-## Score against the judging criteria
-
-- **Technical Demo (35%):** The demo has three moments a judge can see or hear: zone scores rising, the brain changing, and a live phone call.
-- **Implementation Difficulty (30%):** Turning human video into step lists and comparing them with the robot's actions is far more than a few prompts.
-- **Impact Potential (20%):** Robot onboarding is a real and expensive problem in logistics, but we still need one sourced number to say on stage.
-- **Creativity (15%):** Learning rules from human footage, instead of training model weights, did not appear in any past winner we studied.
+- Technical Demo (35%): The demo has three moments a judge can see or hear: zone scores rising, the brain changing, and a live phone call.
+- Implementation Difficulty (30%): Turning human video into step lists and comparing them with the robot's actions is far more than a few prompts.
+- Impact Potential (20%): Robot onboarding is a real and expensive problem in logistics, but we still need one sourced number to say on stage.
+- Creativity (15%): Learning rules from human footage, instead of training model weights, did not appear in any past winner we studied.
 
 Round two weights all four criteria equally at 25 percent each. That means Impact Potential, which is currently our weakest criterion, matters more once we reach the final six, so the sourced statistic is worth ten minutes of someone's time today.
 
----
-
-## Who owns which layer
+Who owns which layer
 
 You asked whether Agent Engine would conflict with Harness or Raindrop on agent management, and there is no conflict once each tool owns one layer. Atlas Agent Engine owns execution and memory, which means it runs the agent and stores what the agent has learned. Atlas, the database, holds the brain graph, the snapshots, and the analysed CCTV steps as ordinary collections. Raindrop owns observation: its product records a trace of every run, meaning the full sequence of messages and tool calls, then groups recurring failures across runs into single issues and measures whether a change helped. ElevenLabs owns the human loop, which is the phone call to the Robotics Lead.
 
 This split also corrects one assumption in your write-up. Raindrop's product centres on detecting, investigating, and measuring agent failures, so it fits better as the source of evidence for an update than as the thing that performs the update. Their site does mention auto-fixing failures and a simulations feature, so one of us should read their docs at the start to see whether any of that can be called from our loop. Either way, the update itself is our own code, and Raindrop proves afterwards whether it worked, which is how a Raindrop judge would expect their product to be used.
 
----
-
-## The brain graph
+The brain graph
 
 Of the three structures you named, a hierarchical knowledge graph is the easiest and is enough for this demo. A hierarchical knowledge graph is a set of nodes arranged in levels, where each node points to its parent, so here the levels would be warehouse, zone, task, and then the rules, guardrails, and tool permissions attached to each task. MongoDB can store each node as a document with a parent_id field, and its $graphLookup aggregation stage follows those parent links recursively, so we get graph traversal without a separate graph database. A multiplex graph, which has several kinds of edges between the same nodes, would let one rule link to many tasks at once, but it costs debugging time we do not have.
 
 Snapshots sit naturally on top of this structure. After each round, the agent writes one snapshot document holding a version number, the full brain at that moment, and the scores and failures for every zone. The difference between snapshot 1 and snapshot 3, shown side by side, is the clearest single way to prove recursive self-improvement to the judges.
 
----
-
-## The main risks
+The main risks
 
 - The robot's embodiment is undefined, and the team must choose a simulation, the robotic hand, or a pure software agent.
 - CCTV footage of humans doing warehouse tasks has to come from somewhere, either a public dataset or clips we film ourselves.
@@ -58,9 +44,7 @@ Snapshots sit naturally on top of this structure. After each round, the agent wr
 - The idea has many parts, so the phone call and tool access should be added only after the core loop works end to end.
 - Our impact statistics are unsourced right now, which is a real risk when a judge asks where a number came from.
 
----
-
-## Questions for you
+Questions for you
 
 - What is the robot during the demo: a 2D warehouse simulation, the physical hand, or something else?
 - How many zones and tasks will we actually build? I would suggest 3 zones with 2 tasks each.

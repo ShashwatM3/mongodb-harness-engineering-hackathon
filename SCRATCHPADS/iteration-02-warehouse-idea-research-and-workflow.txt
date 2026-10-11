@@ -1,4 +1,4 @@
-Warehouse Robot Onboarding: Evaluation 02
+Warehouse Robot Onboarding: Iteration 02
 October 11, 2026
 
 What I researched
@@ -101,7 +101,7 @@ The impact number
 
 The best sourced numbers I found are useful but come from industry guides rather than primary research, so we should present them carefully. A 2026 guide from Robotomated puts warehouse AMR deployments at 8 to 16 weeks from contract to go-live, and it names system integration and workflow configuration as where "most deployments hit delays". Industry 4.1 reported in July 2026 that about 18 percent of AMR deployments in 2024 and 2025 needed 12 or more weeks of extra integration work, and it concluded that "the robots themselves are reliable. The deployment process is the variable." That last line is close to our pitch in one sentence. A primary source such as an Interact Analysis or McKinsey report would be stronger, but my search tool hit its rate limit before I could find one.
 
-Answers to the questions from document 01
+Answers to the questions from iteration 01
 
 - Robot: one of TwinForge's AMRs, with no physical hardware anywhere on the critical path.
 - Zones and tasks: zones B, D, and M across all four task types, with M as the hard zone because of the lift.

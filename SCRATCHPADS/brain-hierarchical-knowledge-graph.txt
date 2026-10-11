@@ -40,7 +40,7 @@ Rules and guardrails compile into TwinForge's engine settings for that zone and 
 
 How a robot loads its brain
 
-When a robot meets an exception during a PICK in zone M, the harness needs every component that applies to task:M:PICK. That set is the components attached to task:M:PICK, to zone:M, and to site:main, in other words to the task node and all of its ancestors. MongoDB's $graphLookup stage, which searches a collection recursively by following one field to another, walks up the parent_id links from task:M:PICK to site:main. A $lookup stage, which joins documents from another query, then collects every component whose parent is on that path and whose version range includes the brain version we are running. This corrects a small overstatement in document 02, because loading the brain is one aggregation pipeline with two stages, not a single query.
+When a robot meets an exception during a PICK in zone M, the harness needs every component that applies to task:M:PICK. That set is the components attached to task:M:PICK, to zone:M, and to site:main, in other words to the task node and all of its ancestors. MongoDB's $graphLookup stage, which searches a collection recursively by following one field to another, walks up the parent_id links from task:M:PICK to site:main. A $lookup stage, which joins documents from another query, then collects every component whose parent is on that path and whose version range includes the brain version we are running. This corrects a small overstatement in iteration 02, because loading the brain is one aggregation pipeline with two stages, not a single query.
 
 When two components share a key, the one attached deeper in the tree wins, so a zone M rule about the lift overrides a site-wide rule about the lift. After that, the harness applies the envelope, which is the set of limits humans set and the robot cannot change, and the envelope always wins over any component. The pipeline looks like this, with V standing for the brain version:
 
@@ -66,7 +66,7 @@ Versions and snapshots
 
 Components are never edited in place, because exact replay of old brains is how we prove improvement. Each component has a since field, which is the brain version that added it, and an until field, which is the version that retired it, or null while it is still active. Brain version N is therefore every component where since is at most N and until is null or greater than N, which is exactly the filter in the pipeline above. A separate brain_versions collection holds one document per version, with its parent version, the list of added and retired component ids, the improver's hypothesis, and the training and held-out scores.
 
-This design makes the three proofs from document 02 cheap. A replay of brain version 1 is the same pipeline with V set to 1, and a comparison of version 1 with version 3 is a list of the components whose ranges differ. Ablation, which means removing one learned rule to show the score falls back, is the same pipeline with that one component id excluded.
+This design makes the three proofs from iteration 02 cheap. A replay of brain version 1 is the same pipeline with V set to 1, and a comparison of version 1 with version 3 is a list of the components whose ranges differ. Ablation, which means removing one learned rule to show the score falls back, is the same pipeline with that one component id excluded.
 
 Who may change what
 
@@ -104,4 +104,4 @@ Decisions for you
 - Is three levels enough, or do we want a fourth level for individual stations, such as one lift?
 - Should components attach only at task nodes for the first build, with zone and site levels added later if time allows?
 - Should the brain graph and versions use plain collections only, with Agent Engine memory used just for preferences and episodes?
-- Who owns this graph: Person B, as document 02 proposed, or you, since it sits next to the twin adapter?
+- Who owns this graph: Person B, as iteration 02 proposed, or you, since it sits next to the twin adapter?

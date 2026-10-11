@@ -1,4 +1,4 @@
-# Warehouse Robot Onboarding: Evaluation 02
+# Warehouse Robot Onboarding: Iteration 02
 October 11, 2026
 
 ---
@@ -129,7 +129,7 @@ The best sourced numbers I found are useful but come from industry guides rather
 
 ---
 
-## Answers to the questions from document 01
+## Answers to the questions from iteration 01
 
 - Robot: one of TwinForge's AMRs, with no physical hardware anywhere on the critical path.
 - Zones and tasks: zones B, D, and M across all four task types, with M as the hard zone because of the lift.

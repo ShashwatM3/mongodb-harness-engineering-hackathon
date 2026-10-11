@@ -4,11 +4,11 @@ The Harness Engineering & Model Wrangling #SFTechWeek Hackathon, organized by Ce
 
 ## Two folders, two purposes
 
-This folder, `CONTEXT/`, holds the fixed background material: the brainstorm transcript, the research brief, the planning-session chat export, and this index. The numbered evaluation documents, the part that keeps growing round by round, live one level up in [`../SCRATCHPADS/`](../SCRATCHPADS/) at the repository root. Read this README for orientation, then go to `SCRATCHPADS/` for the current thinking.
+This folder, `CONTEXT/`, holds the fixed background material: the brainstorm transcript, the research brief, the planning-session chat export, and this index. The working documents, the part that keeps growing, live one level up in [`../SCRATCHPADS/`](../SCRATCHPADS/) at the repository root. Inside `SCRATCHPADS/`, files named `iteration-NN-...` are the sequential evaluation rounds on the idea as a whole; files with a plain descriptive name, such as the brain graph design or the interface contracts, are focused artifacts on one piece of the system, not a round in that sequence, and are named without a number so the two kinds are easy to tell apart at a glance. Read this README for orientation, then go to `SCRATCHPADS/` for the current thinking.
 
 ## Status: iteration is still in progress
 
-The current working idea is a self-improving onboarding harness for warehouse robots. It learns habits from clips of humans, tests every proposed brain change inside a warehouse digital twin, and phones a Robotics Lead through ElevenLabs when a change needs authority the robot does not have. Document 03 ends with four open decisions about the brain's graph that the team has not yet settled, so later documents may still revise what is written here. Each round of feedback produces a new numbered document in `SCRATCHPADS/`, earlier documents are never overwritten, and where two documents disagree, the later one wins.
+The current working idea is a self-improving onboarding harness for warehouse robots. It learns habits from clips of humans, tests every proposed brain change inside a warehouse digital twin, and phones a Robotics Lead through ElevenLabs when a change needs authority the robot does not have. The brain graph document ends with four open decisions about the brain's graph that the team has not yet settled, so later documents may still revise what is written here. Each round of feedback produces a new `iteration-NN` document in `SCRATCHPADS/`, earlier documents are never overwritten, and where two documents disagree, the later one wins.
 
 ---
 
@@ -20,15 +20,22 @@ Everything that is new, and everything that is the actual subject of this hackat
 
 ---
 
-## The numbered iteration documents, in `../SCRATCHPADS/`
+## The iteration rounds, in `../SCRATCHPADS/`
 
 | File | What it is | What it is for |
 | --- | --- | --- |
-| [`01-warehouse-idea-evaluation.md`](../SCRATCHPADS/01-warehouse-idea-evaluation.md) (+ `.txt`) | Evaluation round 1 of the warehouse robot onboarding idea. | First fact-based verdict, the correction that Harness the company is not a sponsor, who owns which layer among the sponsor tools, the first brain-graph proposal, and open questions. |
-| [`02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/02-warehouse-idea-research-and-workflow.md) (+ `.txt`) | Evaluation round 2, built on partner documentation, the New York edition's finalists, and a benchmark of TwinForge. | Chooses TwinForge as the simulator, explains how the improvement will be proven, and gives the end-to-end workflow, sponsor roles, demo script, and team split. |
-| [`03-brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/03-brain-hierarchical-knowledge-graph.md) (+ `.txt`) | Evaluation round 3, the detailed design of the robot's brain. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
-| [`04-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/04-supervisor-dashboard-and-sponsor-depth.md) (+ `.txt`) | Evaluation round 4, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
-| [`05-interface-contracts.md`](../SCRATCHPADS/05-interface-contracts.md) (+ `.txt`) | A short, urgent round written while two teammates were already building the ElevenLabs call and the MongoDB brain structure in parallel. | Pins down the exact function contract for `place_approval_call` and for `get_brain_context` / `commit_brain_version`, so both pieces plug into the supervisor later with no rework. |
+| [`iteration-01-warehouse-idea-evaluation.md`](../SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md) (+ `.txt`) | Iteration 1 of the warehouse robot onboarding idea. | First fact-based verdict, the correction that Harness the company is not a sponsor, who owns which layer among the sponsor tools, the first brain-graph proposal, and open questions. |
+| [`iteration-02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md) (+ `.txt`) | Iteration 2, built on partner documentation, the New York edition's finalists, and a benchmark of TwinForge. | Chooses TwinForge as the simulator, explains how the improvement will be proven, and gives the end-to-end workflow, sponsor roles, demo script, and team split. |
+| [`iteration-03-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md) (+ `.txt`) | Iteration 3, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. **The latest iteration.** | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
+
+## Other working documents, also in `../SCRATCHPADS/`
+
+These are not iteration rounds; each is a focused artifact on one piece of the system, named plainly rather than numbered.
+
+| File | What it is | What it is for |
+| --- | --- | --- |
+| [`brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/brain-hierarchical-knowledge-graph.md) (+ `.txt`) | The detailed design of the robot's brain, written after iteration 2. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
+| [`interface-contracts.md`](../SCRATCHPADS/interface-contracts.md) (+ `.txt`) | A short, urgent document written while two teammates were already building the ElevenLabs call and the MongoDB brain structure in parallel. | Pins down the exact function contract for `place_approval_call` and for `get_brain_context` / `commit_brain_version`, so both pieces plug into the supervisor later with no rework. |
 
 ## The background material, in this folder
 
@@ -36,24 +43,24 @@ Everything that is new, and everything that is the actual subject of this hackat
 | --- | --- | --- |
 | `notebooklm-transcript-formatted.md` | A formatted copy of the brainstorm held the day before the hackathon, in a NotebookLM notebook. The wording is unchanged from the original. | Shows how the idea moved from CI/CD agents, to robotics, to simulation-first robotics, ending on an unrelated gripper concept the team later replaced with the warehouse idea. |
 | `hackathon_deep_dive.md` | The research brief an earlier planning session wrote the night before, uploaded as a source to the same NotebookLM notebook. | Background on the event's tracks, judging weights, sponsor tools, past winners, and demo strategy. Read it with the correction below in mind; the Wi-Fi credentials and Discord invite it originally held are redacted from this public copy. |
-| `chat-export.txt` | A raw transcript of the team's planning session with Claude Code on the morning of the hackathon. | Shows the actual working process: finding and reading the sources above, correcting the Harness mistake, researching sponsor tools and past winners, and drafting documents 01 through 03. |
+| `chat-export.txt` | A raw transcript of the team's planning session with Claude Code on the morning of the hackathon. | Shows the actual working process: finding and reading the sources above, correcting the Harness mistake, researching sponsor tools and past winners, and drafting the first three working documents. |
 
 ## Suggested reading order
 
-1. [`SCRATCHPADS/05-interface-contracts.md`](../SCRATCHPADS/05-interface-contracts.md), the most current document.
-2. [`SCRATCHPADS/04-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/04-supervisor-dashboard-and-sponsor-depth.md), the most detailed design document.
-3. [`SCRATCHPADS/03-brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/03-brain-hierarchical-knowledge-graph.md), for the brain's design in full.
-4. [`SCRATCHPADS/02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/02-warehouse-idea-research-and-workflow.md), for the research, workflow, and team split behind it.
-5. [`SCRATCHPADS/01-warehouse-idea-evaluation.md`](../SCRATCHPADS/01-warehouse-idea-evaluation.md), for the first verdict and the reasoning that led here.
+1. [`SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md), the latest iteration.
+2. [`SCRATCHPADS/interface-contracts.md`](../SCRATCHPADS/interface-contracts.md), for the exact shape two teammates are building to right now.
+3. [`SCRATCHPADS/brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/brain-hierarchical-knowledge-graph.md), for the brain's design in full.
+4. [`SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md), for the research, workflow, and team split behind it.
+5. [`SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md`](../SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md), for the first verdict and the reasoning that led here.
 6. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
 7. `chat-export.txt`, for the full working process behind all of the above.
 
 ## Where new documents go from here
 
-Every new round of the idea iteration is written directly into [`../SCRATCHPADS/`](../SCRATCHPADS/) at the repository root, numbered and never overwritten. This folder, `CONTEXT/`, only changes when the fixed background material itself needs a correction.
+Every new iteration round is written directly into [`../SCRATCHPADS/`](../SCRATCHPADS/) at the repository root as `iteration-NN-...`, never overwritten. A focused document on one piece of the system, not a round of evaluating the whole idea, goes in the same folder with a plain descriptive name and no number. This folder, `CONTEXT/`, only changes when the fixed background material itself needs a correction.
 
 ## Known corrections to the earlier material
 
 - Harness (harness.io) is not a sponsor, judge, or partner of this event, even though the deep dive and the NotebookLM brainstorm both say it is. "Harness engineering" in the event's name is the technical concept of engineering the systems around a model: its rules, context policies, guardrails, and tool access.
 - The real host is MongoDB, and the product it wants teams to use is Atlas Agent Engine. The judges come from Raindrop, AWS, MongoDB, and Modelence. The partners are Modelence, Raindrop, AWS (Kiro), ElevenLabs, and Cursor.
-- The previous edition of this hackathon ran in New York on September 26, 2026, with 98 teams. Its top finishers, Ripple, Offload, and Sightline, all proved their harness's gain on held-out tests with the underlying model held fixed. Document 02 has the details and what it means for this team's approach.
+- The previous edition of this hackathon ran in New York on September 26, 2026, with 98 teams. Its top finishers, Ripple, Offload, and Sightline, all proved their harness's gain on held-out tests with the underlying model held fixed. Iteration 2 has the details and what it means for this team's approach.
