@@ -1,0 +1,107 @@
+The Robot Brain as a Hierarchical Knowledge Graph
+October 11, 2026
+
+What this document covers
+
+This document explains the structure we will use to store the robot's brain, which is a hierarchical knowledge graph, and shows exactly what it looks like for our warehouse idea. The brain is the set of things Track 1 asks a harness to evolve: rules, context policies, guardrails, and tool access. Everything here lives in our own MongoDB Atlas collections, because we need exact control over versions, permissions, and queries. The values in the examples, such as holding point names and distances, are illustrations, and the team will set the real ones once the twin adapter exists.
+
+What a hierarchical knowledge graph is
+
+A knowledge graph is a set of nodes, where each node stores one fact or one object, connected by edges that state how the nodes relate. A hierarchical knowledge graph is a knowledge graph whose main edges form levels, so every node except the top one has exactly one parent, and the parent describes a broader scope than its child. In our brain, the top node is the whole warehouse, the nodes below it are zones, and the nodes below each zone are task types within that zone. That shape lets a rule live at the scope where it is true: a rule on the warehouse node applies everywhere, a rule on a zone node applies only in that zone, and a rule on a task node applies only to that task in that zone.
+
+We chose this over a flat list and over a multiplex graph. A flat list of rules cannot express scope, so the agent would see every rule for every zone and the judges could not see where a rule applies. A multiplex graph, meaning a graph with several kinds of edges between the same nodes, would let one rule connect to many places at once, but it costs debugging time we do not have. Our design keeps one kind of edge for scope and stores the other relationships as plain references, which a later section explains.
+
+The levels of the graph
+
+    SITE   site:main  (the whole warehouse)
+     |-- ZONE   zone:B
+     |    |-- TASK   task:B:PICK, task:B:REPLENISH, task:B:TRANSPORT, task:B:RETURN
+     |-- ZONE   zone:D
+     |    |-- TASK   task:D:PICK, task:D:REPLENISH, task:D:TRANSPORT, task:D:RETURN
+     |-- ZONE   zone:M  (mezzanine, reached by freight lift)
+          |-- TASK   task:M:PICK
+          |    |-- rule            wait at a holding point when the lift queue is 2 or more
+          |    |-- guardrail       speed cap of 0.8 m/s inside the lift lobby
+          |    |-- context policy  show the last 3 lift episodes in zone M
+          |    |-- tool grant      wait_at_holding_point is allowed
+          |-- TASK   task:M:REPLENISH, task:M:TRANSPORT, task:M:RETURN
+
+The skeleton has 16 nodes: 1 site, 3 zones, and 12 task types, because the three scored zones (B, D, and M) each carry TwinForge's four task types. The skeleton comes straight from the TwinForge warehouse spec, it is written once at the start of the day, and the improver never changes it. Brain components hang below skeleton nodes, and they can attach at any of the three levels, not only at task nodes. With a few dozen components, the whole brain stays small enough to show on one screen.
+
+The four kinds of brain component
+
+Each brain component is one document with a kind field, and the four kinds match the four things Track 1 names. Every component also has a key, which is a short name for the behaviour it controls, such as lift_queue_behaviour, so that two components about the same behaviour at different levels can be compared.
+- rule: a behaviour the robot should follow, written as a condition and an action, such as "lift queue of 2 or more, then wait at holding point".
+- guardrail: a hard limit that the engine enforces on every tick, such as a speed cap or a minimum distance to people.
+- context policy: what memory the robot agent sees at an exception point, such as the last 3 lift episodes in this zone.
+- tool grant: whether the robot agent may use a named tool, such as reroute, wait_at_holding_point, swap_task, or go_charge.
+
+Rules and guardrails compile into TwinForge's engine settings for that zone and task type, which keeps most behaviour fast and deterministic. Context policies and tool grants shape the language model's view and options at exception points, which are the moments the engine flags as abnormal, such as a robot blocked for more than 2.5 seconds.
+
+How a robot loads its brain
+
+When a robot meets an exception during a PICK in zone M, the harness needs every component that applies to task:M:PICK. That set is the components attached to task:M:PICK, to zone:M, and to site:main, in other words to the task node and all of its ancestors. MongoDB's $graphLookup stage, which searches a collection recursively by following one field to another, walks up the parent_id links from task:M:PICK to site:main. A $lookup stage, which joins documents from another query, then collects every component whose parent is on that path and whose version range includes the brain version we are running. This corrects a small overstatement in document 02, because loading the brain is one aggregation pipeline with two stages, not a single query.
+
+When two components share a key, the one attached deeper in the tree wins, so a zone M rule about the lift overrides a site-wide rule about the lift. After that, the harness applies the envelope, which is the set of limits humans set and the robot cannot change, and the envelope always wins over any component. The pipeline looks like this, with V standing for the brain version:
+
+    db.brain_nodes.aggregate([
+      { $match: { _id: "task:M:PICK" } },
+      { $graphLookup: { from: "brain_nodes", startWith: "$parent_id",
+          connectFromField: "parent_id", connectToField: "_id", as: "ancestors" } },
+      { $project: { scope: { $concatArrays: [ ["$_id"], "$ancestors._id" ] } } },
+      { $lookup: { from: "brain_nodes", let: { scope: "$scope" }, pipeline: [
+          { $match: { $expr: { $in: [ "$parent_id", "$$scope" ] },
+              kind: { $in: [ "rule", "guardrail", "context_policy", "tool_grant" ] },
+              since: { $lte: V }, $or: [ { until: null }, { until: { $gt: V } } ] } } ],
+          as: "components" } }
+    ])
+
+The links that make it a graph
+
+The parent_id links form a tree, and a tree alone cannot answer the question a judge will ask: why does this rule exist? Each component therefore also carries an evidence field holding references to other documents, and those references are the extra edges that turn the tree into a graph. A rule's evidence points to the human habit it came from in the playbook, the failure episodes that motivated it, the Raindrop signal that counted those failures, and the gate run that proved it helped. These reference edges are only followed when someone asks for an explanation, so they never slow down brain loading.
+
+This gives the demo a clean click path. A judge can start at a rule in zone M, follow its evidence to the clip of a teammate waiting beside a doorway, then to the three lift jams it fixed, and then to the gate result with the held-out score. That path is the whole story of the product in four hops, and every hop is a real document in Atlas.
+
+Versions and snapshots
+
+Components are never edited in place, because exact replay of old brains is how we prove improvement. Each component has a since field, which is the brain version that added it, and an until field, which is the version that retired it, or null while it is still active. Brain version N is therefore every component where since is at most N and until is null or greater than N, which is exactly the filter in the pipeline above. A separate brain_versions collection holds one document per version, with its parent version, the list of added and retired component ids, the improver's hypothesis, and the training and held-out scores.
+
+This design makes the three proofs from document 02 cheap. A replay of brain version 1 is the same pipeline with V set to 1, and a comparison of version 1 with version 3 is a list of the components whose ranges differ. Ablation, which means removing one learned rule to show the score falls back, is the same pipeline with that one component id excluded.
+
+Who may change what
+
+MongoDB permissions apply to whole collections, not to single documents, so we separate the data into collections by who may write them. The improver runs under its own database user with a custom role, and the role decides what it can read and write.
+- brain_nodes and brain_versions: the improver may read and write, but only by adding versions, never by deleting history.
+- envelope: the improver may read but not write, since humans own these limits and change them only through the approval call.
+- playbook: habits extracted from our human clips, which the improver may read but not edit.
+- episodes: failure and success records from each shift, which the shift runner writes and the improver reads.
+- heldout_seeds: the locked test shifts, which the improver cannot read at all and only the gate can use.
+
+A worked example: the lift jam in zone M
+
+In brain version 1, robots doing PICK in zone M queue for the freight lift in the traffic lane, and the queue blocks other robots, so zone M scores low. The shift runner writes those jams to episodes, and Raindrop counts them as a signal. The improver compares the robot's step trace with the playbook habit "wait beside the doorway, not in it", and proposes a rule on task:M:PICK plus a tool grant for wait_at_holding_point. The gate replays the training shifts and the locked held-out shifts, and both scores rise, so brain version 2 adds the two components with since set to 2. The two documents look like this:
+
+    { _id: "rule:014", kind: "rule", parent_id: "task:M:PICK", key: "lift_queue_behaviour",
+      when: "lift_queue_length >= 2", then: "wait_at_holding_point",
+      since: 2, until: null,
+      evidence: { habit_id: "habit:wait-beside-doorway", episode_ids: ["ep:s41:0183", "ep:s41:0207"],
+                  signal: "raindrop:lift_jam", gate_run_id: "gate:v2" } }
+    { _id: "grant:006", kind: "tool_grant", parent_id: "task:M:PICK", key: "wait_at_holding_point",
+      allowed: true, since: 2, until: null, evidence: { gate_run_id: "gate:v2" } }
+
+If the improver had instead proposed lowering the minimum distance to people in the lift lobby, that change would collide with the envelope. The harness would pause, Agent Engine would route the request to human approval, and ElevenLabs would phone the Robotics Lead. The answer would be stored as a preference, and only a human-approved change to the envelope could allow it.
+
+Where Agent Engine memory fits
+
+Atlas Agent Engine's memory service stores four kinds of memory and retrieves them by meaning: semantic for facts and preferences, episodic for past events, procedural for how to do things, and taxonomic for domain vocabulary. Our graph maps onto those kinds closely, because the skeleton is taxonomic, the components are procedural, the episodes are episodic, and the Robotics Lead's answers are semantic. Even so, the brain graph itself should stay in our own collections, because the memory service retrieves by similarity and we need exact versions, exact permissions, and exact replay. The memory service fits the softer parts instead: the Robotics Lead's preferences, and similar past episodes that a context policy asks to show the robot agent. One person should confirm the memory API and the sandbox cluster tier at the start, since memory needs at least an Atlas Flex cluster.
+
+How this shows up in the demo
+
+The graph gives the demo two concrete visuals. The first is the tree drawn on screen for brain version 1 and brain version 3 side by side, with added components highlighted, so the judges can see where the robot changed its own behaviour. The second is the same components open in the Atlas data explorer, which shows the MongoDB judge that the brain really lives in Atlas, along with the evidence references that explain each change.
+
+Decisions for you
+
+- Is three levels enough, or do we want a fourth level for individual stations, such as one lift?
+- Should components attach only at task nodes for the first build, with zone and site levels added later if time allows?
+- Should the brain graph and versions use plain collections only, with Agent Engine memory used just for preferences and episodes?
+- Who owns this graph: Person B, as document 02 proposed, or you, since it sits next to the twin adapter?
