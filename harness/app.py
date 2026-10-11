@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -166,7 +167,7 @@ async def incident_metrics(incident_id: str, keys: str | None = None, st: State 
 
 @app.post("/proposals/{proposal_id}/revisions")
 async def proposal_revision(proposal_id: str, body: dict, st: State = Depends(outbound_auth)):
-    inc = next((i for i in st.incidents.values() if i["revisions"][-1]["proposal_id"] == proposal_id), None)
+    inc = st.incidents.get(body.get("incident_id", "")) or next((i for i in st.incidents.values() if i["revisions"][-1]["proposal_id"] == proposal_id), None)
     if not inc:
         return {"accepted": False, "reason": "I do not know that proposal."}
     base = inc["revisions"][-1]
@@ -188,23 +189,33 @@ async def proposal_revision(proposal_id: str, body: dict, st: State = Depends(ou
         edits[ch["key"]] = v
     if not edits:
         return {"accepted": False, "reason": "No change was given."}
-    res = T.propose_edit(st, edits, f"Revision by {body.get('requested_by', 'the Robotics Lead')}: {body.get('rationale', '')}", origin="robotics_lead")
-    if res.get("status") == "invalid":
-        return {"accepted": False, "reason": f"The twin refused it: {res.get('reason')}."}
-    gate = T.run_gate(st, res["gate_run_id"])
-    zones = res.get("zones") or {}
-    best = max(zones, key=lambda z: zones[z]["delta"]) if zones else None
-    moved = ", ".join(f"zone {z} {v['base']:.2f}→{v['cand']:.2f}" for z, v in sorted(zones.items()) if abs(v["delta"]) >= 0.005) or "no zone score moved"
+    # Answer inside the voice tool's timeout: validate now, measure in the background, the gate re-checks before promotion.
+    label = ", ".join(f"{k.split('.')[-1]} at {v}" for k, v in edits.items())
     new = {**base, "revision": base["revision"] + 1, "proposal_id": base["proposal_id"], "created_at": datetime.now(timezone.utc).isoformat(),
            "changes": [{"op": "set_param", "key": k, "value": v} for k, v in edits.items()],
            "editable_parameters": [{**p, "proposed_value": edits.get(p["key"], p["proposed_value"])} for p in base["editable_parameters"]],
-           "summary": f"Set {', '.join(f'{k}={v}' for k, v in edits.items())} (gate run {res['gate_run_id']}, {gate['verdict']}).",
-           "plain_summary": (f"With {', '.join(f'{k.split(chr(46))[-1]} at {v}' for k, v in edits.items())}, the twin measured {moved}; the gate says {gate['verdict'].replace('_', ' ')}." )[:400],
-           "justification": f"Re-measured on the training shifts: {moved}. Gate: {gate['reason']}."}
+           "summary": f"Set {', '.join(f'{k}={v}' for k, v in edits.items())} (revision {base['revision'] + 1}, measuring).",
+           "plain_summary": f"With {label}: the twin is measuring it on the training shifts now, and the gate will re-check the exact value on held-out shifts before anything is promoted."[:400],
+           "justification": f"Requested by {body.get('requested_by', 'the Robotics Lead')}: {body.get('rationale', '')}. Inside the allowed range; being measured."}
     inc["revisions"].append(new)
-    inc["revision_runs"] = {**inc.get("revision_runs", {}), str(new["revision"]): res["gate_run_id"]}
-    st.bus.emit("revision", incident_id=inc["incident"]["incident_id"], revision=new["revision"], edits=edits, verdict=gate["verdict"])
-    return {"accepted": True, "proposal": new, "note": gate["reason"]}
+    st.incidents.save(inc["incident"]["incident_id"], inc)
+    hyp = f"Revision by {body.get('requested_by', 'the Robotics Lead')}: {body.get('rationale', '')}"
+
+    def measure():
+        try:
+            res = T.propose_edit(st, edits, hyp, origin="robotics_lead")
+            cur = st.incidents.get(inc["incident"]["incident_id"]) or inc
+            cur["revision_runs"] = {**cur.get("revision_runs", {}), str(new["revision"]): res["gate_run_id"]}
+            st.incidents.save(inc["incident"]["incident_id"], cur)
+            if res.get("status") != "invalid":
+                g = T.run_gate(st, res["gate_run_id"])
+                st.bus.emit("revision", incident_id=inc["incident"]["incident_id"], revision=new["revision"], edits=edits, verdict=g["verdict"], reason=g["reason"])
+        except Exception:
+            log.exception("revision measurement failed")
+
+    threading.Thread(target=measure, daemon=True).start()
+    st.bus.emit("revision", incident_id=inc["incident"]["incident_id"], revision=new["revision"], edits=edits, verdict="measuring")
+    return {"accepted": True, "proposal": new, "note": f"{label} is inside the allowed range; measuring it now."}
 
 
 @app.post("/feedback")
@@ -217,8 +228,20 @@ async def feedback(body: dict, request: Request, st: State = Depends(outbound_au
         return {"accepted": False, "reason": "unknown incident"}
     decision = body.get("decision")
     rev = str(body.get("revision") or inc["revisions"][-1]["revision"])
-    gate_run_id = inc.get("revision_runs", {}).get(rev, inc["gate_run_id"])
+    gate_run_id = inc.get("revision_runs", {}).get(rev)
+    for _ in range(60):  # a revision may still be measuring (≈40 s); wait for its gate run before deciding
+        if gate_run_id or rev == "1":
+            break
+        await asyncio.sleep(1)
+        inc = st.incidents.get(body.get("incident_id", "")) or inc
+        gate_run_id = inc.get("revision_runs", {}).get(rev)
+    gate_run_id = gate_run_id or inc["gate_run_id"]
     run = st.gate.c("gate_runs").find_one({"_id": gate_run_id}) or {}
+    for _ in range(60):
+        if run.get("verdict") not in (None, "new", "evaluated") or not run:
+            break
+        await asyncio.sleep(1)
+        run = st.gate.c("gate_runs").find_one({"_id": gate_run_id}) or {}
     by = st.cfg.lead_name
     ref = f"feedback:{body.get('feedback_id', key)}"
     out: dict[str, Any] = {"decision": decision, "gate_run_id": gate_run_id}
@@ -246,6 +269,7 @@ async def feedback(body: dict, request: Request, st: State = Depends(outbound_au
         return JSONResponse({"accepted": False, "reason": str(e)[:300]}, status_code=200)
     st.feedback_seen.add(key)
     inc["decision"] = {**out, "at": time.time(), "channel": body.get("channel")}
+    st.incidents.save(inc["incident"]["incident_id"], inc)
     st.bus.emit("decision", incident_id=inc["incident"]["incident_id"], **out)
     return {"accepted": True}
 

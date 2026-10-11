@@ -49,13 +49,13 @@ FAKE_EXCEPTION = {"id": "ex-fake-1", "robot_id": "HUM-1-07", "kind": "OBSTACLE_D
 _kg = None
 
 
-def brain_context(node_id: str) -> list[dict]:
+def brain_context(node_id: str, reader: str = "worker-driver") -> list[dict]:
     """Compact brain components for a node; empty on any KG problem so the worker still answers."""
     global _kg
     try:
         if _kg is None:
             _kg = kg.connect("improver", with_runner=False)
-        ctx = _kg.get_brain_context(node_id, reader="worker-driver")
+        ctx = _kg.get_brain_context(node_id, reader=reader)
         return [{"kind": c["kind"], "key": c["key"], "when": c["when"], "then": c["then"]} for c in ctx["components"]]
     except Exception as e:
         log.warning("brain context unavailable for %s: %s", node_id, e)
@@ -119,7 +119,7 @@ def devin(exc: dict, context: list[dict]) -> dict:
 
 
 def choose(exc: dict, backend: str, offline: bool = False) -> dict:
-    context = [] if offline else brain_context(node_for(exc.get("ctx") or {}))
+    context = [] if offline else brain_context(node_for(exc.get("ctx") or {}), reader=str(exc.get("robot_id") or "worker-driver"))
     if backend == "devin":
         try:
             return {**devin(exc, context), "by": f"devin:{MODEL}"}

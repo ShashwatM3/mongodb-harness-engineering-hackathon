@@ -44,6 +44,33 @@ class EventBus:
         self.subscribers.discard(q)
 
 
+class IncidentStore:
+    """Dict-like view over the `harness_incidents` collection, so every harness process (service, loop, scripts)
+    serves routes B-F for every incident this harness ever raised."""
+
+    def __init__(self, gate: kg.KG):
+        self.c = gate.c("harness_incidents")
+
+    def get(self, k: str, default=None):
+        d = self.c.find_one({"_id": k})
+        return default if d is None else d["doc"]
+
+    def __contains__(self, k: str):
+        return self.c.count_documents({"_id": k}, limit=1) > 0
+
+    def __setitem__(self, k: str, v: dict):
+        self.c.replace_one({"_id": k}, {"_id": k, "doc": v, "updated_at": time.time()}, upsert=True)
+
+    def save(self, k: str, v: dict):
+        self[k] = v
+
+    def items(self):
+        return [(d["_id"], d["doc"]) for d in self.c.find({}).sort("updated_at", 1)]
+
+    def values(self):
+        return [v for _, v in self.items()]
+
+
 class State:
     def __init__(self, cfg: Settings | None = None):
         kg.load_dotenv()
@@ -53,7 +80,7 @@ class State:
         self.gate.seed()
         ensure_heldout_seeds(self.gate, self.cfg)
         self.proposals: dict[str, kg.Proposal] = {}          # gate_run_id -> Proposal (evaluate needs the object)
-        self.incidents: dict[str, dict] = {}                  # incident_id -> {incident, gate_run_id, revisions, decision}
+        self.incidents = IncidentStore(self.gate)             # incident_id -> {incident, gate_run_id, revisions, decision}; persisted in Atlas
         self.feedback_seen: set[str] = set()                  # Idempotency-Key dedupe
         self.bus = EventBus()
         self.loop_status: dict = {"running": False, "round": 0, "rounds": 0, "last": None}
