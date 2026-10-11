@@ -30,6 +30,30 @@ curl -X POST "https://agentengine.mongodb.com/api/v1/projects/6acbd17a528cf59607
 - Each `preference:` line becomes a brain component.
 - Resuming needs the `PROJECT_OWNER` role.
 
+## Deployed
+
+Workspace `ws-6acbf1ccf638d6502445e49e`, first deployed 2026-10-11 13:52. Cluster0 is linked through the Atlas service account `rsi-kg-agentengine`. Both sandboxes use `egress_mode: deny_all`, so the linked cluster is the only reachable destination.
+
+**The platform's own database user** is `agent-engine-ws-…`. `atlas setup` created it with readWriteAnyDatabase; it now has `readWrite@mdb_store_<project>` and `readWrite@mdb_memory_<project>` only, so it can't read `heldout_results`.
+
+**Workspace secrets** select the database:
+- `KG_MONGODB_URI_GATE` and `KG_DB`.
+- `LLM_API_KEY` and `ANTHROPIC_API_KEY` are placeholders: deploy refuses to run without them, even though nothing calls a model.
+
+To switch databases without redeploying, run from `agents/kg-approval`:
+
+```bash
+printf '%s' "$GATE_URI_FOR_DB" | agentengine secret set KG_MONGODB_URI_GATE --stdin --workspace-scope
+printf 'kg' | agentengine secret set KG_DB --stdin --workspace-scope --sync      # or kg_demo
+```
+
+To test from the CLI:
+
+```bash
+agentengine invoke --json --session S "approve gr-…"
+agentengine invoke --json --session S --resume '{"<interrupt id>": {"decision": "approve"}}'
+```
+
 ## Local
 
 ```bash
