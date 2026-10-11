@@ -23,7 +23,8 @@ from typing import Any, Callable, Optional
 
 from .hashing import shift_id
 
-OBJECTIVE = ("Propose a JSON object of brain setting edits {target: value} for a humanoid warehouse fleet. "
+OBJECTIVE = ("Propose a JSON object of brain setting edits {target: value} for a warehouse fleet of legged "
+             "robots (four legs, one arm) that reach the mezzanine by the stairs or the freight lifts. "
              "Raise the per-zone on-time scores, the worst zone first, without making any zone worse. "
              "Only targets listed in the context's section C may change, within their min and max. "
              "Locked settings need a phone approval from the Robotics Lead. Don't repeat what section B shows.")

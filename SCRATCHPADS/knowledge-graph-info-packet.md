@@ -166,18 +166,20 @@ The failure groups and leaves, the six time states and the two outcome leaves ca
 
 **The `yielding` lever group is empty on purpose.** No setting expresses "give way to another robot". A habit from the clips that lands there is a *capability gap*: the robot cannot express that behaviour yet. That is a result worth showing, not a defect to hide.
 
+**The `manipulation` lever group is a placeholder.** The robot is a legged quadruped with one arm, and its torso rises and lowers to reach each shelf level. TwinForge has no arm in the engine yet. So the group holds four settings, `sim.GRASP_SPEED_PCT_L1` to `_L4` (arm speed per shelf level), pinned at min = max = 100. That keeps them out of the improver's reach, and they never reach the runner. Widen their ranges, and rename them to match the runner, once `/settings` serves an arm.
+
 ### 3.8 The settings registry
 
 The registry is the list of what the brain may change. Each setting has a status that decides what happens when the brain edits it:
 
 | Status | Meaning | Count |
 | --- | --- | --- |
-| `editable` | The brain may set it within [min, max]. | 15 |
+| `editable` | The brain may set it within [min, max]. | 19 |
 | `locked` | Differs from v1 only with a human approval (the phone call). | 4 |
 | `fixed` | Locked and never approvable. Any edit is rejected. | 1 |
 | `spec` | Describes the building or robot. Never set by the brain. | 3 |
 
-Until the runner serves `GET /settings`, the registry is a static table copied from TwinForge's humanoid overlay. `sync_settings()` replaces it with the runner's own registry once that endpoint exists, refreshes the envelope bounds and lever leaves, and reports every difference. It never touches existing components, because they are history. The full table is Appendix A. Two bounds (`sim.PERC_STOP` max 3.0 and `sim.PERC_SLOW` max 5.0) are placeholders until `/settings` settles them.
+Until the runner serves `GET /settings`, the registry is a static table copied from TwinForge's warehouse overlay (class `HUM-1`, a legged quadruped with one arm). `sync_settings()` replaces it with the runner's own registry once that endpoint exists, refreshes the envelope bounds and lever leaves, and reports every difference. It never touches existing components, because they are history. The full table is Appendix A. Two bounds (`sim.PERC_STOP` max 3.0 and `sim.PERC_SLOW` max 5.0) are placeholders until `/settings` settles them.
 
 ---
 
@@ -620,7 +622,7 @@ Iteration 03's four Track 1 items map to KG kinds as: rules, guardrails (live), 
 
 Also open from iteration 03: who owns the Managed MCP Server setup. Whether a custom collection-scoped role works for it is answered: no (section 5).
 
-**Robot form.** Iterations 02 and 03 describe wheeled AMRs. The KG's settings registry is built on TwinForge's humanoid overlay (`class.HUM-1.*` keys). The KG's structure is identical either way, and only a handful of registry keys and notes would change. This needs one team-wide answer.
+**Robot form: decided.** The robot is a legged quadruped with one arm, like a Spot with a manipulator, not a biped. In TwinForge it is `locomotion: "legged"` with `can_climb_stairs: true`, which `main` already renders (`QuadrupedMesh`) and simulates (legged robots with that flag take the stairs). The registry dropped its Digit and biped wording, but kept every stair setting, the locked speed, and all values, so brain v1's patch hash is unchanged. It also gained the `manipulation` placeholder group (section 3.7). Still open: the class id the TwinForge spec will use. The registry keeps `HUM-1`, the local overlay's id, until Shashwat confirms.
 
 ---
 
@@ -737,6 +739,7 @@ Groups are the lever groups. A dash means the brain never sets it. v1 is the bas
 | `sim.STAIR_CAPACITY` | - | spec | 2 | 2 | 2 | 99 |
 | `sim.STAIR_LOAD_TICKS` | - | spec | 40 | 40 | 40 | 0 |
 | `sim.BATTERY_STAIR` | - | spec | 0.01 | 0.01 | 0.01 | 0 |
+| `sim.GRASP_SPEED_PCT_L1` … `_L4` | manipulation | editable (placeholder) | 100 | 100 | 100 | 100 |
 
 `zone.M.capacity` is a weak lever: it changes a congestion reading that feeds assignment scoring, not how many robots may enter the zone.
 
@@ -770,7 +773,7 @@ c:outcome                                   Outcomes in the worst zone (second r
 
 c:lever                                     What the brain can change
   floor_change (4 settings)   waiting (2)   energy (2)   dispatch (6)   motion (3, locked)
-  yielding (0: capability gap)
+  yielding (0: capability gap)   manipulation (0: 4 placeholder settings pinned until the engine has an arm)
   leaves: c:lever/<group>/<setting target>, carrying target, min, max, v1 and status
 ```
 

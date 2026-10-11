@@ -1,9 +1,15 @@
 """The settings registry: what the brain may change, and in which lever group.
 
 Until the runner serves `GET /settings`, this is the table in section 6 of
-reference/twinforge-humanoid-plan.md, with values from the humanoid overlay
-(physical-ai src/harness/overlay.ts at 214f270). `from_settings_response()`
-replaces it with the runner's own registry once WP-R/WP-B land.
+reference/twinforge-humanoid-plan.md, with values from TwinForge's warehouse overlay
+(physical-ai src/harness/overlay.ts at 214f270, on the local, unpushed branch
+hackathon/humanoid-twin). `from_settings_response()` replaces it with the runner's own
+registry once WP-R/WP-B land.
+
+The robot is a legged quadruped with one arm (team decision, 2026-10-11): TwinForge's
+`locomotion: "legged"` with `can_climb_stairs: true`, so it takes the stairs or the lift,
+and its torso rises and lowers to reach each shelf level. Class id `HUM-1` is the overlay's
+current id; rename the `class.HUM-1.*` keys if the TwinForge spec settles on another.
 
 Statuses follow contract.ts:
   editable  the brain may set it within [min, max]
@@ -18,7 +24,7 @@ from typing import Optional
 
 from .contract import SettingsResponse
 
-LEVER_GROUPS = ["floor_change", "waiting", "energy", "dispatch", "motion", "yielding"]
+LEVER_GROUPS = ["floor_change", "waiting", "energy", "dispatch", "motion", "yielding", "manipulation"]
 
 LEVER_GROUP_LABELS = {
     "floor_change": "How robots change floors (stairs or lift)",
@@ -27,6 +33,7 @@ LEVER_GROUP_LABELS = {
     "dispatch": "Which robot gets which task, and where idle robots go",
     "motion": "Speed and safety distances (locked: needs a call)",
     "yielding": "Giving way to other robots (no setting expresses this yet)",
+    "manipulation": "Reaching and grasping at each shelf level (placeholder: the engine has no arm yet)",
 }
 
 
@@ -123,10 +130,10 @@ SETTINGS: list[Setting] = [
          note="a weak lever: it does not limit how many robots enter the zone (TwinForge finding 8)")
       for z, cap in (("A", 6), ("B", 6), ("C", 6), ("D", 6), ("M", 8))],
     _s("class.HUM-1.capacity", "Load units a HUM-1 robot carries", 1, 1, 1, 1, "editable", "dispatch",
-       note="up to the spec-sheet maximum: Digit 4 carries one 16 kg tote"),
+       note="one 16 kg tote, held by the arm"),
     # motion (locked)
     _s("class.HUM-1.max_speed", "Top walking speed of HUM-1 robots (m/s)", 1.5, 1.2, 0.3, 1.5, "locked", "motion",
-       integer=False, grid=(1.35, 1.5, 1.0), note="brain v1 runs at 80% of the spec sheet; raising it needs a call"),
+       integer=False, grid=(1.35, 1.5, 1.0), note="brain v1 runs at 80% of the class's 1.5 m/s; raising it needs a call"),
     _s("sim.PERC_STOP", "LiDAR stopping distance (m)", 1.7, 1.7, 1.2, 5, "locked", "motion", integer=False,
        grid=(1.5, 2.0)),
     _s("sim.PERC_SLOW", "LiDAR slow-down distance (m); at least PERC_STOP", 2.8, 2.8, 1.2, 8, "locked", "motion",
@@ -140,6 +147,12 @@ SETTINGS: list[Setting] = [
          d, v, v, v, "spec", None, integer=False, note="frozen in WP-T (overlay STAIR_COSTS)")
       for k, d, v in (("STAIR_CLIMB_TICKS", 80, 240), ("STAIR_CAPACITY", 99, 2), ("STAIR_LOAD_TICKS", 0, 40),
                       ("BATTERY_STAIR", 0, 0.01))],
+    # manipulation: placeholders until TwinForge's quadruped gets its arm and torso lift. min == max keeps them
+    # out of the improver's reach (not levers) and the runner never sees them; widen the range once it serves them.
+    *[_s(f"sim.GRASP_SPEED_PCT_L{n}", f"Arm speed when picking from or placing on shelf level {n} "
+         "(% of top speed; slower is steadier)", 100, 100, 100, 100, "editable", "manipulation", integer=False,
+         note="placeholder: no engine setting yet; names follow the runner once it adds the arm")
+      for n in (1, 2, 3, 4)],
 ]
 
 
@@ -156,6 +169,8 @@ def group_for(target: str) -> Optional[str]:
         return "dispatch"
     if t.endswith(".max_speed") or t.startswith("sim.PERC_") or t == "sim.MIN_SEP":
         return "motion"
+    if t.startswith("sim.GRASP_") or t.startswith("sim.REACH_") or t.startswith("sim.TORSO_"):
+        return "manipulation"
     return None
 
 
@@ -226,6 +241,9 @@ def rule_text(target: str, value: float) -> tuple[str, str]:
         return "choosing a robot for a task", f"weigh {target.removeprefix('assign.W_').lower()} at {v:g}"
     if target.startswith("zone.") and target.endswith(".capacity"):
         return f"zone {target.split('.')[1]} holds {v:g} robots", "treat it as congested when assigning"
+    if target.startswith("sim.GRASP_SPEED_PCT_L"):
+        return (f"picking from or placing on shelf level {target.removeprefix('sim.GRASP_SPEED_PCT_L')}",
+                f"move the arm at {v:g}% of its top speed")
     return "always", f"set {target} to {v:g}"
 
 
