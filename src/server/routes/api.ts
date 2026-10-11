@@ -65,7 +65,8 @@ export function registerApiRoutes(app: FastifyInstance, gw: Gateway) {
   });
 
   // ---- simulated phone leg (softphone in the dashboard) ----
-  app.get('/api/calls/ringing', async () => {
+  app.get('/api/calls/ringing', async (_req, reply) => {
+    reply.header('cache-control', 'no-store');
     const call = await gw.db.c.calls.findOne(
       { provider: 'simulated', status: 'RINGING', ring_deadline: { $gt: new Date() } },
       { sort: { created_at: -1 } },

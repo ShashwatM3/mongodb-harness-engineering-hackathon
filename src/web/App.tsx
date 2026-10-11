@@ -30,6 +30,8 @@ export function App() {
   /** Call answered in this tab; other tabs dismiss their ringing card when the call is answered elsewhere. */
   const answeredHere = useRef<string | null>(null);
   const ringEventVersion = useRef(0);
+  const ringPollVersion = useRef(0);
+  const lastApiSuccess = useRef(0);
 
   const notify = useCallback((m: string) => {
     setToast(m);
@@ -40,6 +42,18 @@ export function App() {
   const loadDetail = useCallback(async (id: string) => {
     const a = await api<Aggregate>('GET', `/api/incidents/${id}`);
     if (selRef.current === id) setAgg(a);
+  }, []);
+
+  // A phone tunnel can keep ordinary requests working while its event stream disconnects.
+  // Reconcile the current ring independently so an incoming call still appears.
+  const pollRinging = useCallback(async () => {
+    const request = ++ringPollVersion.current;
+    const version = ringEventVersion.current;
+    const current = await api<Ringing | null>('GET', '/api/calls/ringing');
+    lastApiSuccess.current = Date.now();
+    setConnected(true);
+    if (request !== ringPollVersion.current || version !== ringEventVersion.current) return;
+    setRing((existing) => (existing && answeredHere.current === existing.call_id ? existing : current));
   }, []);
 
   // Phones block sound until the first tap: unlock it then, so an incoming call can ring.
@@ -58,6 +72,12 @@ export function App() {
   }, [loadList]);
 
   useEffect(() => {
+    void pollRinging().catch(() => {});
+    const id = window.setInterval(() => void pollRinging().catch(() => {}), 2000);
+    return () => window.clearInterval(id);
+  }, [pollRinging]);
+
+  useEffect(() => {
     setAgg(null);
     setTrajectory(null);
     setMetrics([]);
@@ -73,13 +93,9 @@ export function App() {
     let pending: number | null = null;
     es.onopen = () => {
       setConnected(true);
-      // SSE cannot replay a call that started before this tab connected.
-      const version = ringEventVersion.current;
-      void api<Ringing | null>('GET', '/api/calls/ringing').then((current) => {
-        if (current && version === ringEventVersion.current) setRing((existing) => existing ?? current);
-      }).catch(() => {});
+      void pollRinging().catch(() => {});
     };
-    es.onerror = () => setConnected(false);
+    es.onerror = () => setConnected(Date.now() - lastApiSuccess.current < 10_000);
     es.onmessage = (msg) => {
       const e = JSON.parse(msg.data) as ServerEvent;
       if (e.type === 'call.ringing' && e.data.provider && e.data.provider !== 'simulated') notify('Calling your phone…');
@@ -108,11 +124,17 @@ export function App() {
       }, 120);
     };
     return () => es.close();
-  }, [loadList, loadDetail, notify]);
+  }, [loadList, loadDetail, notify, pollRinging]);
 
   const trigger = async () => {
-    const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${scenario}/trigger`);
-    setSelected(r.incident_id);
+    try {
+      const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${scenario}/trigger`);
+      setSelected(r.incident_id);
+      void loadList();
+      void pollRinging().catch(() => {});
+    } catch (e) {
+      notify(e instanceof Error ? e.message : String(e));
+    }
   };
 
   return (
