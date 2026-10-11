@@ -98,7 +98,7 @@ def test_parse_candidate_rejects_booleans_and_text():
 
 def test_skeleton_and_ontology_shapes():
     sk = skeleton_nodes()
-    assert len(sk) == 21 and sum(n["kind"] == "task" for n in sk) == 16
+    assert len(sk) == 26 and sum(n["kind"] == "task" for n in sk) == 20
     docs = concept_docs()
     ids = {d["_id"] for d in docs}
     assert all(d["parent_id"] is None or d["parent_id"] in ids for d in docs)

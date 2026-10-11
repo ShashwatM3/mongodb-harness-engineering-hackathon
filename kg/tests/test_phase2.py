@@ -167,7 +167,7 @@ def test_lineage_and_graph_snapshot(gate, improver, play):
         by_status.setdefault(n["status"], []).append(n["id"])
     assert by_status["added"] == ["rule:sim.STAIR_MIN_LIFT_QUEUE@site:main:v3"]
     assert by_status["retired"] == ["rule:sim.STAIR_MIN_LIFT_QUEUE@site:main:v1"]
-    assert len(by_status["skeleton"]) == 21
+    assert len(by_status["skeleton"]) == 26
     ids = {n["id"] for n in snap["nodes"]}
     assert all(l["source"] in ids and l["target"] in ids for l in snap["links"])
     assert any(l["kind"] == "evidence" for l in snap["links"])

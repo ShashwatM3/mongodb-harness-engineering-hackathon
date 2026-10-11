@@ -14,8 +14,10 @@ from typing import Optional
 
 from .registry import LEVER_GROUP_LABELS, LEVER_GROUPS, SETTINGS, Setting
 
-# Zone C is added to doc 03's skeleton: the stairwell sits there (decision D1).
-SKELETON_ZONES = ["B", "C", "D", "M"]
+# Doc 03's skeleton had B, D and M. Zone C is added because the stairwell sits there (decision D1), and zone A
+# because the runner scores it on every shift: without a node, a fix observed in A had nowhere to attach and
+# get_brain_context("task:A:...") was an error.
+SKELETON_ZONES = ["A", "B", "C", "D", "M"]
 TASK_TYPES = ["PICK", "REPLENISH", "TRANSPORT", "RETURN"]
 SITE_ID = "site:main"
 
@@ -24,7 +26,7 @@ COMPONENT_KINDS = ["rule", "guardrail", "context_policy", "tool_grant"]
 
 
 def skeleton_nodes() -> list[dict]:
-    """1 site, 4 zones, 16 task nodes. Written once; the improver never changes them."""
+    """1 site, 5 zones, 20 task nodes. Written once; the improver never changes them."""
     nodes = [{"_id": SITE_ID, "kind": "site", "parent_id": None, "label": "Main warehouse", "order": 0}]
     for zi, z in enumerate(SKELETON_ZONES):
         label = "Zone M (mezzanine, reached by lift or the west stairs)" if z == "M" else f"Zone {z}"
