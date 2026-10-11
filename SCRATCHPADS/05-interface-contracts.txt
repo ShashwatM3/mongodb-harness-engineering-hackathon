@@ -1,0 +1,48 @@
+Interface Contracts: the Approval Call and the Brain Read/Write
+October 11, 2026
+
+What this covers
+
+This is a short document, not a full evaluation round, because the thing it answers is urgent. Both pieces are being built right now, separately, and need one agreed contract between them and the supervisor before the gap becomes a last-hour integration problem. It gives your ElevenLabs teammate and your MongoDB teammate the exact function shape the supervisor will call, so each can build and test their piece in isolation today and it will still plug in correctly once the supervisor exists. Nothing here changes documents 01 through 04; it makes two of the supervisor's tools concrete enough to code against right now.
+
+The approval call contract, for the ElevenLabs piece
+
+What you've instructed your teammate to build, a stimulus that places the call and lets the human converse with the agent, is exactly right as a first slice, and the button press is a fine stand-in for the stimulus today. The one thing to fix now, before more code is built on top of it, is that the stimulus should be a function or an HTTP endpoint that takes real data, not a bare trigger wired straight to a button's onClick, so swapping the button for the supervisor's tool call later is a one-line change rather than a rewire. Build it to this shape:
+
+place_approval_call(
+  summary: string,            // three sentences: what finished, what failed, what the supervisor wants to change
+  questions: string[],        // the specific thing the supervisor wants the Robotics Lead's input on
+  zone_scores: object,        // current scores per zone, for the agent to cite if asked
+  failure_clip_ids: string[]  // ids the agent can fetch footage for if asked "show me what happened"
+) -> { call_id: string }
+
+Once the call starts, wire the agent's three webhook tools from document 04, get_current_scores and get_failure_clip as reads, save_preference as a write, so a human who asks a follow-up question gets a real answer instead of the agent repeating itself, and a human who gives a new instruction gets it saved to Atlas before the call ends rather than only captured in a transcript afterward. The supervisor doesn't need to parse the call afterward either way, since save_preference writes straight to Atlas and the post-call webhook can mark the call_id done, so the supervisor's only remaining job is to wait for or poll that done signal.
+
+The brain read and write contract, for the MongoDB piece
+
+The structure your teammate is wiring up, the collections and the graph shape from document 03, is the right scope for right now, and it does not need the supervisor to exist to be tested, since it only needs sample documents and the aggregation pipeline to prove itself. The two functions the supervisor will eventually call are already fully specified in documents 03 and 04, so building directly to these two shapes now means no rework later:
+
+get_brain_context(task_node_id: string, version?: number)
+  -> { components: [{ kind, key, when, then, since, until, evidence }, ...] }
+  // the $graphLookup + $lookup pipeline from document 03, filtered to `version` if given, else the current version
+
+commit_brain_version(
+  add: [{ kind, parent_id, key, ...fields }],  // new components this version introduces
+  retire: [componentId, ...],                  // existing component ids this version replaces
+  evidence: { habit_id, episode_ids, signal, gate_run_id }
+) -> { version: number }
+  // insert-many the new components with since = new version,
+  // update-many the retired ones to set until = new version,
+  // insert one brain_versions document
+
+One build rule from document 04 carries over directly: commit_brain_version must use insert-many and update-many, never an aggregate pipeline with a $merge or $out stage, so the write path stays easy to audit and permission to it stays easy to restrict to one role.
+
+What's still a placeholder, and the one change that removes it
+
+- ElevenLabs piece: the stimulus is a button; the fix is making place_approval_call callable with real arguments, not rewiring the trigger itself.
+- MongoDB piece: nothing here is a placeholder, since the structure is the real thing, but get_brain_context and commit_brain_version should become the only two ways anything, including a person testing it by hand, touches the brain collections, so the access pattern is already correct before the supervisor exists.
+- Neither teammate needs to wait for the supervisor to exist to finish their piece, since both contracts can be tested with a hardcoded shift id and a hardcoded brain version today.
+
+How the supervisor will call both, once it exists
+
+When the supervisor's toolbelt from document 04 is wired up, call_robotics_lead and commit_brain_version become two calls in its loop exactly as named here, with no translation layer in between, which is the whole point of agreeing on these two shapes today instead of after both pieces are already built.

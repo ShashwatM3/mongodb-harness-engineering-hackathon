@@ -2,9 +2,13 @@
 
 The Harness Engineering & Model Wrangling #SFTechWeek Hackathon, organized by Cerebral Valley with MongoDB as host, Sunday October 11, 2026, Shack15, San Francisco.
 
+## Two folders, two purposes
+
+This folder, `CONTEXT/`, holds the fixed background material: the brainstorm transcript, the research brief, the planning-session chat export, and this index. The numbered evaluation documents, the part that keeps growing round by round, live one level up in [`../SCRATCHPADS/`](../SCRATCHPADS/) at the repository root. Read this README for orientation, then go to `SCRATCHPADS/` for the current thinking.
+
 ## Status: iteration is still in progress
 
-This folder is a snapshot of the team's thinking, not a final decision. The current working idea is a self-improving onboarding harness for warehouse robots. It learns habits from clips of humans, tests every proposed brain change inside a warehouse digital twin, and phones a Robotics Lead through ElevenLabs when a change needs authority the robot does not have. Document 03 ends with four open decisions about the brain's graph that the team has not yet settled, so later documents may still revise what is written here. Each round of feedback produces a new numbered evaluation document, earlier documents are never overwritten, and where two documents disagree, the later one wins.
+The current working idea is a self-improving onboarding harness for warehouse robots. It learns habits from clips of humans, tests every proposed brain change inside a warehouse digital twin, and phones a Robotics Lead through ElevenLabs when a change needs authority the robot does not have. Document 03 ends with four open decisions about the brain's graph that the team has not yet settled, so later documents may still revise what is written here. Each round of feedback produces a new numbered document in `SCRATCHPADS/`, earlier documents are never overwritten, and where two documents disagree, the later one wins.
 
 ---
 
@@ -16,30 +20,37 @@ Everything that is new, and everything that is the actual subject of this hackat
 
 ---
 
-## What is in this folder
+## The numbered iteration documents, in `../SCRATCHPADS/`
 
 | File | What it is | What it is for |
 | --- | --- | --- |
-| `01-warehouse-idea-evaluation.md` (+ `.txt`) | Evaluation round 1 of the warehouse robot onboarding idea. | First fact-based verdict, the correction that Harness the company is not a sponsor, who owns which layer among the sponsor tools, the first brain-graph proposal, and open questions. |
-| `02-warehouse-idea-research-and-workflow.md` (+ `.txt`) | Evaluation round 2, built on partner documentation, the New York edition's finalists, and a benchmark of TwinForge. | Chooses TwinForge as the simulator, explains how the improvement will be proven, and gives the end-to-end workflow, sponsor roles, demo script, and team split. |
-| `03-brain-hierarchical-knowledge-graph.md` (+ `.txt`) | Evaluation round 3, the detailed design of the robot's brain. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
-| `04-supervisor-dashboard-and-sponsor-depth.md` (+ `.txt`) | Evaluation round 4, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
+| [`01-warehouse-idea-evaluation.md`](../SCRATCHPADS/01-warehouse-idea-evaluation.md) (+ `.txt`) | Evaluation round 1 of the warehouse robot onboarding idea. | First fact-based verdict, the correction that Harness the company is not a sponsor, who owns which layer among the sponsor tools, the first brain-graph proposal, and open questions. |
+| [`02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/02-warehouse-idea-research-and-workflow.md) (+ `.txt`) | Evaluation round 2, built on partner documentation, the New York edition's finalists, and a benchmark of TwinForge. | Chooses TwinForge as the simulator, explains how the improvement will be proven, and gives the end-to-end workflow, sponsor roles, demo script, and team split. |
+| [`03-brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/03-brain-hierarchical-knowledge-graph.md) (+ `.txt`) | Evaluation round 3, the detailed design of the robot's brain. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
+| [`04-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/04-supervisor-dashboard-and-sponsor-depth.md) (+ `.txt`) | Evaluation round 4, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
+| [`05-interface-contracts.md`](../SCRATCHPADS/05-interface-contracts.md) (+ `.txt`) | A short, urgent round written while two teammates were already building the ElevenLabs call and the MongoDB brain structure in parallel. | Pins down the exact function contract for `place_approval_call` and for `get_brain_context` / `commit_brain_version`, so both pieces plug into the supervisor later with no rework. |
+
+## The background material, in this folder
+
+| File | What it is | What it is for |
+| --- | --- | --- |
 | `notebooklm-transcript-formatted.md` | A formatted copy of the brainstorm held the day before the hackathon, in a NotebookLM notebook. The wording is unchanged from the original. | Shows how the idea moved from CI/CD agents, to robotics, to simulation-first robotics, ending on an unrelated gripper concept the team later replaced with the warehouse idea. |
 | `hackathon_deep_dive.md` | The research brief an earlier planning session wrote the night before, uploaded as a source to the same NotebookLM notebook. | Background on the event's tracks, judging weights, sponsor tools, past winners, and demo strategy. Read it with the correction below in mind; the Wi-Fi credentials and Discord invite it originally held are redacted from this public copy. |
 | `chat-export.txt` | A raw transcript of the team's planning session with Claude Code on the morning of the hackathon. | Shows the actual working process: finding and reading the sources above, correcting the Harness mistake, researching sponsor tools and past winners, and drafting documents 01 through 03. |
 
 ## Suggested reading order
 
-1. `04-supervisor-dashboard-and-sponsor-depth.md`, the most current and most detailed document.
-2. `03-brain-hierarchical-knowledge-graph.md`, for the brain's design in full.
-3. `02-warehouse-idea-research-and-workflow.md`, for the research, workflow, and team split behind it.
-4. `01-warehouse-idea-evaluation.md`, for the first verdict and the reasoning that led here.
-5. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
-6. `chat-export.txt`, for the full working process behind all of the above.
+1. [`SCRATCHPADS/05-interface-contracts.md`](../SCRATCHPADS/05-interface-contracts.md), the most current document.
+2. [`SCRATCHPADS/04-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/04-supervisor-dashboard-and-sponsor-depth.md), the most detailed design document.
+3. [`SCRATCHPADS/03-brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/03-brain-hierarchical-knowledge-graph.md), for the brain's design in full.
+4. [`SCRATCHPADS/02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/02-warehouse-idea-research-and-workflow.md), for the research, workflow, and team split behind it.
+5. [`SCRATCHPADS/01-warehouse-idea-evaluation.md`](../SCRATCHPADS/01-warehouse-idea-evaluation.md), for the first verdict and the reasoning that led here.
+6. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
+7. `chat-export.txt`, for the full working process behind all of the above.
 
 ## Where new documents go from here
 
-Every document in this list, including this README, is written directly into this folder, `CONTEXT/` at the root of this repository. There is no separate working copy anywhere else; this is the one place to look.
+Every new round of the idea iteration is written directly into [`../SCRATCHPADS/`](../SCRATCHPADS/) at the repository root, numbered and never overwritten. This folder, `CONTEXT/`, only changes when the fixed background material itself needs a correction.
 
 ## Known corrections to the earlier material
 
