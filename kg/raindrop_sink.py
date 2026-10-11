@@ -6,6 +6,11 @@
   re_proposed       NEGATIVE, a candidate already proposed under the same policy
   invalid_proposal  NEGATIVE, a refused candidate
 
+The adversary (kg/adversary.py) sends its own event, adversary_scenario, one per proposed or re-scored
+scenario, with scenario_accepted / scenario_graduated (POSITIVE) and scenario_too_easy / scenario_impossible /
+scenario_invalid / re_proposed (NEGATIVE). Its events carry against_version, never brain_version, so they
+can't fall into a brain_version cohort.
+
 Raindrop is never on the critical path: every call is wrapped, and the KG keeps
 its own record of what was sent in `gate_runs.events`.
 """
@@ -17,8 +22,11 @@ from typing import Any, Optional, Protocol
 log = logging.getLogger("kg.raindrop")
 
 EVENT_NAME = "candidate_brain"
-POSITIVE = {"gate_passed"}
+ADVERSARY_EVENT = "adversary_scenario"
+POSITIVE = {"gate_passed", "scenario_accepted", "scenario_graduated"}
 SIGNALS = ("gate_passed", "gate_failed", "re_proposed", "invalid_proposal")
+ADVERSARY_SIGNALS = ("scenario_accepted", "scenario_graduated", "scenario_too_easy", "scenario_impossible",
+                     "scenario_invalid", "re_proposed")
 
 
 def clean_properties(props: dict[str, Any]) -> dict[str, Any]:
@@ -37,13 +45,13 @@ def clean_properties(props: dict[str, Any]) -> dict[str, Any]:
 
 
 class Sink(Protocol):
-    def event(self, event_id: str, properties: dict[str, Any]) -> None: ...
+    def event(self, event_id: str, properties: dict[str, Any], name: str = EVENT_NAME) -> None: ...
     def signal(self, event_id: str, name: str) -> None: ...
     def flush(self) -> None: ...
 
 
 class NullSink:
-    def event(self, event_id, properties):
+    def event(self, event_id, properties, name=EVENT_NAME):
         pass
 
     def signal(self, event_id, name):
@@ -58,10 +66,12 @@ class RecordingSink:
 
     def __init__(self):
         self.events: list[tuple[str, dict]] = []
+        self.event_names: dict[str, str] = {}
         self.signals: list[tuple[str, str]] = []
 
-    def event(self, event_id, properties):
+    def event(self, event_id, properties, name=EVENT_NAME):
         self.events.append((event_id, clean_properties(properties)))
+        self.event_names[event_id] = name
 
     def signal(self, event_id, name):
         self.signals.append((event_id, name))
@@ -83,9 +93,9 @@ class RaindropSink:
         self.client = Raindrop(api_key=write_key, project_id=project_id, tracing_enabled=False,
                                auto_instrument=False, app_git=False)
 
-    def event(self, event_id, properties):
+    def event(self, event_id, properties, name=EVENT_NAME):
         try:
-            self.client.track_ai(user_id=self.user_id, event=EVENT_NAME, event_id=event_id,
+            self.client.track_ai(user_id=self.user_id, event=name, event_id=event_id,
                                  properties=clean_properties(properties))
         except Exception as e:  # never let observability break the loop
             log.warning("raindrop track_ai failed: %s", e)

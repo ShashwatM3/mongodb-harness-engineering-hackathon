@@ -92,8 +92,9 @@ def test_approvals_only_for_locked_settings_within_bounds(gate):
 
 def test_improver_is_unauthorized_on_heldout(gate, improver):
     gate.db.heldout_results.insert_one({"_id": "probe", "passed": True})
+    gate.db.heldout_stress.insert_one({"_id": "probe", "kind": "scenario"})
     assert probe_heldout_denied(improver.db) is None
-    for coll in ("heldout_results", "heldout_seeds"):
+    for coll in ("heldout_results", "heldout_seeds", "heldout_stress"):
         with pytest.raises(OperationFailure) as e:
             improver.db[coll].find_one({})
         assert e.value.code == 13
