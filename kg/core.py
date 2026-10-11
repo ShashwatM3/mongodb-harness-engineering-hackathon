@@ -1,0 +1,1014 @@
+"""The knowledge graph: the robot brain in Atlas, and everything the harness learns about it.
+
+Boundary rules (KG plan, section 1):
+  - The gate decides; the KG records and recommends. Nothing here promotes on its own.
+  - The brain the runner receives is a projection of the KG (`export_brain`).
+  - Held-out data never enters a collection the improver can read.
+  - Raindrop is never on the critical path.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import json
+import logging
+from collections import Counter
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Iterable, Optional, Union
+
+from pymongo import UpdateOne
+from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError, OperationFailure
+
+from . import metrics, registry
+from .config import Config
+from .contract import Brain, BrainApproval, BrainNode, RunShiftResponse
+from .db import ensure_schema
+from .hashing import (Env, compile_patch, digest, edit_of, effective_edits, episode_ids, event_id as make_event_id,
+                      gate_run_id as make_gate_run_id, local_patch_hash, norm_number, same_value, shift_id,
+                      sorted_seeds)
+from .ontology import (COMPONENT_KINDS, SITE_ID, SKELETON_KINDS, SKELETON_ZONES, TIME_STATES, concept_docs,
+                       failure_group_of, skeleton_nodes)
+from .raindrop_sink import NullSink, Sink
+
+log = logging.getLogger("kg")
+
+VERDICTS = ("invalid", "evaluated", "passed", "promoted", "rejected", "needs_approval")
+
+
+def now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+class KGError(RuntimeError):
+    pass
+
+
+class PermissionDenied(KGError):
+    pass
+
+
+class StalePromotion(KGError):
+    pass
+
+
+class NeedsApproval(KGError):
+    pass
+
+
+class EnvMismatch(KGError):
+    pass
+
+
+@dataclass
+class Validation:
+    patch_hash: str
+    effective: dict[str, dict]
+    locked_edits: list[dict]
+    rejected: list[dict]
+    warnings: list[str]
+    source: str  # "runner" | "local"
+
+
+@dataclass
+class Proposal:
+    gate_run_id: str
+    event_id: str
+    status: str                       # new | cached | invalid
+    edits: list[dict]
+    reason: Optional[str]
+    brain: Optional[Brain]            # the candidate to run (base export with the edits applied)
+    base_brain: Optional[Brain]
+    base_version: int
+    seeds: list[int]
+    split: str
+    need_base: bool = False
+    need_cand: bool = False
+    locked_edits: list[dict] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    repeat: bool = False
+    cached_result: Optional[dict] = None
+
+    @property
+    def allow_locked(self) -> bool:
+        """Simulate locked edits anyway (allow_locked: true), so the call can quote the effect."""
+        return bool(self.locked_edits)
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["brain"] = self.brain.model_dump(mode="json", exclude_none=True) if self.brain else None
+        d["base_brain"] = None
+        return d
+
+
+def component_doc(target: str, value: float, status: str, since: int, evidence: dict, origin: dict,
+                  setting: Optional[registry.Setting] = None, parent_id: str = SITE_ID) -> dict:
+    """A rule (editable setting) or guardrail (locked setting) that compiles to one typed edit.
+    For these components `key` equals the setting target, so "same key, deeper wins" is the compiler's rule."""
+    kind = "guardrail" if status == "locked" else "rule"
+    lever = setting.lever_id if setting is not None and setting.is_lever else None
+    return {
+        "_id": f"{kind}:{target}@{parent_id}:v{since}", "kind": kind, "parent_id": parent_id,
+        "key": target, "label": registry.label_for(target, value),
+        "compiles_to": {"op": "set", "target": target, "value": norm_number(value)},
+        "lever": lever, "since": since, "until": None, "evidence": evidence, "origin": origin,
+    }
+
+
+def parse_candidate(candidate: Any) -> dict[str, float]:
+    """Accepts {target: value}, [{target, value}], {"edits": [...]}, a Brain or brain dict, or JSON text of any of these."""
+    c = candidate
+    if isinstance(c, (bytes, str)):
+        c = json.loads(c)
+    if isinstance(c, Brain):
+        return {t: e["value"] for t, e in effective_edits(c).items()}
+    if isinstance(c, dict) and "nodes" in c:
+        return {t: e["value"] for t, e in effective_edits(Brain.model_validate(c)).items()}
+    if isinstance(c, dict) and "edits" in c:
+        c = c["edits"]
+    if isinstance(c, dict) and "target" in c and "value" in c:
+        c = [c]
+    if isinstance(c, dict):
+        items = list(c.items())
+    elif isinstance(c, list):
+        items = [(e["target"], e["value"]) for e in c]
+    else:
+        raise ValueError(f"unrecognised candidate of type {type(c).__name__}")
+    out = {}
+    for t, v in items:
+        if not isinstance(t, str) or isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(f"edit {t!r}: value must be a number, got {v!r}")
+        out[t] = norm_number(v)
+    return out
+
+
+class KG:
+    """One instance per database user. The GEPA side holds only the improver instance."""
+
+    def __init__(self, db: Database, role: str = "gate", *, sink: Optional[Sink] = None, runner=None,
+                 env: Optional[Env] = None, config: Optional[Config] = None,
+                 settings: Optional[list[registry.Setting]] = None):
+        if role not in ("improver", "gate"):
+            raise ValueError("role must be 'improver' or 'gate'")
+        self.db, self.role = db, role
+        self.sink: Sink = sink or NullSink()
+        self.cfg = config or Config()
+        self.runner = runner
+        self._env = env
+        self.settings = settings or registry.SETTINGS
+        self.seed_sets = self.cfg.seed_sets()
+        self._validation_cache: dict[str, Validation] = {}
+
+    # ── plumbing ─────────────────────────────────────────────
+
+    def c(self, name: str):
+        return self.db[name]
+
+    def _require_gate(self, what: str):
+        if self.role != "gate":
+            raise PermissionDenied(f"{what} needs the gate client; the improver client can't do it")
+
+    def use_runner(self, runner, env_epoch: Optional[str] = None) -> Env:
+        """Point the KG at a runner. Its /health fixes the env key for everything recorded from now on."""
+        h = runner.health()
+        spec_hash = (h.model_extra or {}).get("spec_hash")
+        tag = f"spec:{spec_hash}" if spec_hash else f"epoch:{env_epoch or self.cfg.env_epoch}"
+        self._env = Env(engine_sha=h.engine_sha, spec_id=h.spec_id, spec_hash_or_epoch=tag,
+                        ticks=self.cfg.ticks, profile=self.cfg.profile)
+        self.runner = runner
+        self._validation_cache.clear()
+        return self._env
+
+    @property
+    def env(self) -> Env:
+        if self._env is None:
+            raise KGError("no runner env: call kg.use_runner(runner) first")
+        return self._env
+
+    def _envelope(self) -> dict[str, dict]:
+        return {d["_id"]: d for d in self.c("envelope").find({})}
+
+    def _setting(self, target: str) -> Optional[registry.Setting]:
+        return registry.by_target(self.settings).get(target)
+
+    # ── Phase 0: seed, load, export ──────────────────────────
+
+    def seed(self, v1_brain: Union[None, str, Path, dict, Brain] = None) -> dict:
+        """Skeleton, concepts, envelope, one v1 component per setting at site:main, and brain_versions v1.
+        Idempotent: a second run reports nothing inserted or updated. Never overwrites a v1 component."""
+        self._require_gate("seed()")
+        report = {"collections_created": ensure_schema(self.db), "inserted": Counter(), "updated": Counter(),
+                  "warnings": []}
+
+        def upsert(coll, _id, set_fields=None, on_insert=None):
+            upd = {}
+            if set_fields:
+                upd["$set"] = set_fields
+            if on_insert:
+                upd["$setOnInsert"] = on_insert
+            r = self.c(coll).update_one({"_id": _id}, upd, upsert=True)
+            if r.upserted_id is not None:
+                report["inserted"][coll] += 1
+            elif r.modified_count:
+                report["updated"][coll] += 1
+
+        for n in skeleton_nodes():
+            upsert("brain_nodes", n["_id"], on_insert={k: v for k, v in n.items() if k != "_id"})
+        for cdoc in concept_docs(self.settings):
+            upsert("concepts", cdoc["_id"], set_fields={k: v for k, v in cdoc.items() if k != "_id"})
+        for s in self.settings:
+            fields = {"target": s.target, "description": s.description, "status": s.status, "min": s.min,
+                      "max": s.max, "v1": s.v1, "engine_default": s.engine_default, "note": s.note,
+                      "lever": s.lever_id if s.is_lever else None, "lever_group": s.group}
+            upsert("envelope", s.target, set_fields=fields, on_insert={"approvals": [], "approved_value": s.v1})
+
+        v1_values = {s.target: s.v1 for s in self.settings if s.gets_v1_component}
+        if v1_brain is not None:
+            for t, v in self._read_v1_brain(v1_brain).items():
+                if t in v1_values:
+                    v1_values[t] = v
+                else:
+                    report["warnings"].append(f"v1 brain sets {t}, which the registry doesn't list; skipped")
+        by_t = registry.by_target(self.settings)
+        added = []
+        for t, v in v1_values.items():
+            s = by_t[t]
+            doc = component_doc(t, v, s.status, since=1, evidence={"origin": "baseline"},
+                                origin={"source": "baseline"}, setting=s)
+            have = self.c("brain_nodes").find_one({"_id": doc["_id"]})
+            if have is None:
+                self.c("brain_nodes").insert_one(doc)
+                report["inserted"]["brain_nodes"] += 1
+            elif not same_value(have["compiles_to"]["value"], v):
+                report["warnings"].append(
+                    f"{doc['_id']} holds {have['compiles_to']['value']}, the registry says {v}; left unchanged "
+                    "(v1 is history: re-seed a fresh database to change it)")
+            added.append(doc["_id"])
+
+        v1 = {"version": 1, "parent": None, "status": "committed", "added": added, "retired": [],
+              "hypothesis": "Baseline: an integrator's cautious first-day setup (lifts only, 80% speed)",
+              "promoted_by": None, "approvals": [], "scores": {}, "heldout_passed": None, "final": None,
+              "created_at": now()}
+        if self.c("brain_versions").find_one({"_id": "v1"}, {"_id": 1}) is None:
+            v1["patch_hash"] = self._local_validation(self._build_brain(1)).patch_hash
+        upsert("brain_versions", "v1", on_insert=v1)
+        report["inserted"], report["updated"] = dict(report["inserted"]), dict(report["updated"])
+        return report
+
+    @staticmethod
+    def _read_v1_brain(v1_brain) -> dict[str, float]:
+        if isinstance(v1_brain, (str, Path)):
+            v1_brain = json.loads(Path(v1_brain).read_text())
+        brain = v1_brain if isinstance(v1_brain, Brain) else Brain.model_validate(v1_brain)
+        return {t: e["value"] for t, e in effective_edits(brain).items()}
+
+    def sync_settings(self, runner=None) -> dict:
+        """Replace the static registry with the runner's GET /settings and refresh envelope bounds and
+        lever leaves. Components are history and are not touched; differing v1 values are reported."""
+        self._require_gate("sync_settings()")
+        resp = (runner or self.runner).settings()
+        if resp is None:
+            return {"synced": False, "reason": "runner does not serve /settings"}
+        old = registry.by_target(self.settings)
+        self.settings = registry.from_settings_response(resp)
+        diffs = []
+        for s in self.settings:
+            o = old.get(s.target)
+            if o is None:
+                diffs.append(f"new setting {s.target} ({s.status})")
+            elif (o.v1, o.min, o.max, o.status) != (s.v1, s.min, s.max, s.status):
+                diffs.append(f"{s.target}: v1 {o.v1}->{s.v1}, range [{o.min},{o.max}]->[{s.min},{s.max}], "
+                             f"{o.status}->{s.status}")
+        for t in old:
+            if t not in registry.by_target(self.settings):
+                diffs.append(f"{t} is not served by /settings")
+        self.seed()
+        return {"synced": True, "spec_id": resp.spec_id, "diffs": diffs}
+
+    def latest_version(self) -> int:
+        d = self.c("brain_versions").find_one({"status": {"$ne": "pending"}}, sort=[("version", -1)])
+        if d is None:
+            raise KGError("no brain versions: run seed() first")
+        return int(d["version"])
+
+    def _active_filter(self, V: int, exclude: Iterable[str] = ()) -> dict:
+        q: dict = {"kind": {"$in": COMPONENT_KINDS}, "since": {"$lte": V},
+                   "$or": [{"until": None}, {"until": {"$gt": V}}]}
+        ex = list(exclude)
+        if ex:
+            q["_id"] = {"$nin": ex}
+        return q
+
+    def load_brain(self, V: int, node_id: str, exclude: Iterable[str] = ()) -> dict:
+        """Team doc 03's two-stage pipeline: $graphLookup up the parent_id links, then $lookup every
+        component on that path whose since/until range includes V. Same key: the deeper node wins.
+        `exclude` drops components by id (ablation)."""
+        match: dict = {"$expr": {"$in": ["$parent_id", "$$scope"]}, "kind": {"$in": COMPONENT_KINDS},
+                       "since": {"$lte": V}, "$or": [{"until": None}, {"until": {"$gt": V}}]}
+        ex = list(exclude)
+        if ex:
+            match["_id"] = {"$nin": ex}
+        pipeline = [
+            {"$match": {"_id": node_id}},
+            {"$graphLookup": {"from": "brain_nodes", "startWith": "$parent_id", "connectFromField": "parent_id",
+                              "connectToField": "_id", "as": "ancestors", "depthField": "depth"}},
+            {"$project": {"scope": {"$concatArrays": [["$_id"], "$ancestors._id"]},
+                          "ancestors._id": 1, "ancestors.depth": 1}},
+            {"$lookup": {"from": "brain_nodes", "let": {"scope": "$scope"}, "pipeline": [{"$match": match}],
+                         "as": "components"}},
+        ]
+        doc = next(self.c("brain_nodes").aggregate(pipeline), None)
+        if doc is None:
+            raise KeyError(f"no brain node {node_id!r}")
+        dist = {node_id: 0, **{a["_id"]: int(a["depth"]) + 1 for a in doc.get("ancestors", [])}}
+        comps = sorted(doc["components"], key=lambda c: (dist.get(c["parent_id"], 99), -c["since"], c["_id"]))
+        winners: dict[str, dict] = {}
+        shadowed = []
+        for c in comps:
+            k = c.get("key") or c["_id"]
+            if k in winners:
+                shadowed.append({**c, "shadowed_by": winners[k]["_id"]})
+            else:
+                winners[k] = {**c, "distance": dist.get(c["parent_id"])}
+        env = self._envelope()
+        out = []
+        for k in sorted(winners):
+            c = winners[k]
+            e = env.get(k)
+            if e:
+                c["envelope"] = {f: e.get(f) for f in ("status", "min", "max", "v1")}
+            out.append(c)
+        scope = sorted(dist, key=lambda n: dist[n])
+        return {"node_id": node_id, "version": V, "scope": scope, "components": out, "shadowed": shadowed}
+
+    def export_brain(self, V: int, exclude: Iterable[str] = ()) -> Brain:
+        """The contract Brain the runner receives: skeleton plus the components active at V
+        (component _id → node_id, compiles_to → body), with approvals from the envelope."""
+        if self.c("brain_versions").find_one({"version": V}, {"_id": 1}) is None:
+            raise KeyError(f"no brain version {V}")
+        return self._build_brain(V, exclude)
+
+    def _build_brain(self, V: int, exclude: Iterable[str] = ()) -> Brain:
+        skel = list(self.c("brain_nodes").find({"kind": {"$in": SKELETON_KINDS}}).sort("order", 1))
+        depth = {"site": 0, "zone": 1, "task": 2}
+        node_depth = {n["_id"]: depth.get(n["kind"], 0) for n in skel}
+        comps = list(self.c("brain_nodes").find(self._active_filter(V, exclude)))
+        comps.sort(key=lambda c: (node_depth.get(c["parent_id"], 0), c.get("key") or "", c["since"], c["_id"]))
+        nodes = [BrainNode(node_id=n["_id"], parent_id=n.get("parent_id"), level=n["kind"], zone=n.get("zone"),
+                           label=n.get("label")) for n in skel]
+        for c in comps:
+            nodes.append(BrainNode(node_id=c["_id"], parent_id=c["parent_id"], level=c["kind"], zone=c.get("zone"),
+                                   body=c.get("compiles_to") or c.get("body"), origin=c.get("origin"),
+                                   key=c.get("key"), label=c.get("label"), since=c["since"]))
+        brain = Brain(version=V, nodes=nodes)
+        brain.approvals = self._approvals_for(brain)
+        return brain
+
+    def ablate(self, V: int, component_id: str) -> Brain:
+        """Brain V without one learned component, its key reverted to the component it replaced
+        (a plain `exclude` would let the engine default leak in instead)."""
+        comp = self.c("brain_nodes").find_one({"_id": component_id})
+        if comp is None:
+            raise KeyError(f"no component {component_id!r}")
+        if not (comp["since"] <= V and (comp.get("until") is None or comp["until"] > V)):
+            raise KGError(f"{component_id} is not active at v{V}")
+        prev = self.c("brain_nodes").find_one({"parent_id": comp["parent_id"], "key": comp.get("key"),
+                                               "kind": {"$in": COMPONENT_KINDS}, "until": comp["since"]})
+        brain = self.export_brain(V, exclude=[component_id])
+        if prev is not None:
+            brain.nodes.append(BrainNode(node_id=prev["_id"], parent_id=prev["parent_id"], level=prev["kind"],
+                                         body=prev.get("compiles_to") or prev.get("body"), origin=prev.get("origin"),
+                                         key=prev.get("key"), label=prev.get("label"), since=prev["since"]))
+        brain.approvals = self._approvals_for(brain)
+        return brain
+
+    def _approvals_for(self, brain: Brain, envelope: Optional[dict] = None) -> list[BrainApproval]:
+        env = envelope if envelope is not None else self._envelope()
+        out = []
+        for t, e in effective_edits(brain).items():
+            d = env.get(t)
+            if not d or d["status"] != "locked" or same_value(e["value"], d["v1"]):
+                continue
+            for a in reversed(d.get("approvals") or []):
+                if a.get("decision", "approve") == "approve" and same_value(a["value"], e["value"]):
+                    out.append(BrainApproval(target=t, value=e["value"], approved_by=a["approved_by"], ref=a.get("ref")))
+                    break
+        return out
+
+    # ── validation and patch hashes ──────────────────────────
+
+    def validate(self, brain: Brain) -> Validation:
+        """The runner's /validate_brain when it has one, otherwise the local mirror of the compiler."""
+        key = digest(brain.model_dump(mode="json", exclude_none=True))
+        if key in self._validation_cache:
+            return self._validation_cache[key]
+        v = None
+        if self.runner is not None:
+            r = self.runner.validate_brain(brain)
+            if r is not None:
+                v = Validation(patch_hash=r.patch_hash,
+                               effective={e.target: {"value": norm_number(e.value), "node_id": e.node_id}
+                                          for e in r.effective},
+                               locked_edits=[x.model_dump(mode="json") for x in r.locked_edits],
+                               rejected=[x.model_dump(mode="json") for x in r.rejected],
+                               warnings=list(r.warnings), source="runner")
+        if v is None:
+            v = self._local_validation(brain)
+        self._validation_cache[key] = v
+        return v
+
+    def _local_validation(self, brain: Brain) -> Validation:
+        eff = effective_edits(brain)
+        patch, unknown = compile_patch(eff)
+        env = self._envelope()
+        approved = [(a.target, a.value) for a in brain.approvals]
+        rejected, locked, warnings = list(unknown), [], []
+        unknown_t = {u["target"] for u in unknown}
+        for t, e in eff.items():
+            if t in unknown_t:
+                continue
+            v, d = e["value"], env.get(t)
+            if d is None:
+                rejected.append({"target": t, "value": v, "node_id": e["node_id"], "reason": "unknown setting"})
+            elif d["status"] in ("spec", "fixed"):
+                rejected.append({"target": t, "value": v, "node_id": e["node_id"],
+                                 "reason": f"{d['status']} setting: never set by the brain"})
+            elif not (d["min"] - 1e-9 <= v <= d["max"] + 1e-9):
+                rejected.append({"target": t, "value": v, "node_id": e["node_id"],
+                                 "reason": f"out of range [{d['min']}, {d['max']}]"})
+            elif d["status"] == "locked" and not same_value(v, d["v1"]) and \
+                    not any(at == t and same_value(av, v) for at, av in approved):
+                locked.append({"target": t, "value": v, "baseline": d["v1"], "node_id": e["node_id"],
+                               "reason": "locked: needs the Robotics Lead's approval"})
+        for t, d in env.items():
+            if t in eff or d["status"] not in ("editable", "locked") or same_value(d["engine_default"], d["v1"]):
+                continue
+            if d["status"] == "locked":
+                locked.append({"target": t, "value": d["engine_default"], "baseline": d["v1"], "node_id": None,
+                               "reason": "omitted: the engine default applies"})
+            else:
+                warnings.append(f"{t} omitted: engine default {d['engine_default']:g} applies instead of v1 {d['v1']:g}")
+        return Validation(local_patch_hash(patch), eff, locked, rejected, warnings, "local")
+
+    # ── Phase 1: proposals, shifts, verdicts, promotion ──────
+
+    def _apply_edits(self, base: Brain, edits: dict[str, float], origin: dict) -> Brain:
+        """The candidate: base export with each edited target's site-level component replaced in place."""
+        env = self._envelope()
+
+        def cand_node(t, v):
+            locked = env.get(t, {}).get("status") == "locked"
+            return BrainNode(node_id=f"cand:{t}@{SITE_ID}", parent_id=SITE_ID, level="guardrail" if locked else "rule",
+                             body={"op": "set", "target": t, "value": v}, origin=origin, key=t,
+                             label=registry.label_for(t, v))
+
+        nodes, placed = [], set()
+        for n in base.nodes:
+            e = edit_of(n)
+            if e is not None and e.target in edits and n.parent_id == SITE_ID:
+                if e.target not in placed:
+                    nodes.append(cand_node(e.target, edits[e.target]))
+                    placed.add(e.target)
+                continue
+            nodes.append(n)
+        nodes += [cand_node(t, v) for t, v in edits.items() if t not in placed]
+        brain = Brain(version=base.version, nodes=nodes)
+        brain.approvals = self._approvals_for(brain, env)
+        return brain
+
+    def _shifts_present(self, env_key: str, patch_hash: str, seeds: list[int]) -> bool:
+        ids = [shift_id(env_key, patch_hash, s) for s in seeds]
+        return self.c("shifts").count_documents({"_id": {"$in": ids}}) == len(ids)
+
+    def record_proposal(self, base_V: int, candidate: Any, origin: Union[None, str, dict] = None, round: int = 0,
+                        policy: str = "p0", split: str = "train", seeds: Optional[Iterable[int]] = None,
+                        hypothesis: Optional[str] = None) -> Proposal:
+        """Diff the candidate against brain base_V into `edits` and record a gate run before anything runs.
+        Refuses only rejected edits (unknown, out of range, spec-only) and no-ops; locked edits go through
+        and come back in `locked_edits`. Status: new (run it), cached (already measured), invalid."""
+        if split not in ("train", "val"):
+            raise KGError("held-out data never enters the KG: split must be 'train' or 'val'")
+        seeds = sorted_seeds(seeds if seeds is not None else self.seed_sets[split])
+        env = self.env
+        origin = {"source": origin} if isinstance(origin, str) else dict(origin or {"source": "unknown"})
+        origin.setdefault("ref", None)
+        base = self.export_brain(base_V)
+        base_v = self.validate(base)
+        reason, edits, cand_brain, cand_v = None, [], None, None
+        try:
+            wanted = parse_candidate(candidate)
+        except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+            wanted = None
+            reason = f"unparseable candidate: {e}"
+        if wanted is not None:
+            cand_brain = self._apply_edits(base, wanted, origin)
+            cand_v = self.validate(cand_brain)
+            env_docs = self._envelope()
+            for t in sorted(set(cand_v.effective) | set(base_v.effective)):
+                cv = cand_v.effective.get(t, {}).get("value")
+                bv = base_v.effective.get(t, {}).get("value")
+                if cv is not None and not same_value(cv, bv):
+                    edits.append({"target": t, "value": cv, "base_value": bv, "scope": "fleet",
+                                  "lever_group": (env_docs.get(t) or {}).get("lever_group")})
+            if cand_v.rejected:
+                reason = "; ".join(f"{r['target']}={r['value']}: {r['reason']}" for r in cand_v.rejected)
+            elif not edits:
+                reason = f"no-op: the candidate changes no setting of v{base_V}"
+        cand_hash = cand_v.patch_hash if cand_v else "bad-" + digest(str(candidate), 16)
+        gid = make_gate_run_id(env.key, seeds, base_v.patch_hash, cand_hash)
+        eid = make_event_id(gid, round, policy)
+        invalid = reason is not None
+        doc = {
+            "_id": gid, "base": f"v{base_V}", "base_version": base_V, "base_patch_hash": base_v.patch_hash,
+            "cand_patch_hash": cand_hash, "edits": edits, "origin": origin, "split": split,
+            "env": {**env.model_dump(), "seeds": seeds}, "env_key": env.key, "hash_source": base_v.source,
+            "locked_edits": cand_v.locked_edits if cand_v else [], "warnings": cand_v.warnings if cand_v else [],
+            "shift_ids": None, "zones": None, "time_split": None, "failures": None,
+            "verdict": "invalid" if invalid else None, "reason": reason, "promoted_to": None,
+            "hypothesis": hypothesis, "created_at": now(), "events": [],
+        }
+        self.c("gate_runs").update_one({"_id": gid}, {"$setOnInsert": doc}, upsert=True)
+        ev = {"event_id": eid, "round": int(round), "policy": str(policy), "origin": origin, "at": now(),
+              "signals_sent": []}
+        self.c("gate_runs").update_one({"_id": gid, "events.event_id": {"$ne": eid}}, {"$push": {"events": ev}})
+        run = self.c("gate_runs").find_one({"_id": gid})
+        first = next(e["event_id"] for e in run["events"] if e["policy"] == str(policy))
+        need_base = need_cand = False
+        if run["verdict"] == "invalid":
+            status = "invalid"
+        elif run.get("zones") is not None:
+            status = "cached"
+        else:
+            need_base = not self._shifts_present(env.key, run["base_patch_hash"], seeds)
+            need_cand = not self._shifts_present(env.key, run["cand_patch_hash"], seeds)
+            status = "new"
+            if not need_base and not need_cand and self._fill_numbers(gid):
+                status = "cached"
+                run = self.c("gate_runs").find_one({"_id": gid})
+        self._sync_raindrop(gid)
+        return Proposal(
+            gate_run_id=gid, event_id=eid, status=status, edits=run["edits"], reason=run.get("reason"),
+            brain=cand_brain if status != "invalid" else None, base_brain=base, base_version=base_V, seeds=seeds,
+            split=split, need_base=need_base, need_cand=need_cand, locked_edits=run.get("locked_edits", []),
+            warnings=run.get("warnings", []), repeat=first != eid,
+            cached_result=self._result_view(run) if status == "cached" else None)
+
+    @staticmethod
+    def _result_view(run: dict) -> dict:
+        return {k: run.get(k) for k in ("zones", "failures", "time_split", "outcomes", "fleet", "verdict", "reason",
+                                        "edits", "split", "context")} | {"gate_run_id": run["_id"]}
+
+    def record_shifts(self, response: Union[RunShiftResponse, dict], split: str, *, gate_run_id: Optional[str] = None,
+                      side: str = "cand", brain: Optional[Brain] = None) -> dict:
+        """Write `shifts` (raw SeedResult per seed) and `episodes` (one per FailureEntry), then fill the
+        numbers of every gate run whose base and candidate shifts are now all present.
+        Training and validation only. Pass gate_run_id + side (or the brain) so a fake runner's
+        response can be tied to its patch hash."""
+        if split not in ("train", "val"):
+            raise KGError("held-out results never enter the KG: split must be 'train' or 'val'")
+        resp = response if isinstance(response, RunShiftResponse) else RunShiftResponse.model_validate(response)
+        run = self.c("gate_runs").find_one({"_id": gate_run_id}) if gate_run_id else None
+        if gate_run_id and run is None:
+            raise KeyError(f"no gate run {gate_run_id}")
+        env = Env(**{k: run["env"][k] for k in Env.model_fields}) if run else self.env
+        got = (resp.engine_sha, resp.spec_id, resp.ticks, resp.scenario_profile)
+        want = (env.engine_sha, env.spec_id, env.ticks, env.profile)
+        if got != want:
+            raise EnvMismatch(f"response env {got} does not match {want}; refusing to mix results")
+        spec_hash = (resp.model_extra or {}).get("spec_hash")
+        if spec_hash and env.spec_hash_or_epoch.startswith("spec:") and env.spec_hash_or_epoch != f"spec:{spec_hash}":
+            raise EnvMismatch(f"spec_hash {spec_hash} does not match the env's {env.spec_hash_or_epoch}")
+        if run is not None:
+            if side not in ("base", "cand"):
+                raise ValueError("side must be 'base' or 'cand'")
+            patch_hash = run[f"{side}_patch_hash"]
+            if run.get("hash_source") == "runner" and resp.patch_hash != patch_hash:
+                raise KGError(f"runner patch_hash {resp.patch_hash} != recorded {side} hash {patch_hash}: "
+                              "the evaluator ran a different brain than the one proposed")
+        elif brain is not None:
+            patch_hash = self.validate(brain).patch_hash
+        elif resp.engine_sha != "fake":
+            patch_hash = resp.patch_hash
+        else:
+            raise KGError("fake runner responses carry no usable patch_hash: pass gate_run_id or brain")
+        self._refuse_heldout_seeds([r.seed for r in resp.per_seed])
+
+        ids, nondeterministic = [], []
+        ep_ops = []
+        for r in resp.per_seed:
+            sid = shift_id(env.key, patch_hash, r.seed)
+            result = r.model_dump(mode="json")
+            doc = {"_id": sid, "env_key": env.key, "env": env.model_dump(), "patch_hash": patch_hash, "seed": r.seed,
+                   "split": split, "brain_version": resp.brain_version, "result": result,
+                   "warnings": resp.warnings, "recorded_at": now()}
+            res = self.c("shifts").update_one({"_id": sid}, {"$setOnInsert": doc}, upsert=True)
+            if res.upserted_id is None:
+                have = self.c("shifts").find_one({"_id": sid}, {"result": 1})
+                if digest(have["result"]) != digest(result):
+                    nondeterministic.append(r.seed)
+                    log.warning("shift %s (seed %s) differs from the stored result: the twin is not deterministic",
+                                sid, r.seed)
+            ids.append(sid)
+            fails = result.get("failures") or []
+            capped = metrics.capped_types(result)
+            for f, eid in zip(fails, episode_ids(sid, fails)):
+                ep = {"_id": eid, "shift_id": sid, "env_key": env.key, "patch_hash": patch_hash, "seed": r.seed,
+                      "split": split, "type": f["type"], "zone": f.get("zone"), "tick": f["tick"],
+                      "robots": f.get("robots", []), "detail": f.get("detail", ""), "task_id": f.get("task_id"),
+                      "capped": f["type"] in capped}
+                ep_ops.append(UpdateOne({"_id": eid}, {"$setOnInsert": ep}, upsert=True))
+        if ep_ops:
+            self.c("episodes").bulk_write(ep_ops, ordered=False)
+
+        if gate_run_id:
+            targets = [gate_run_id]
+        else:
+            targets = [d["_id"] for d in self.c("gate_runs").find(
+                {"env_key": env.key, "zones": None, "verdict": {"$ne": "invalid"},
+                 "$or": [{"base_patch_hash": patch_hash}, {"cand_patch_hash": patch_hash}]}, {"_id": 1})]
+        filled = [g for g in targets if self._fill_numbers(g)]
+        for g in targets:
+            self._sync_raindrop(g)
+        out = {"patch_hash": patch_hash, "shift_ids": ids, "filled": filled, "nondeterministic": nondeterministic}
+        if gate_run_id:
+            out["result"] = self._result_view(self.c("gate_runs").find_one({"_id": gate_run_id}))
+        return out
+
+    def _refuse_heldout_seeds(self, seeds: list[int]):
+        """Defence in depth on the gate side: never store a shift for a locked test seed."""
+        if self.role != "gate":
+            return
+        try:
+            locked = {int(s) for d in self.c("heldout_seeds").find({}, {"seeds": 1, "seed": 1})
+                      for s in (d.get("seeds") or ([d["seed"]] if "seed" in d else []))}
+        except OperationFailure:
+            return
+        hit = sorted(set(seeds) & locked)
+        if hit:
+            raise KGError(f"seeds {hit} are held-out test seeds: their results never enter the KG")
+
+    def _fill_numbers(self, gid: str) -> bool:
+        run = self.c("gate_runs").find_one({"_id": gid})
+        if run is None or run["verdict"] == "invalid":
+            return False
+        if run.get("zones") is not None:
+            return True
+        seeds, key = run["env"]["seeds"], run["env_key"]
+        b_ids = [shift_id(key, run["base_patch_hash"], s) for s in seeds]
+        c_ids = [shift_id(key, run["cand_patch_hash"], s) for s in seeds]
+        docs = {d["_id"]: d["result"] for d in self.c("shifts").find({"_id": {"$in": b_ids + c_ids}}, {"result": 1})}
+        if any(i not in docs for i in b_ids + c_ids):
+            return False
+        base, cand = [docs[i] for i in b_ids], [docs[i] for i in c_ids]
+        nums = metrics.compare(base, cand)
+        upd = {**nums, "shift_ids": {"base": b_ids, "cand": c_ids}, "context": self._context_of(base),
+               "evaluated_at": now()}
+        self.c("gate_runs").update_one({"_id": gid, "zones": None}, {"$set": upd})
+        self.c("gate_runs").update_one({"_id": gid, "verdict": None}, {"$set": {"verdict": "evaluated"}})
+        return True
+
+    @staticmethod
+    def _context_of(results: list[dict]) -> dict:
+        """What the base brain looked like when this candidate was tried (the ranking keys of section C)."""
+        s = metrics.summarize(results)
+        worst = s["worst_zone"]
+        ts = s["worst_time_split"]
+        states = order_time_states(ts)
+        oc = s["zones"].get(worst, {}) if worst else {}
+        groups = Counter()
+        for t, n in s["failures"].items():
+            g = failure_group_of(t)
+            if g and n:
+                groups[g] += n
+        return {"worst_zone": worst, "worst_score": oc.get("score"), "time_state": states[0] if states else None,
+                "late_dropped": int(oc.get("late", 0)) + int(oc.get("dropped", 0)) if oc else 0,
+                "failure_group": groups.most_common(1)[0][0] if groups else None}
+
+    def evaluate(self, proposal: Proposal, runner=None) -> dict:
+        """Convenience for the evaluator: run whatever the proposal still needs, record it, return the numbers."""
+        runner = runner or self.runner
+        if proposal.status == "invalid":
+            return {"gate_run_id": proposal.gate_run_id, "verdict": "invalid", "reason": proposal.reason}
+        if proposal.status == "cached":
+            return proposal.cached_result
+        from .runner import BrainRejected
+        kw = {"ticks": self.env.ticks, "profile": self.env.profile}
+        if proposal.need_base:
+            resp = runner.run_shift(proposal.base_brain, proposal.seeds, **kw)
+            self.record_shifts(resp, proposal.split, gate_run_id=proposal.gate_run_id, side="base")
+        if proposal.need_cand:
+            try:
+                resp = runner.run_shift(proposal.brain, proposal.seeds, allow_locked=proposal.allow_locked, **kw)
+            except BrainRejected as e:
+                self.c("gate_runs").update_one({"_id": proposal.gate_run_id}, {"$set": {
+                    "verdict": "invalid", "reason": f"runner refused: {e.rejection.message}"}})
+                self._sync_raindrop(proposal.gate_run_id)
+                return {"gate_run_id": proposal.gate_run_id, "verdict": "invalid", "reason": str(e)}
+            self.record_shifts(resp, proposal.split, gate_run_id=proposal.gate_run_id, side="cand")
+        if not proposal.need_base and not proposal.need_cand:
+            self._fill_numbers(proposal.gate_run_id)
+        return self._result_view(self.c("gate_runs").find_one({"_id": proposal.gate_run_id}))
+
+    def record_verdict(self, gate_run_id: str, verdict: str, reason: Optional[str] = None) -> dict:
+        """The gate's decision: passed (not promoted yet), rejected, or needs_approval (a locked edit
+        that passed on numbers). Sends the gate signal once, and updates habit counters (Phase 2)."""
+        self._require_gate("record_verdict()")
+        if verdict not in ("passed", "rejected", "needs_approval"):
+            raise ValueError("verdict must be passed, rejected or needs_approval (promotion goes through promote())")
+        run = self.c("gate_runs").find_one({"_id": gate_run_id})
+        if run is None:
+            raise KeyError(f"no gate run {gate_run_id}")
+        if run["verdict"] == "invalid":
+            raise KGError("an invalid proposal has no verdict to record")
+        if run["verdict"] == "promoted":
+            raise KGError(f"already promoted to v{run['promoted_to']}")
+        if run.get("zones") is None:
+            raise KGError("not evaluated yet: record_shifts first")
+        self.c("gate_runs").update_one({"_id": gate_run_id}, {"$set": {"verdict": verdict, "reason": reason,
+                                                                      "decided_at": now()}})
+        self.c("gate_runs").update_one({"_id": gate_run_id, "gate_decision": None},
+                                       {"$set": {"gate_decision": "failed" if verdict == "rejected" else "passed"}})
+        self._count_playbook(gate_run_id)
+        self._sync_raindrop(gate_run_id)
+        return self._result_view(self.c("gate_runs").find_one({"_id": gate_run_id}))
+
+    def _count_playbook(self, gid: str):
+        """ACE-style counters: a habit's edit that passes the gate is helpful, one that fails is harmful.
+        Counted once per gate run, at the gate's first decision."""
+        run = self.c("gate_runs").find_one({"_id": gid}, {"origin": 1, "gate_decision": 1, "playbook_counted": 1})
+        ref = (run.get("origin") or {}).get("ref")
+        if not ref or not str(ref).startswith("habit:") or not run.get("gate_decision") or run.get("playbook_counted"):
+            return
+        claim = self.c("gate_runs").update_one({"_id": gid, "playbook_counted": {"$ne": True}},
+                                               {"$set": {"playbook_counted": True}})
+        if claim.modified_count:
+            field_ = "helpful" if run["gate_decision"] == "passed" else "harmful"
+            self.c("playbook").update_one({"_id": ref}, {"$inc": {field_: 1}})
+
+    def promote(self, gate_run_id: str, hypothesis: Optional[str] = None) -> dict:
+        """New version N+1: components for the run's edits (since N+1), the replaced component at the same
+        node retired (until N+1), and a brain_versions document. Refuses stale bases and unapproved locked edits."""
+        self._require_gate("promote()")
+        run = self.c("gate_runs").find_one({"_id": gate_run_id})
+        if run is None:
+            raise KeyError(f"no gate run {gate_run_id}")
+        if run["verdict"] == "promoted":
+            v = self.c("brain_versions").find_one({"version": run["promoted_to"]})
+            return {"version": v["version"], "added": v["added"], "retired": v["retired"], "already": True}
+        if run["verdict"] in ("invalid", "rejected"):
+            raise KGError(f"gate run is {run['verdict']}: {run.get('reason')}")
+        if run.get("zones") is None:
+            raise KGError("not evaluated yet")
+        latest = self.latest_version()
+        if run["base_version"] != latest:
+            raise StalePromotion(f"evaluated against v{run['base_version']}, but the latest brain is v{latest}: "
+                                 "re-evaluate the candidate on the latest brain")
+        env = self._envelope()
+        approvals, missing = [], []
+        for ed in run["edits"]:
+            d = env.get(ed["target"])
+            if d and d["status"] == "locked" and not same_value(ed["value"], d["v1"]):
+                a = next((a for a in reversed(d.get("approvals") or []) if a.get("decision") == "approve"
+                          and same_value(a["value"], ed["value"])), None)
+                if a is None:
+                    missing.append(f"{ed['target']}={ed['value']}")
+                else:
+                    approvals.append({"target": ed["target"], "value": ed["value"], "approved_by": a["approved_by"],
+                                      "ref": a.get("ref")})
+        if missing:
+            raise NeedsApproval(f"locked edits need the Robotics Lead's approval first: {', '.join(missing)}")
+        N = latest + 1
+        try:
+            self.c("brain_versions").insert_one({
+                "_id": f"v{N}", "version": N, "parent": f"v{latest}", "status": "pending", "added": [], "retired": [],
+                "hypothesis": hypothesis or run.get("hypothesis"), "promoted_by": gate_run_id,
+                "approvals": approvals, "scores": {}, "heldout_passed": None, "final": None, "created_at": now()})
+        except DuplicateKeyError:
+            raise KGError(f"v{N} is being created by another promotion; retry after it commits")
+        evidence = self._evidence_for(run)
+        by_t = registry.by_target(self.settings)
+        added, retired = [], []
+        for ed in run["edits"]:
+            t = ed["target"]
+            d = env.get(t, {})
+            comp = component_doc(t, ed["value"], d.get("status", "editable"), since=N, evidence=evidence,
+                                 origin=run.get("origin") or {"source": "unknown"}, setting=by_t.get(t))
+            for old in self.c("brain_nodes").find({"parent_id": SITE_ID, "key": t, "kind": {"$in": COMPONENT_KINDS},
+                                                   "until": None, "since": {"$lt": N}}, {"_id": 1}):
+                self.c("brain_nodes").update_one({"_id": old["_id"], "until": None}, {"$set": {"until": N}})
+                retired.append(old["_id"])
+            self.c("brain_nodes").update_one({"_id": comp["_id"]}, {"$setOnInsert": comp}, upsert=True)
+            added.append(comp["_id"])
+        heldout = None
+        if self.role == "gate":
+            rows = list(self.c("heldout_results").find({"gate_run_id": gate_run_id}, {"passed": 1}))
+            heldout = all(r["passed"] for r in rows) if rows else None
+        self.c("brain_versions").update_one({"_id": f"v{N}"}, {"$set": {
+            "status": "committed", "added": added, "retired": retired,
+            "patch_hash": self._local_validation(self.export_brain(N)).patch_hash,
+            "scores": self._scores_for(run), "heldout_passed": heldout, "committed_at": now()}})
+        self.c("gate_runs").update_one({"_id": gate_run_id}, {"$set": {"verdict": "promoted", "promoted_to": N}})
+        self.c("gate_runs").update_one({"_id": gate_run_id, "gate_decision": None}, {"$set": {"gate_decision": "passed"}})
+        self._count_playbook(gate_run_id)
+        self._sync_raindrop(gate_run_id)
+        return {"version": N, "added": added, "retired": retired, "approvals": approvals}
+
+    def _scores_for(self, run: dict) -> dict:
+        scores = {run["split"]: {z: v["cand"] for z, v in run["zones"].items()}}
+        for s in self.c("gate_runs").find({"env_key": run["env_key"], "base_patch_hash": run["base_patch_hash"],
+                                           "cand_patch_hash": run["cand_patch_hash"], "_id": {"$ne": run["_id"]},
+                                           "zones": {"$ne": None}}, {"split": 1, "zones": 1}):
+            scores.setdefault(s["split"], {z: v["cand"] for z, v in s["zones"].items()})
+        return scores
+
+    def _evidence_for(self, run: dict) -> dict:
+        """Team doc 03's evidence: the habit, the base brain's failures of the type the edit reduced most,
+        that failure type as the signal, the gate run, and where the problem was seen."""
+        reduced = sorted(((v["base"] - v["cand"], t) for t, v in (run.get("failures") or {}).items()
+                          if v["base"] > v["cand"]), reverse=True)
+        signal = reduced[0][1] if reduced else None
+        ep_ids, observed = [], None
+        if signal:
+            eps = list(self.c("episodes").find({"shift_id": {"$in": run["shift_ids"]["base"]}, "type": signal},
+                                               {"zone": 1, "seed": 1, "tick": 1}).sort([("seed", 1), ("tick", 1)]))
+            ep_ids = [e["_id"] for e in eps[:10]]
+            zc = Counter(e.get("zone") for e in eps if e.get("zone"))
+            if zc:
+                observed = zc.most_common(1)[0][0]
+        if observed is None and run.get("zones"):
+            observed = max(run["zones"], key=lambda z: run["zones"][z]["delta"])
+        ev = {"gate_run_id": run["_id"], "signal": signal, "episode_ids": ep_ids,
+              "observed_at": f"zone:{observed}" if observed in SKELETON_ZONES else SITE_ID,
+              "origin": (run.get("origin") or {}).get("source")}
+        ref = (run.get("origin") or {}).get("ref")
+        if ref and str(ref).startswith("habit:"):
+            ev["habit_id"] = ref
+        return ev
+
+    # ── Raindrop: one event per proposal, signals exactly once ─
+
+    def _sync_raindrop(self, gid: str):
+        """Bring Raindrop up to date with this gate run. Each send is claimed in Atlas first, so a
+        signal goes out at most once even with parallel evaluators."""
+        run = self.c("gate_runs").find_one({"_id": gid})
+        if run is None:
+            return
+        known = run["verdict"] == "invalid" or run.get("zones") is not None
+        first: dict[str, str] = {}
+        for e in run["events"]:
+            first.setdefault(e["policy"], e["event_id"])
+        for e in run["events"]:
+            repeat = first[e["policy"]] != e["event_id"]
+            want = []
+            if known:
+                want.append("event")
+                if run["verdict"] == "invalid":
+                    want.append("invalid_proposal")
+                if repeat:
+                    want.append("re_proposed")
+                gd = run.get("gate_decision")
+                if gd and not repeat:
+                    want.append("gate_passed" if gd == "passed" else "gate_failed")
+            for name in want:
+                if name in e.get("signals_sent", []):
+                    continue
+                claim = self.c("gate_runs").update_one(
+                    {"_id": gid, "events": {"$elemMatch": {"event_id": e["event_id"], "signals_sent": {"$ne": name}}}},
+                    {"$addToSet": {"events.$.signals_sent": name}})
+                if not claim.modified_count:
+                    continue
+                if name == "event":
+                    self.sink.event(e["event_id"], self._event_properties(run, e, repeat))
+                else:
+                    self.sink.signal(e["event_id"], name)
+
+    @staticmethod
+    def _event_properties(run: dict, e: dict, repeat: bool) -> dict:
+        ctx = run.get("context") or {}
+        p = {"brain_version": run["base_version"], "base_patch_hash": run["base_patch_hash"],
+             "cand_patch_hash": run["cand_patch_hash"],
+             "lever_groups": sorted({x.get("lever_group") or "unknown" for x in run["edits"]}),
+             "edits": ";".join(f"{x['target']}={x['value']:g}" for x in run["edits"]),
+             "time_state": ctx.get("time_state"), "origin": (e.get("origin") or run.get("origin") or {}).get("source"),
+             "policy": e["policy"], "split": run["split"], "round": e["round"], "gate_run_id": run["_id"],
+             "status": run["verdict"], "repeat": repeat, "engine": run["env"]["engine_sha"], "env_key": run["env_key"]}
+        zones = run.get("zones") or {}
+        if "M" in zones:
+            p["zone_M_score"] = zones["M"]["cand"]
+            p["zone_M_delta"] = zones["M"]["delta"]
+        return p
+
+    # ── Phase 2: held-out, approvals, habits ─────────────────
+
+    def record_heldout(self, gate_run_id: str, seed_set: str, passed: bool, zone_delta: dict) -> dict:
+        """The gate's held-out verdict for one seed set. Only the gate client can write or read this;
+        brain_versions gets the boolean alone."""
+        self._require_gate("record_heldout()")
+        run = self.c("gate_runs").find_one({"_id": gate_run_id}, {"promoted_to": 1})
+        if run is None:
+            raise KeyError(f"no gate run {gate_run_id}")
+        doc = {"_id": "ho-" + digest([gate_run_id, seed_set]), "gate_run_id": gate_run_id, "seed_set": seed_set,
+               "passed": bool(passed), "zone_delta": {str(z): float(v) for z, v in (zone_delta or {}).items()},
+               "recorded_at": now()}
+        self.c("heldout_results").replace_one({"_id": doc["_id"]}, doc, upsert=True)
+        if run.get("promoted_to"):
+            rows = list(self.c("heldout_results").find({"gate_run_id": gate_run_id}, {"passed": 1}))
+            self.c("brain_versions").update_one({"version": run["promoted_to"]},
+                                                {"$set": {"heldout_passed": all(r["passed"] for r in rows)}})
+        return {"_id": doc["_id"], "passed": doc["passed"]}
+
+    def record_final(self, version: int, passed: bool, zone_delta: dict, vs: int = 1, seed_set: str = "final") -> dict:
+        """After the freeze: the gate runs the `final` seed set once, v1 against vN, and stores it here."""
+        self._require_gate("record_final()")
+        final = {"vs": f"v{vs}", "seed_set": seed_set, "passed": bool(passed),
+                 "zone_delta": {str(z): float(v) for z, v in (zone_delta or {}).items()}, "at": now()}
+        r = self.c("brain_versions").update_one({"version": version}, {"$set": {"final": final}})
+        if not r.matched_count:
+            raise KeyError(f"no brain version {version}")
+        return final
+
+    def record_approval(self, target: str, value: float, decision: str, by: str, ref: Optional[str] = None) -> dict:
+        """The Robotics Lead's answer on the call, routed here by the Agent Engine resume handler.
+        Writes envelope.approvals; matching needs_approval runs become promotable (or rejected)."""
+        self._require_gate("record_approval()")
+        if decision not in ("approve", "reject"):
+            raise ValueError("decision must be 'approve' or 'reject'")
+        d = self.c("envelope").find_one({"_id": target})
+        if d is None:
+            raise KeyError(f"no setting {target}")
+        if d["status"] != "locked":
+            raise KGError(f"{target} is {d['status']}: approvals only apply to locked settings")
+        value = norm_number(value)
+        if not (d["min"] - 1e-9 <= value <= d["max"] + 1e-9):
+            raise KGError(f"{value} is outside [{d['min']}, {d['max']}]: no approval can move the envelope's bounds")
+        entry = {"value": value, "decision": decision, "approved_by": by, "ref": ref, "at": now()}
+        upd: dict = {"$push": {"approvals": entry}}
+        if decision == "approve":
+            upd["$set"] = {"approved_value": value}
+        self.c("envelope").update_one({"_id": target}, upd)
+        ready, rejected = [], []
+        env = self._envelope()
+        for run in self.c("gate_runs").find({"verdict": "needs_approval", "edits.target": target}):
+            if not any(e["target"] == target and same_value(e["value"], value) for e in run["edits"]):
+                continue
+            if decision == "approve":
+                self.c("gate_runs").update_one({"_id": run["_id"]}, {"$addToSet": {"approvals": {
+                    "target": target, "value": value, "approved_by": by, "ref": ref}}})
+                if all(self._is_approved(env, e) for e in run["edits"]):
+                    ready.append(run["_id"])
+            else:
+                self.c("gate_runs").update_one({"_id": run["_id"]}, {"$set": {
+                    "verdict": "rejected", "reason": f"declined by {by}" + (f" ({ref})" if ref else "")}})
+                rejected.append(run["_id"])
+        return {"target": target, "value": value, "decision": decision, "ready_to_promote": ready, "rejected": rejected}
+
+    @staticmethod
+    def _is_approved(env: dict, edit: dict) -> bool:
+        d = env.get(edit["target"])
+        if not d or d["status"] != "locked" or same_value(edit["value"], d["v1"]):
+            return True
+        return any(a.get("decision") == "approve" and same_value(a["value"], edit["value"])
+                   for a in d.get("approvals") or [])
+
+    def add_habit(self, habit_id: str, text: str, clip: Optional[dict] = None, steps: Optional[list] = None,
+                  lever_group: Optional[str] = None, **extra) -> str:
+        """Person C's pipeline writes habits (Gemini output); the KG owns only the counters."""
+        if not habit_id.startswith("habit:"):
+            habit_id = f"habit:{habit_id}"
+        fields = {"text": text, "clip": clip, "steps": steps or [], "lever_group": lever_group, **extra}
+        self.c("playbook").update_one({"_id": habit_id}, {"$set": fields,
+                                                          "$setOnInsert": {"helpful": 0, "harmful": 0}}, upsert=True)
+        return habit_id
+
+    # ── read views (implemented in views.py) ─────────────────
+
+    def get_context(self, V: int, split: str = "train") -> dict:
+        from .views import get_context
+        return get_context(self, V, split)
+
+    def suggest(self, V: int, k: int = 3, split: str = "train") -> dict:
+        from .views import suggest
+        return suggest(self, V, k, split)
+
+    def explain(self, component_id: str) -> dict:
+        from .views import explain
+        return explain(self, component_id)
+
+    def lineage(self, V: int) -> dict:
+        from .views import lineage
+        return lineage(self, V)
+
+    def graph_snapshot(self, V: int, compare_to: Optional[int] = None) -> dict:
+        from .views import graph_snapshot
+        return graph_snapshot(self, V, compare_to)
+
+
+def order_time_states(ts: dict) -> list[str]:
+    """Non-productive states of a time_split by share, largest first; lift_ride never ahead of lift_wait.
+    Empty when time_split is all zeros (cut #4 in the TwinForge slip list)."""
+    states = [s for s, (productive, _, _) in TIME_STATES.items() if not productive and (ts.get(s) or 0) > 0]
+    states.sort(key=lambda s: (-(ts.get(s) or 0), s))
+    if "lift_ride" in states and "lift_wait" in states and states.index("lift_ride") < states.index("lift_wait"):
+        states.remove("lift_ride")
+        states.insert(states.index("lift_wait") + 1, "lift_ride")
+    return states

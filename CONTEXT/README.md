@@ -36,6 +36,7 @@ These are not iteration rounds; each is a focused artifact on one piece of the s
 | --- | --- | --- |
 | [`brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/brain-hierarchical-knowledge-graph.md) (+ `.txt`) | The detailed design of the robot's brain, written after iteration 2. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
 | [`interface-contracts.md`](../SCRATCHPADS/interface-contracts.md) (+ `.txt`) | A short, urgent document written while two teammates were already building the ElevenLabs call and the MongoDB brain structure in parallel. | Pins down the exact function contract for `place_approval_call` and for `get_brain_context` / `commit_brain_version`, so both pieces plug into the supervisor later with no rework. |
+| [`knowledge-graph-info-packet.md`](../SCRATCHPADS/knowledge-graph-info-packet.md) | A reference packet on the structure of the knowledge graph as built in [`kg/`](../kg/), written by Prithviraj, who owns it. | Gives every teammate the same picture of the graph's levels, component kinds, versioning, collections, permissions and Python API, maps it onto the brain graph document and the interface contracts, and lists the decisions the team still has to make. |
 
 ## The background material, in this folder
 
