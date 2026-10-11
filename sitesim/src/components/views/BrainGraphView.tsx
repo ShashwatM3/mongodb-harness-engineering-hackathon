@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ZONE_COLOR, useStore } from "../../state/store";
 import { API, getJson, invalidateGraphs, refreshBrain, useBrainEvents, useBrainGraph, useBrainSnapshot, type BNode, type Ev, type Explain, type Graph } from "../panels/brainApi";
+import { ForceGraph } from "./ForceGraph";
 
 const KIND_COLOR: Record<string, string> = { rule: "#60a5fa", guardrail: "#f97316", context_policy: "#a855f7", tool_grant: "#22c55e", preference: "#eab308" };
 const W = 1600, H = 900;
@@ -124,6 +125,7 @@ export function BrainGraphView() {
   const [selected, setSelected] = useState<Placed | null>(null);
   const [explain, setExplain] = useState<Explain | null>(null);
   const [showEvidence, setShowEvidence] = useState(true);
+  const [layout, setLayout] = useState<"graph" | "tree">("graph");
   const [, tick] = useState(0);
   const pulses = useRef(new Map<string, number>());
   const captions = useRef(new Map<string, string>());
@@ -152,6 +154,7 @@ export function BrainGraphView() {
   // re-render while any pulse is alive so rings fade out
   useEffect(() => { const id = window.setInterval(() => { const now = Date.now(); let any = false; for (const t of pulses.current.values()) if (now - t < 1700) any = true; if (any) tick((n) => n + 1); }, 400); return () => window.clearInterval(id); }, []);
 
+  const onSelectNode = (n: BNode) => onSelect({ node: n, x: 0, y: 0, w: 0, h: 0, row: 0, zone: null });
   const onSelect = (p: Placed) => {
     setSelected(p); setExplain(null);
     if (p.node.status !== "skeleton") getJson<Explain>(`/api/brain/explain/${encodeURIComponent(p.node.id)}`).then(setExplain);
@@ -174,6 +177,7 @@ export function BrainGraphView() {
         <button className={"bt-toggle" + (compare ? " on" : "")} onClick={() => setCompare((c) => !c)} disabled={!latest || latest < 2} title="Draw v1 beside this version; added components glow green">Compare to v1</button>
         <button className={"bt-toggle" + (follow ? " on" : "")} onClick={() => setFollow((f) => !f)} title="Jump to the newest version when the gate promotes one">Follow live</button>
         <button className={"bt-toggle" + (showEvidence ? " on" : "")} onClick={() => setShowEvidence((s) => !s)}>Evidence edges</button>
+        <span className="bt-chips"><button className={layout === "graph" ? "on" : ""} onClick={() => setLayout("graph")} title="Force-directed nodes and edges; drag, pan, wheel to zoom">Graph</button><button className={layout === "tree" ? "on" : ""} onClick={() => setLayout("tree")}>Tree</button></span>
         <span className="bt-legend">
           <i style={{ background: KIND_COLOR.rule }} />rule <i style={{ background: KIND_COLOR.guardrail }} />guardrail <i style={{ background: KIND_COLOR.context_policy }} />context policy <i style={{ background: KIND_COLOR.tool_grant }} />tool grant
           {counts && <b>· {counts.comps} components{counts.added ? ` · ${counts.added} added` : ""}{counts.retired ? ` · ${counts.retired} retired` : ""}</b>}
@@ -182,10 +186,13 @@ export function BrainGraphView() {
       </div>
       {entry?.hypothesis && <div className="brain-hyp">v{entry.version}: {entry.hypothesis}{entry.heldout_passed ? " · held-out agreed" : ""}</div>}
       <div className={"brain-canvas" + (compare ? " split" : "")}>
-        {compare && graphV1 && <div className="brain-pane"><div className="pane-h">v1 · the integrator's first-day brain</div><Tree g={graphV1} pulses={pulses.current} onHover={() => {}} onSelect={onSelect} selected={selected?.node.id ?? null} showEvidence={false} caption={new Map()} /></div>}
+        {compare && graphV1 && <div className="brain-pane"><div className="pane-h">v1 · the integrator's first-day brain</div>{layout === "graph" ? <ForceGraph g={graphV1} pulses={pulses.current} selected={selected?.node.id ?? null} onSelect={onSelectNode} seedKey="v1" /> : <Tree g={graphV1} pulses={pulses.current} onHover={() => {}} onSelect={onSelect} selected={selected?.node.id ?? null} showEvidence={false} caption={new Map()} />}</div>}
         <div className="brain-pane">
           {compare && <div className="pane-h">v{shown} · what the robot changed about itself</div>}
-          {graph ? <Tree g={graph} pulses={pulses.current} onHover={(p, e) => setHover(p && e ? { p, x: e.clientX, y: e.clientY } : null)} onSelect={onSelect} selected={selected?.node.id ?? null} showEvidence={showEvidence} caption={captions.current} />
+          {graph ? (layout === "graph"
+            ? <ForceGraph g={graph} pulses={pulses.current} selected={selected?.node.id ?? null} onSelect={onSelectNode} caption={captions.current}
+                onHover={(n, e) => setHover(n && e ? { p: { node: n, x: 0, y: 0, w: 0, h: 0, row: 0, zone: null }, x: e.clientX, y: e.clientY } : null)} />
+            : <Tree g={graph} pulses={pulses.current} onHover={(p, e) => setHover(p && e ? { p, x: e.clientX, y: e.clientY } : null)} onSelect={onSelect} selected={selected?.node.id ?? null} showEvidence={showEvidence} caption={captions.current} />)
             : <div className="hint" style={{ padding: 24 }}>{latest === null ? `Waiting for the harness at ${API}…` : "Loading graph…"}</div>}
         </div>
         {selected && (
@@ -246,8 +253,8 @@ export function BrainMini() {
     <section className="panel grow brain-mini">
       <header className="panel-h"><span>Knowledge graph{latest ? ` · v${latest}` : ""}</span>
         <span className="mini-zoom"><input type="range" min={0.3} max={1.4} step={0.05} value={zoom} onChange={(e) => setZoom(+e.target.value)} title="Zoom" /><button className="link" onClick={() => setViewTab("BRAIN")}>Open ↗</button></span></header>
-      <div className="panel-b brain-mini-b" style={{ ["--mini-w" as string]: `${Math.round(1240 * zoom)}px` }}>
-        {graph ? <Tree g={graph} pulses={pulses.current} onHover={() => {}} onSelect={() => setViewTab("BRAIN")} selected={null} showEvidence={false} caption={captions.current} />
+      <div className="panel-b brain-mini-b fg-mini" style={{ ["--mini-w" as string]: `${Math.round(1240 * zoom)}px` }}>
+        {graph ? <ForceGraph g={graph} pulses={pulses.current} selected={null} onSelect={() => setViewTab("BRAIN")} caption={captions.current} seedKey="mini" />
           : <div className="hint">Waiting for the harness…</div>}
       </div>
     </section>
