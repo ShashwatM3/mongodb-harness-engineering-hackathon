@@ -1,0 +1,8936 @@
+{
+  "schema_version": "2.0",
+  "meta": {
+    "id": "retail-darkstore-v1",
+    "name": "Aurora Dark Store (96×64m)",
+    "vertical": "retail",
+    "description": "Retail fulfilment centre: grocery aisles, chilled zone, mezzanine bulk storage over receiving, packout lines, dispatch bays, 22 robots in two classes, 2 freight lifts."
+  },
+  "site": {
+    "units": "m",
+    "size": {
+      "width": 96,
+      "depth": 64,
+      "height": 12
+    },
+    "grid": {
+      "cell_size": 1,
+      "cols": 96,
+      "rows": 64
+    }
+  },
+  "floors": [
+    {
+      "id": 1,
+      "name": "Sales Floor",
+      "elevation": 0
+    },
+    {
+      "id": 2,
+      "name": "Mezzanine · Bulk Storage",
+      "elevation": 6.5,
+      "footprint": [
+        [
+          44,
+          6
+        ],
+        [
+          90,
+          6
+        ],
+        [
+          90,
+          28
+        ],
+        [
+          44,
+          28
+        ]
+      ]
+    }
+  ],
+  "zones": [
+    {
+      "id": "G",
+      "name": "Grocery Aisles",
+      "color": "#22c55e",
+      "floor": 1,
+      "polygon": [
+        [
+          4,
+          6
+        ],
+        [
+          40,
+          6
+        ],
+        [
+          40,
+          28
+        ],
+        [
+          4,
+          28
+        ]
+      ]
+    },
+    {
+      "id": "F",
+      "name": "Fresh & Chilled",
+      "color": "#38bdf8",
+      "floor": 1,
+      "polygon": [
+        [
+          4,
+          34
+        ],
+        [
+          40,
+          34
+        ],
+        [
+          40,
+          58
+        ],
+        [
+          4,
+          58
+        ]
+      ]
+    },
+    {
+      "id": "R",
+      "name": "Receiving",
+      "color": "#3b82f6",
+      "floor": 1,
+      "polygon": [
+        [
+          44,
+          6
+        ],
+        [
+          78,
+          6
+        ],
+        [
+          78,
+          28
+        ],
+        [
+          44,
+          28
+        ]
+      ]
+    },
+    {
+      "id": "X",
+      "name": "Checkout & Packout",
+      "color": "#a855f7",
+      "floor": 1,
+      "capacity": 5,
+      "polygon": [
+        [
+          44,
+          34
+        ],
+        [
+          68,
+          34
+        ],
+        [
+          68,
+          58
+        ],
+        [
+          44,
+          58
+        ]
+      ]
+    },
+    {
+      "id": "D",
+      "name": "Dispatch",
+      "color": "#f59e0b",
+      "floor": 1,
+      "capacity": 8,
+      "polygon": [
+        [
+          72,
+          34
+        ],
+        [
+          92,
+          34
+        ],
+        [
+          92,
+          58
+        ],
+        [
+          72,
+          58
+        ]
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Mezzanine Bulk",
+      "color": "#14b8a6",
+      "floor": 2,
+      "capacity": 8,
+      "polygon": [
+        [
+          44,
+          6
+        ],
+        [
+          90,
+          6
+        ],
+        [
+          90,
+          28
+        ],
+        [
+          44,
+          28
+        ]
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "GOND-G101",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G102",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        8,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G103",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        11,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G104",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        14,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G105",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        17,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G106",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        20,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G107",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G108",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        26,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G109",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        29,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G110",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        32,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G111",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        35,
+        0,
+        8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G201",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G202",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        8,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G203",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        11,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G204",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        14,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G205",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        17,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G206",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        20,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G207",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G208",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        26,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G209",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        29,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G210",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        32,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G211",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        35,
+        0,
+        11.6
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G301",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G302",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        8,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G303",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        11,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G304",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        14,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G305",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        17,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G306",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        20,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G307",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G308",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        26,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G309",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        29,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G310",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        32,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G311",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        35,
+        0,
+        15.2
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G401",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G402",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        8,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G403",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        11,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G404",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        14,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G405",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        17,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G406",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        20,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G407",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G408",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        26,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G409",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        29,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G410",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        32,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G411",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        35,
+        0,
+        18.8
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G501",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G502",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        8,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G503",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        11,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G504",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        14,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G505",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        17,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G506",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        20,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G507",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G508",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        26,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G509",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        29,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G510",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        32,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G511",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        35,
+        0,
+        22.4
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G601",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G602",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        8,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G603",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        11,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G604",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        14,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G605",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        17,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G606",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        20,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G607",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G608",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        26,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G609",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        29,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G610",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        32,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "GOND-G611",
+      "kind": "rack",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        35,
+        0,
+        26
+      ],
+      "size": [
+        2.5,
+        2.2,
+        0.9
+      ],
+      "rotation": 0,
+      "levels": 5,
+      "model": "gondola",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F101",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F102",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        8.6,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F103",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        12.2,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F104",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        15.8,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F105",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        19.4,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F106",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F107",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        26.6,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F108",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        30.2,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F109",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        33.8,
+        0,
+        36
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F201",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F202",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        8.6,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F203",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        12.2,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F204",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        15.8,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F205",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        19.4,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F206",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F207",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        26.6,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F208",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        30.2,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F209",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        33.8,
+        0,
+        40.2
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F301",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F302",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        8.6,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F303",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        12.2,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F304",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        15.8,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F305",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        19.4,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F306",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F307",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        26.6,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F308",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        30.2,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F309",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        33.8,
+        0,
+        44.4
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F401",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        5,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F402",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        8.6,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F403",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        12.2,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F404",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        15.8,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F405",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        19.4,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F406",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        23,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F407",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        26.6,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F408",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        30.2,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "COLD-F409",
+      "kind": "rack",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        33.8,
+        0,
+        48.6
+      ],
+      "size": [
+        3,
+        2,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 4,
+      "model": "cold_case",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M101",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        46,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M102",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        49.6,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M103",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        53.2,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M104",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        56.8,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M105",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        60.4,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M106",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        64,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M107",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        67.6,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M108",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        71.2,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M109",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        74.8,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M110",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        78.4,
+        0,
+        9
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M201",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        46,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M202",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        49.6,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M203",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        53.2,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M204",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        56.8,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M205",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        60.4,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M206",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        64,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M207",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        67.6,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M208",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        71.2,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M209",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        74.8,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M210",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        78.4,
+        0,
+        13.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M301",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        46,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M302",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        49.6,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M303",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        53.2,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M304",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        56.8,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M305",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        60.4,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M306",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        64,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M307",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        67.6,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M308",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        71.2,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M309",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        74.8,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M310",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        78.4,
+        0,
+        18
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M401",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        46,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M402",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        49.6,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M403",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        53.2,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M404",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        56.8,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M405",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        60.4,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M406",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        64,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M407",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        67.6,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M408",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        71.2,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M409",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        74.8,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "BULK-M410",
+      "kind": "rack",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        78.4,
+        0,
+        22.5
+      ],
+      "size": [
+        3,
+        4.5,
+        1.1
+      ],
+      "rotation": 0,
+      "levels": 3,
+      "model": "pallet",
+      "blocks_grid": true
+    },
+    {
+      "id": "PACKOUT-01",
+      "kind": "station",
+      "zone": "X",
+      "station_kind": "PACKOUT",
+      "rect": [
+        45,
+        52,
+        56,
+        57
+      ],
+      "access_point": [
+        50.5,
+        51
+      ]
+    },
+    {
+      "id": "PACKOUT-02",
+      "kind": "station",
+      "zone": "X",
+      "station_kind": "PACKOUT",
+      "rect": [
+        57,
+        52,
+        68,
+        57
+      ],
+      "access_point": [
+        62.5,
+        51
+      ]
+    },
+    {
+      "id": "STAGE-01",
+      "kind": "station",
+      "zone": "D",
+      "station_kind": "STAGE",
+      "rect": [
+        74,
+        34,
+        90,
+        39
+      ],
+      "access_point": [
+        82,
+        40
+      ]
+    },
+    {
+      "id": "RECV-1",
+      "kind": "dock",
+      "zone": "R",
+      "dock_kind": "RECEIVING",
+      "rect": [
+        46,
+        0,
+        58,
+        6
+      ],
+      "door": [
+        52,
+        0
+      ]
+    },
+    {
+      "id": "RECV-2",
+      "kind": "dock",
+      "zone": "R",
+      "dock_kind": "RECEIVING",
+      "rect": [
+        60,
+        0,
+        72,
+        6
+      ],
+      "door": [
+        66,
+        0
+      ]
+    },
+    {
+      "id": "DISP-1",
+      "kind": "dock",
+      "zone": "D",
+      "dock_kind": "DISPATCH",
+      "rect": [
+        74,
+        58,
+        86,
+        64
+      ],
+      "door": [
+        80,
+        64
+      ]
+    },
+    {
+      "id": "DISP-2",
+      "kind": "dock",
+      "zone": "D",
+      "dock_kind": "DISPATCH",
+      "rect": [
+        61,
+        58,
+        73,
+        64
+      ],
+      "door": [
+        67,
+        64
+      ]
+    },
+    {
+      "id": "CV-A",
+      "kind": "conveyor",
+      "zone": "X",
+      "name": "Packout Belt A",
+      "path": [
+        [
+          45,
+          49
+        ],
+        [
+          68,
+          49
+        ]
+      ],
+      "width": 0.9,
+      "speed_mps": 0.6,
+      "blocks_grid": true,
+      "feeds": "PACKOUT-01"
+    },
+    {
+      "id": "CV-B",
+      "kind": "conveyor",
+      "zone": "R",
+      "name": "Inbound Decant Belt",
+      "path": [
+        [
+          48,
+          30.5
+        ],
+        [
+          76,
+          30.5
+        ]
+      ],
+      "width": 0.9,
+      "speed_mps": 0.5,
+      "blocks_grid": true,
+      "feeds": "PACKOUT-02"
+    },
+    {
+      "id": "CV-C",
+      "kind": "conveyor",
+      "zone": "F",
+      "name": "Cold Chain Belt",
+      "path": [
+        [
+          1.2,
+          36
+        ],
+        [
+          1.2,
+          58
+        ]
+      ],
+      "width": 0.8,
+      "speed_mps": 0.5,
+      "blocks_grid": true
+    },
+    {
+      "id": "CHG-01",
+      "kind": "charger",
+      "zone": "F",
+      "position": [
+        6,
+        0,
+        61.6
+      ],
+      "heading": 1.5707963267948966,
+      "power_kw": 3,
+      "access_point": [
+        6,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-02",
+      "kind": "charger",
+      "zone": "F",
+      "position": [
+        8.5,
+        0,
+        61.6
+      ],
+      "heading": 1.5707963267948966,
+      "power_kw": 3,
+      "access_point": [
+        8.5,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-03",
+      "kind": "charger",
+      "zone": "F",
+      "position": [
+        11,
+        0,
+        61.6
+      ],
+      "heading": 1.5707963267948966,
+      "power_kw": 3,
+      "access_point": [
+        11,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-04",
+      "kind": "charger",
+      "zone": "F",
+      "position": [
+        13.5,
+        0,
+        61.6
+      ],
+      "heading": 1.5707963267948966,
+      "power_kw": 3,
+      "access_point": [
+        13.5,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-05",
+      "kind": "charger",
+      "zone": "F",
+      "position": [
+        16,
+        0,
+        61.6
+      ],
+      "heading": 1.5707963267948966,
+      "power_kw": 3,
+      "access_point": [
+        16,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-06",
+      "kind": "charger",
+      "zone": "F",
+      "position": [
+        18.5,
+        0,
+        61.6
+      ],
+      "heading": 1.5707963267948966,
+      "power_kw": 3,
+      "access_point": [
+        18.5,
+        59.7
+      ]
+    },
+    {
+      "id": "PARK-1",
+      "kind": "parking",
+      "zone": "F",
+      "rect": [
+        24,
+        59,
+        44,
+        63
+      ],
+      "slots": 12
+    },
+    {
+      "id": "RESTRICT-1",
+      "kind": "restricted",
+      "name": "Plant room",
+      "rect": [
+        0,
+        0,
+        14,
+        6
+      ],
+      "robots_allowed": false
+    },
+    {
+      "id": "WALK-1",
+      "kind": "walkway",
+      "polygon": [
+        [
+          0,
+          28
+        ],
+        [
+          96,
+          28
+        ],
+        [
+          96,
+          34
+        ],
+        [
+          0,
+          34
+        ]
+      ],
+      "robots_allowed": true,
+      "speed_limit_mps": 0.8
+    },
+    {
+      "id": "WALK-2",
+      "kind": "walkway",
+      "polygon": [
+        [
+          40,
+          6
+        ],
+        [
+          44,
+          6
+        ],
+        [
+          44,
+          58
+        ],
+        [
+          40,
+          58
+        ]
+      ],
+      "robots_allowed": true,
+      "speed_limit_mps": 1
+    },
+    {
+      "id": "PILLAR-01",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        -0.25,
+        -0.25,
+        0.25,
+        0.25
+      ]
+    },
+    {
+      "id": "PILLAR-02",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        -0.25,
+        63.75,
+        0.25,
+        64.25
+      ]
+    },
+    {
+      "id": "PILLAR-03",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        23.75,
+        -0.25,
+        24.25,
+        0.25
+      ]
+    },
+    {
+      "id": "PILLAR-04",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        23.75,
+        63.75,
+        24.25,
+        64.25
+      ]
+    },
+    {
+      "id": "PILLAR-05",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        47.75,
+        -0.25,
+        48.25,
+        0.25
+      ]
+    },
+    {
+      "id": "PILLAR-06",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        47.75,
+        63.75,
+        48.25,
+        64.25
+      ]
+    },
+    {
+      "id": "PILLAR-07",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        71.75,
+        -0.25,
+        72.25,
+        0.25
+      ]
+    },
+    {
+      "id": "PILLAR-08",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        71.75,
+        63.75,
+        72.25,
+        64.25
+      ]
+    },
+    {
+      "id": "PILLAR-09",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        95.75,
+        -0.25,
+        96.25,
+        0.25
+      ]
+    },
+    {
+      "id": "PILLAR-10",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        95.75,
+        63.75,
+        96.25,
+        64.25
+      ]
+    },
+    {
+      "id": "PILLAR-11",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        -0.25,
+        31.75,
+        0.25,
+        32.25
+      ]
+    },
+    {
+      "id": "PILLAR-12",
+      "kind": "obstacle",
+      "obstacle_kind": "PILLAR",
+      "rect": [
+        95.75,
+        31.75,
+        96.25,
+        32.25
+      ]
+    },
+    {
+      "id": "COL-01",
+      "kind": "column",
+      "position": [
+        46,
+        8
+      ]
+    },
+    {
+      "id": "COL-02",
+      "kind": "column",
+      "position": [
+        58,
+        8
+      ]
+    },
+    {
+      "id": "COL-03",
+      "kind": "column",
+      "position": [
+        70,
+        8
+      ]
+    },
+    {
+      "id": "COL-04",
+      "kind": "column",
+      "position": [
+        82,
+        8
+      ]
+    },
+    {
+      "id": "COL-05",
+      "kind": "column",
+      "position": [
+        46,
+        26
+      ]
+    },
+    {
+      "id": "COL-06",
+      "kind": "column",
+      "position": [
+        58,
+        26
+      ]
+    },
+    {
+      "id": "COL-07",
+      "kind": "column",
+      "position": [
+        70,
+        26
+      ]
+    },
+    {
+      "id": "COL-08",
+      "kind": "column",
+      "position": [
+        82,
+        26
+      ]
+    },
+    {
+      "id": "COL-09",
+      "kind": "column",
+      "position": [
+        46,
+        17
+      ]
+    },
+    {
+      "id": "COL-10",
+      "kind": "column",
+      "position": [
+        82,
+        17
+      ]
+    },
+    {
+      "id": "CVEQ-45-49",
+      "kind": "obstacle",
+      "obstacle_kind": "CONVEYOR_EQUIP",
+      "rect": [
+        43.6,
+        47.6,
+        46.4,
+        50.4
+      ]
+    },
+    {
+      "id": "CVEQ-68-49",
+      "kind": "obstacle",
+      "obstacle_kind": "CONVEYOR_EQUIP",
+      "rect": [
+        66.6,
+        47.6,
+        69.4,
+        50.4
+      ]
+    },
+    {
+      "id": "CVEQ-48-30.5",
+      "kind": "obstacle",
+      "obstacle_kind": "CONVEYOR_EQUIP",
+      "rect": [
+        46.6,
+        29.1,
+        49.4,
+        31.9
+      ]
+    },
+    {
+      "id": "CVEQ-76-30.5",
+      "kind": "obstacle",
+      "obstacle_kind": "CONVEYOR_EQUIP",
+      "rect": [
+        74.6,
+        29.1,
+        77.4,
+        31.9
+      ]
+    },
+    {
+      "id": "CVEQ-1.2-36",
+      "kind": "obstacle",
+      "obstacle_kind": "CONVEYOR_EQUIP",
+      "rect": [
+        -0.2,
+        34.6,
+        2.6,
+        37.4
+      ]
+    },
+    {
+      "id": "CVEQ-1.2-58",
+      "kind": "obstacle",
+      "obstacle_kind": "CONVEYOR_EQUIP",
+      "rect": [
+        -0.2,
+        56.6,
+        2.6,
+        59.4
+      ]
+    },
+    {
+      "id": "AIRCURT-01",
+      "kind": "air_curtain",
+      "zone": "F",
+      "rect": [
+        4,
+        33.2,
+        12,
+        34.4
+      ],
+      "blocks_grid": false,
+      "throughput_note": "chilled zone entry"
+    },
+    {
+      "id": "CARTWASH-01",
+      "kind": "cart_wash",
+      "zone": "R",
+      "rect": [
+        88,
+        0,
+        95,
+        5
+      ],
+      "blocks_grid": true
+    }
+  ],
+  "lifts": [
+    {
+      "id": "LIFT-A",
+      "cell": [
+        86,
+        12
+      ],
+      "floors": [
+        1,
+        2
+      ],
+      "ride_ticks": 55
+    },
+    {
+      "id": "LIFT-B",
+      "cell": [
+        86,
+        22
+      ],
+      "floors": [
+        1,
+        2
+      ],
+      "ride_ticks": 55
+    }
+  ],
+  "locations": [
+    {
+      "id": "AISLE-G001",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G101",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G002",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G101",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G003",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G102",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G004",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G102",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G005",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G103",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G006",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G103",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G007",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G104",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G008",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G104",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G009",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G105",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G010",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G105",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G011",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G106",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G012",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G106",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G013",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G107",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G014",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G107",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G015",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G108",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G016",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G108",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G017",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G109",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G018",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G109",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G019",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G110",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G020",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G110",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G021",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G111",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        7
+      ]
+    },
+    {
+      "id": "AISLE-G022",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G111",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        9.9
+      ]
+    },
+    {
+      "id": "AISLE-G023",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G201",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G024",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G201",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G025",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G202",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G026",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G202",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G027",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G203",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G028",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G203",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G029",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G204",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G030",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G204",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G031",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G205",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G032",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G205",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G033",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G206",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G034",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G206",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G035",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G207",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G036",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G207",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G037",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G208",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G038",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G208",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G039",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G209",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G040",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G209",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G041",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G210",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G042",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G210",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G043",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G211",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        10.6
+      ]
+    },
+    {
+      "id": "AISLE-G044",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G211",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        13.5
+      ]
+    },
+    {
+      "id": "AISLE-G045",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G301",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G046",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G301",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G047",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G302",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G048",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G302",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G049",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G303",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G050",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G303",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G051",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G304",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G052",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G304",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G053",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G305",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G054",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G305",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G055",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G306",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G056",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G306",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G057",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G307",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G058",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G307",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G059",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G308",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G060",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G308",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G061",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G309",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G062",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G309",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G063",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G310",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G064",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G310",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G065",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G311",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        14.2
+      ]
+    },
+    {
+      "id": "AISLE-G066",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G311",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        17.1
+      ]
+    },
+    {
+      "id": "AISLE-G067",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G401",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G068",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G401",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G069",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G402",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G070",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G402",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G071",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G403",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G072",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G403",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G073",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G404",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G074",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G404",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G075",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G405",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G076",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G405",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G077",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G406",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G078",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G406",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G079",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G407",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G080",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G407",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G081",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G408",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G082",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G408",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G083",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G409",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G084",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G409",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G085",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G410",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G086",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G410",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G087",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G411",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        17.8
+      ]
+    },
+    {
+      "id": "AISLE-G088",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G411",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        20.7
+      ]
+    },
+    {
+      "id": "AISLE-G089",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G501",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G090",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G501",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G091",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G502",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G092",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G502",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G093",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G503",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G094",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G503",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G095",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G504",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G096",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G504",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G097",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G505",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G098",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G505",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G099",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G506",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G100",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G506",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G101",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G507",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G102",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G507",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G103",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G508",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G104",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G508",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G105",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G509",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G106",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G509",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G107",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G510",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G108",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G510",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G109",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G511",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        21.4
+      ]
+    },
+    {
+      "id": "AISLE-G110",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G511",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        24.3
+      ]
+    },
+    {
+      "id": "AISLE-G111",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G601",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G112",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G601",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        6.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G113",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G602",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G114",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G602",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        9.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G115",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G603",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G116",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G603",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        12.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G117",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G604",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G118",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G604",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        15.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G119",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G605",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G120",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G605",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        18.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G121",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G606",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G122",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G606",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        21.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G123",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G607",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G124",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G607",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        24.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G125",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G608",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G126",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G608",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        27.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G127",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G609",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G128",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G609",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        30.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G129",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G610",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G130",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G610",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        33.25,
+        27.9
+      ]
+    },
+    {
+      "id": "AISLE-G131",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G611",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        25
+      ]
+    },
+    {
+      "id": "AISLE-G132",
+      "kind": "AISLE",
+      "zone": "G",
+      "floor": 1,
+      "fixture_id": "GOND-G611",
+      "level_range": [
+        1,
+        5
+      ],
+      "access_point": [
+        36.25,
+        27.9
+      ]
+    },
+    {
+      "id": "COLD-001",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F101",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        35
+      ]
+    },
+    {
+      "id": "COLD-002",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F101",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-003",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F102",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        35
+      ]
+    },
+    {
+      "id": "COLD-004",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F102",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-005",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F103",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        35
+      ]
+    },
+    {
+      "id": "COLD-006",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F103",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-007",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F104",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        35
+      ]
+    },
+    {
+      "id": "COLD-008",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F104",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-009",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F105",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        35
+      ]
+    },
+    {
+      "id": "COLD-010",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F105",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-011",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F106",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        35
+      ]
+    },
+    {
+      "id": "COLD-012",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F106",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-013",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F107",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        35
+      ]
+    },
+    {
+      "id": "COLD-014",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F107",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-015",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F108",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        35
+      ]
+    },
+    {
+      "id": "COLD-016",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F108",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-017",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F109",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        35
+      ]
+    },
+    {
+      "id": "COLD-018",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F109",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        38.1
+      ]
+    },
+    {
+      "id": "COLD-019",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F201",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-020",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F201",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-021",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F202",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-022",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F202",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-023",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F203",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-024",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F203",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-025",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F204",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-026",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F204",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-027",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F205",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-028",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F205",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-029",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F206",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-030",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F206",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-031",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F207",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-032",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F207",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-033",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F208",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-034",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F208",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-035",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F209",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        39.2
+      ]
+    },
+    {
+      "id": "COLD-036",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F209",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        42.3
+      ]
+    },
+    {
+      "id": "COLD-037",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F301",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-038",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F301",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-039",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F302",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-040",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F302",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-041",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F303",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-042",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F303",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-043",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F304",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-044",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F304",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-045",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F305",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-046",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F305",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-047",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F306",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-048",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F306",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-049",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F307",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-050",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F307",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-051",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F308",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-052",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F308",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-053",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F309",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        43.4
+      ]
+    },
+    {
+      "id": "COLD-054",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F309",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        46.5
+      ]
+    },
+    {
+      "id": "COLD-055",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F401",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-056",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F401",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        6.5,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-057",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F402",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-058",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F402",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        10.1,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-059",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F403",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-060",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F403",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        13.7,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-061",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F404",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-062",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F404",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        17.3,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-063",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F405",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-064",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F405",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        20.9,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-065",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F406",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-066",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F406",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        24.5,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-067",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F407",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-068",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F407",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        28.1,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-069",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F408",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-070",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F408",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        31.7,
+        50.7
+      ]
+    },
+    {
+      "id": "COLD-071",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F409",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        47.6
+      ]
+    },
+    {
+      "id": "COLD-072",
+      "kind": "COLD",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "COLD-F409",
+      "level_range": [
+        1,
+        4
+      ],
+      "access_point": [
+        35.3,
+        50.7
+      ]
+    },
+    {
+      "id": "BULK-001",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M101",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        8
+      ]
+    },
+    {
+      "id": "BULK-002",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M101",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-003",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M102",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        8
+      ]
+    },
+    {
+      "id": "BULK-004",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M102",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-005",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M103",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        8
+      ]
+    },
+    {
+      "id": "BULK-006",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M103",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-007",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M104",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        8
+      ]
+    },
+    {
+      "id": "BULK-008",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M104",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-009",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M105",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        8
+      ]
+    },
+    {
+      "id": "BULK-010",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M105",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-011",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M106",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        8
+      ]
+    },
+    {
+      "id": "BULK-012",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M106",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-013",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M107",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        8
+      ]
+    },
+    {
+      "id": "BULK-014",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M107",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-015",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M108",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        8
+      ]
+    },
+    {
+      "id": "BULK-016",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M108",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-017",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M109",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        8
+      ]
+    },
+    {
+      "id": "BULK-018",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M109",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-019",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M110",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        8
+      ]
+    },
+    {
+      "id": "BULK-020",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M110",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        11.1
+      ]
+    },
+    {
+      "id": "BULK-021",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M201",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-022",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M201",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-023",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M202",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-024",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M202",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-025",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M203",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-026",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M203",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-027",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M204",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-028",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M204",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-029",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M205",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-030",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M205",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-031",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M206",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-032",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M206",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-033",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M207",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-034",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M207",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-035",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M208",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-036",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M208",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-037",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M209",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-038",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M209",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-039",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M210",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        12.5
+      ]
+    },
+    {
+      "id": "BULK-040",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M210",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        15.6
+      ]
+    },
+    {
+      "id": "BULK-041",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M301",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        17
+      ]
+    },
+    {
+      "id": "BULK-042",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M301",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-043",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M302",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        17
+      ]
+    },
+    {
+      "id": "BULK-044",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M302",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-045",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M303",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        17
+      ]
+    },
+    {
+      "id": "BULK-046",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M303",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-047",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M304",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        17
+      ]
+    },
+    {
+      "id": "BULK-048",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M304",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-049",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M305",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        17
+      ]
+    },
+    {
+      "id": "BULK-050",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M305",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-051",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M306",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        17
+      ]
+    },
+    {
+      "id": "BULK-052",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M306",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-053",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M307",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        17
+      ]
+    },
+    {
+      "id": "BULK-054",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M307",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-055",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M308",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        17
+      ]
+    },
+    {
+      "id": "BULK-056",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M308",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-057",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M309",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        17
+      ]
+    },
+    {
+      "id": "BULK-058",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M309",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-059",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M310",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        17
+      ]
+    },
+    {
+      "id": "BULK-060",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M310",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        20.1
+      ]
+    },
+    {
+      "id": "BULK-061",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M401",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-062",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M401",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        47.5,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-063",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M402",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-064",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M402",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        51.1,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-065",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M403",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-066",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M403",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        54.7,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-067",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M404",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-068",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M404",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        58.3,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-069",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M405",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-070",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M405",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        61.9,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-071",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M406",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-072",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M406",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        65.5,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-073",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M407",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-074",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M407",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        69.1,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-075",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M408",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-076",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M408",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        72.7,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-077",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M409",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-078",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M409",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        76.3,
+        24.6
+      ]
+    },
+    {
+      "id": "BULK-079",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M410",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        21.5
+      ]
+    },
+    {
+      "id": "BULK-080",
+      "kind": "BULK",
+      "zone": "M2",
+      "floor": 2,
+      "fixture_id": "BULK-M410",
+      "level_range": [
+        1,
+        3
+      ],
+      "access_point": [
+        79.9,
+        24.6
+      ]
+    },
+    {
+      "id": "PACKOUT-01",
+      "kind": "PACKOUT",
+      "zone": "X",
+      "floor": 1,
+      "fixture_id": "PACKOUT-01",
+      "level_range": null,
+      "access_point": [
+        50.5,
+        51
+      ]
+    },
+    {
+      "id": "PACKOUT-02",
+      "kind": "PACKOUT",
+      "zone": "X",
+      "floor": 1,
+      "fixture_id": "PACKOUT-02",
+      "level_range": null,
+      "access_point": [
+        62.5,
+        51
+      ]
+    },
+    {
+      "id": "STAGE-01",
+      "kind": "STAGE",
+      "zone": "D",
+      "floor": 1,
+      "fixture_id": "STAGE-01",
+      "level_range": null,
+      "access_point": [
+        82,
+        40
+      ]
+    },
+    {
+      "id": "RECV-1",
+      "kind": "RECEIVING",
+      "zone": "R",
+      "floor": 1,
+      "fixture_id": "RECV-1",
+      "level_range": null,
+      "access_point": [
+        52,
+        7
+      ]
+    },
+    {
+      "id": "RECV-2",
+      "kind": "RECEIVING",
+      "zone": "R",
+      "floor": 1,
+      "fixture_id": "RECV-2",
+      "level_range": null,
+      "access_point": [
+        66,
+        7
+      ]
+    },
+    {
+      "id": "DISP-1",
+      "kind": "DISPATCH",
+      "zone": "D",
+      "floor": 1,
+      "fixture_id": "DISP-1",
+      "level_range": null,
+      "access_point": [
+        80,
+        57
+      ]
+    },
+    {
+      "id": "DISP-2",
+      "kind": "DISPATCH",
+      "zone": "D",
+      "floor": 1,
+      "fixture_id": "DISP-2",
+      "level_range": null,
+      "access_point": [
+        67,
+        57
+      ]
+    },
+    {
+      "id": "CHG-01",
+      "kind": "CHARGING",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "CHG-01",
+      "level_range": null,
+      "access_point": [
+        6,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-02",
+      "kind": "CHARGING",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "CHG-02",
+      "level_range": null,
+      "access_point": [
+        8.5,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-03",
+      "kind": "CHARGING",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "CHG-03",
+      "level_range": null,
+      "access_point": [
+        11,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-04",
+      "kind": "CHARGING",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "CHG-04",
+      "level_range": null,
+      "access_point": [
+        13.5,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-05",
+      "kind": "CHARGING",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "CHG-05",
+      "level_range": null,
+      "access_point": [
+        16,
+        59.7
+      ]
+    },
+    {
+      "id": "CHG-06",
+      "kind": "CHARGING",
+      "zone": "F",
+      "floor": 1,
+      "fixture_id": "CHG-06",
+      "level_range": null,
+      "access_point": [
+        18.5,
+        59.7
+      ]
+    }
+  ],
+  "fleet": {
+    "classes": [
+      {
+        "id": "AMR-S",
+        "max_speed": 1.6,
+        "capacity": 2,
+        "lidar": {
+          "range_m": 3.5,
+          "fov_deg": 240
+        }
+      },
+      {
+        "id": "AMR-T",
+        "max_speed": 1.2,
+        "capacity": 6,
+        "lidar": {
+          "range_m": 4.5,
+          "fov_deg": 270
+        }
+      }
+    ],
+    "spawns": [
+      {
+        "id": "R01",
+        "class": "AMR-S",
+        "position": [
+          25,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 68,
+        "floor": 1
+      },
+      {
+        "id": "R02",
+        "class": "AMR-S",
+        "position": [
+          27,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 77,
+        "floor": 1
+      },
+      {
+        "id": "R03",
+        "class": "AMR-S",
+        "position": [
+          29,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 86,
+        "floor": 1
+      },
+      {
+        "id": "R04",
+        "class": "AMR-S",
+        "position": [
+          31,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 95,
+        "floor": 1
+      },
+      {
+        "id": "R05",
+        "class": "AMR-S",
+        "position": [
+          33,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 72,
+        "floor": 1
+      },
+      {
+        "id": "R06",
+        "class": "AMR-S",
+        "position": [
+          35,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 81,
+        "floor": 1
+      },
+      {
+        "id": "R07",
+        "class": "AMR-S",
+        "position": [
+          37,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 90,
+        "floor": 1
+      },
+      {
+        "id": "R08",
+        "class": "AMR-S",
+        "position": [
+          39,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 99,
+        "floor": 1
+      },
+      {
+        "id": "R09",
+        "class": "AMR-S",
+        "position": [
+          41,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 76,
+        "floor": 1
+      },
+      {
+        "id": "R10",
+        "class": "AMR-S",
+        "position": [
+          43,
+          0,
+          60
+        ],
+        "heading": -1.5708,
+        "battery": 85,
+        "floor": 1
+      },
+      {
+        "id": "R11",
+        "class": "AMR-S",
+        "position": [
+          25,
+          0,
+          62.2
+        ],
+        "heading": -1.5708,
+        "battery": 94,
+        "floor": 1
+      },
+      {
+        "id": "R12",
+        "class": "AMR-S",
+        "position": [
+          27,
+          0,
+          62.2
+        ],
+        "heading": -1.5708,
+        "battery": 71,
+        "floor": 1
+      },
+      {
+        "id": "R13",
+        "class": "AMR-S",
+        "position": [
+          29,
+          0,
+          62.2
+        ],
+        "heading": -1.5708,
+        "battery": 80,
+        "floor": 1
+      },
+      {
+        "id": "R14",
+        "class": "AMR-S",
+        "position": [
+          31,
+          0,
+          62.2
+        ],
+        "heading": -1.5708,
+        "battery": 89,
+        "floor": 1
+      },
+      {
+        "id": "R15",
+        "class": "AMR-S",
+        "position": [
+          48,
+          0,
+          12
+        ],
+        "heading": 0,
+        "battery": 78,
+        "floor": 2
+      },
+      {
+        "id": "R16",
+        "class": "AMR-S",
+        "position": [
+          54,
+          0,
+          12
+        ],
+        "heading": 0,
+        "battery": 85,
+        "floor": 2
+      },
+      {
+        "id": "R17",
+        "class": "AMR-S",
+        "position": [
+          60,
+          0,
+          12
+        ],
+        "heading": 0,
+        "battery": 92,
+        "floor": 2
+      },
+      {
+        "id": "R18",
+        "class": "AMR-S",
+        "position": [
+          66,
+          0,
+          12
+        ],
+        "heading": 0,
+        "battery": 99,
+        "floor": 2
+      },
+      {
+        "id": "T01",
+        "class": "AMR-T",
+        "position": [
+          75,
+          0,
+          42
+        ],
+        "heading": 1.5707963267948966,
+        "battery": 94,
+        "floor": 1
+      },
+      {
+        "id": "T02",
+        "class": "AMR-T",
+        "position": [
+          77.4,
+          0,
+          42
+        ],
+        "heading": 1.5707963267948966,
+        "battery": 99,
+        "floor": 1
+      },
+      {
+        "id": "T03",
+        "class": "AMR-T",
+        "position": [
+          79.8,
+          0,
+          42
+        ],
+        "heading": 1.5707963267948966,
+        "battery": 80,
+        "floor": 1
+      },
+      {
+        "id": "T04",
+        "class": "AMR-T",
+        "position": [
+          82.2,
+          0,
+          42
+        ],
+        "heading": 1.5707963267948966,
+        "battery": 85,
+        "floor": 1
+      }
+    ],
+    "static_actors": [
+      {
+        "kind": "WORKER",
+        "position": [
+          3,
+          0,
+          3
+        ],
+        "heading": 0.4
+      },
+      {
+        "kind": "WORKER",
+        "position": [
+          7,
+          0,
+          2.5
+        ],
+        "heading": 1.6
+      },
+      {
+        "kind": "WORKER",
+        "position": [
+          11.5,
+          0,
+          4.2
+        ],
+        "heading": 2.6
+      },
+      {
+        "kind": "FORKLIFT",
+        "position": [
+          9,
+          0,
+          3
+        ],
+        "heading": 0.2
+      }
+    ]
+  },
+  "tasks": {
+    "types": [
+      {
+        "id": "ORDER_PICK",
+        "weight": 0.5,
+        "gen_source_kinds": [
+          "AISLE",
+          "COLD"
+        ],
+        "gen_dest_kinds": [
+          "PACKOUT"
+        ],
+        "allowed_source_kinds": [
+          "AISLE",
+          "COLD"
+        ],
+        "allowed_dest_kinds": [
+          "PACKOUT",
+          "STAGE",
+          "DISPATCH"
+        ]
+      },
+      {
+        "id": "RESTOCK",
+        "weight": 0.2,
+        "gen_source_kinds": [
+          "RECEIVING"
+        ],
+        "gen_dest_kinds": [
+          "AISLE",
+          "COLD"
+        ],
+        "allowed_source_kinds": [
+          "RECEIVING"
+        ],
+        "allowed_dest_kinds": [
+          "AISLE",
+          "COLD",
+          "BULK"
+        ]
+      },
+      {
+        "id": "BULK_DOWN",
+        "weight": 0.15,
+        "gen_source_kinds": [
+          "BULK"
+        ],
+        "gen_dest_kinds": [
+          "AISLE"
+        ],
+        "allowed_source_kinds": [
+          "BULK"
+        ],
+        "allowed_dest_kinds": [
+          "AISLE",
+          "COLD"
+        ]
+      },
+      {
+        "id": "DISPATCH_RUN",
+        "weight": 0.15,
+        "gen_source_kinds": [
+          "PACKOUT",
+          "STAGE"
+        ],
+        "gen_dest_kinds": [
+          "DISPATCH"
+        ],
+        "allowed_source_kinds": [
+          "PACKOUT",
+          "STAGE"
+        ],
+        "allowed_dest_kinds": [
+          "DISPATCH",
+          "STAGE"
+        ]
+      }
+    ],
+    "interval_ticks": 60,
+    "max_waiting": 14,
+    "priority_bands": [
+      [
+        0.12,
+        "HIGH"
+      ],
+      [
+        0.04,
+        "CRITICAL"
+      ]
+    ],
+    "on_time_limit_ticks": 2400
+  },
+  "kpis": {
+    "completed_target": 180,
+    "target_per_min": 1.5
+  },
+  "scenarios": {
+    "defaults": {
+      "robot": "R05",
+      "conveyor": "CV-A",
+      "camera": "CAM-X01",
+      "lift": "LIFT-A",
+      "zone": "X"
+    },
+    "compound": [
+      {
+        "kind": "ROBOT_BATTERY_SET",
+        "robot_id": "R05",
+        "battery": 8
+      },
+      {
+        "kind": "HUMAN_INTRUSION",
+        "zone_id": "X",
+        "duration_ticks": 600
+      },
+      {
+        "kind": "CONVEYOR_FAILURE",
+        "conveyor_id": "CV-A"
+      }
+    ]
+  },
+  "cameras": [
+    {
+      "id": "CAM-G01",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        4.6,
+        4.2,
+        9.5
+      ],
+      "look_at": [
+        22,
+        0.5,
+        9.5
+      ],
+      "fov_deg": 65,
+      "range_m": 28
+    },
+    {
+      "id": "CAM-G02",
+      "zone": "G",
+      "floor": 1,
+      "position": [
+        39.4,
+        4.2,
+        23.9
+      ],
+      "look_at": [
+        22,
+        0.5,
+        23.9
+      ],
+      "fov_deg": 65,
+      "range_m": 28
+    },
+    {
+      "id": "CAM-F01",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        4.6,
+        4.2,
+        37.1
+      ],
+      "look_at": [
+        22,
+        0.5,
+        37.1
+      ],
+      "fov_deg": 65,
+      "range_m": 28
+    },
+    {
+      "id": "CAM-F02",
+      "zone": "F",
+      "floor": 1,
+      "position": [
+        39.4,
+        4.2,
+        49.7
+      ],
+      "look_at": [
+        22,
+        0.5,
+        49.7
+      ],
+      "fov_deg": 65,
+      "range_m": 28
+    },
+    {
+      "id": "CAM-R01",
+      "zone": "R",
+      "floor": 1,
+      "position": [
+        44.6,
+        4.5,
+        8.1
+      ],
+      "look_at": [
+        62,
+        0.5,
+        8.1
+      ],
+      "fov_deg": 65,
+      "range_m": 30
+    },
+    {
+      "id": "CAM-X01",
+      "zone": "X",
+      "floor": 1,
+      "position": [
+        44.6,
+        4.2,
+        50
+      ],
+      "look_at": [
+        60,
+        0.5,
+        50
+      ],
+      "fov_deg": 65,
+      "range_m": 26
+    },
+    {
+      "id": "CAM-D01",
+      "zone": "D",
+      "floor": 1,
+      "position": [
+        91.4,
+        4.2,
+        44
+      ],
+      "look_at": [
+        78,
+        0.5,
+        44
+      ],
+      "fov_deg": 65,
+      "range_m": 26
+    },
+    {
+      "id": "CAM-DOCK-IN",
+      "zone": "R",
+      "floor": 1,
+      "position": [
+        59,
+        5.5,
+        2
+      ],
+      "look_at": [
+        59,
+        0,
+        12
+      ],
+      "fov_deg": 80,
+      "range_m": 20
+    },
+    {
+      "id": "CAM-DOCK-OUT",
+      "zone": "D",
+      "floor": 1,
+      "position": [
+        73.5,
+        5.5,
+        62
+      ],
+      "look_at": [
+        73.5,
+        0,
+        52
+      ],
+      "fov_deg": 80,
+      "range_m": 20
+    },
+    {
+      "id": "CAM-M01",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        45,
+        10.1,
+        12.5
+      ],
+      "look_at": [
+        62,
+        7,
+        12.5
+      ],
+      "fov_deg": 65,
+      "range_m": 30
+    },
+    {
+      "id": "CAM-M02",
+      "zone": "M2",
+      "floor": 2,
+      "position": [
+        89,
+        10.1,
+        20.5
+      ],
+      "look_at": [
+        70,
+        7,
+        20.5
+      ],
+      "fov_deg": 65,
+      "range_m": 30
+    }
+  ],
+  "sensors": [
+    {
+      "id": "S-TEMP-F1",
+      "kind": "TEMP",
+      "zone": "F",
+      "position": [
+        8,
+        2.5,
+        40
+      ]
+    },
+    {
+      "id": "S-TEMP-F2",
+      "kind": "TEMP",
+      "zone": "F",
+      "position": [
+        30,
+        2.5,
+        48
+      ]
+    },
+    {
+      "id": "S-PRES-R1",
+      "kind": "PRESENCE",
+      "zone": "R",
+      "position": [
+        52,
+        1,
+        7
+      ]
+    },
+    {
+      "id": "S-PRES-D1",
+      "kind": "PRESENCE",
+      "zone": "D",
+      "position": [
+        80,
+        1,
+        56
+      ]
+    },
+    {
+      "id": "S-CVA",
+      "kind": "WEIGHT",
+      "zone": "X",
+      "position": [
+        56,
+        0.5,
+        49
+      ],
+      "of": "CV-A"
+    },
+    {
+      "id": "S-LIDAR-X",
+      "kind": "LIDAR",
+      "zone": "X",
+      "position": [
+        56,
+        1,
+        42
+      ]
+    }
+  ],
+  "theme": {
+    "bg": "#070b12",
+    "floor": "#1f2733",
+    "wall": "#182028",
+    "accent": "#10b981",
+    "floor_markings": [
+      [
+        40.2,
+        6,
+        40.2,
+        58
+      ],
+      [
+        43.8,
+        6,
+        43.8,
+        58
+      ],
+      [
+        0,
+        28.2,
+        96,
+        28.2
+      ],
+      [
+        0,
+        33.8,
+        96,
+        33.8
+      ]
+    ],
+    "accent_lights": [
+      [
+        48,
+        9,
+        32,
+        "#34d399"
+      ],
+      [
+        80,
+        8,
+        61,
+        "#fbbf24"
+      ],
+      [
+        59,
+        8,
+        3,
+        "#22d3ee"
+      ]
+    ],
+    "subsystems": [
+      {
+        "key": "SITE",
+        "label": "Store"
+      },
+      {
+        "key": "CONVEYORS",
+        "label": "Pack Lines"
+      },
+      {
+        "key": "CHARGING",
+        "label": "Charging"
+      },
+      {
+        "key": "CCTV",
+        "label": "CCTV"
+      },
+      {
+        "key": "NETWORK",
+        "label": "Network"
+      }
+    ],
+    "sim_start_hour": 7,
+    "sim_date": "2026/08/30",
+    "location_labels": {
+      "AISLE": "Aisle",
+      "COLD": "Cold Case",
+      "BULK": "Bulk",
+      "PACKOUT": "Packout",
+      "STAGE": "Staging",
+      "RECEIVING": "Receiving",
+      "DISPATCH": "Dispatch",
+      "CHARGING": "Charger"
+    }
+  },
+  "provenance": {
+    "zones.F": {
+      "src": "interview",
+      "ref": "operator: chilled zone must stay ≤ 5°C, dedicated cold cases",
+      "conf": 0.9
+    },
+    "fleet.classes[AMR-S].max_speed": {
+      "src": "research",
+      "ref": "vendor datasheet: compact picker AMR, 1.6 m/s",
+      "conf": 0.85
+    },
+    "fixtures[AIRCURT-01]": {
+      "src": "blueprint",
+      "ref": "chilled-zone entry air curtain — no library component yet",
+      "conf": 0.8
+    },
+    "tasks.types[BULK_DOWN]": {
+      "src": "interview",
+      "ref": "hourly bulk replenishment from mezzanine",
+      "conf": 0.9
+    }
+  }
+}
