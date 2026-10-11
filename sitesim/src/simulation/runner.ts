@@ -3,17 +3,28 @@
  * browser at a fixed 100 ms tick; rendering interpolates on top.
  */
 import { useEffect } from "react";
-import { SimEngine, SIM } from "../engine/engine";
+import { SimEngine, SIM, type EngineOptions } from "../engine/engine";
 import { site, useStore } from "../state/store";
+import { launchConfig, taskMixFor } from "../state/launch";
 import type { ScenarioInjection, TaskPriority } from "../schema/twin_state";
+
+/** Launch-screen choices (URL) → engine options; absent keys leave the spec defaults untouched. */
+function launchOptions(seed: number): EngineOptions {
+  const opts: EngineOptions = { seed };
+  if (launchConfig.agents !== undefined) opts.agents = launchConfig.agents;
+  if (launchConfig.allotment) opts.allotment = launchConfig.allotment;
+  const mix = taskMixFor(launchConfig, site.spec.tasks.types.map((t) => t.id));
+  if (mix) opts.taskMix = mix;
+  return opts;
+}
 
 let engine: SimEngine | null = null;
 export function getEngine(): SimEngine {
-  if (!engine) { engine = new SimEngine(site, { seed: useStore.getState().seed }); attachWorker(engine); }
+  if (!engine) { engine = new SimEngine(site, launchOptions(useStore.getState().seed)); attachWorker(engine); }
   return engine;
 }
 export function resetEngine(seed?: number) {
-  engine = new SimEngine(site, { seed: seed ?? useStore.getState().seed });
+  engine = new SimEngine(site, launchOptions(seed ?? useStore.getState().seed));
   attachWorker(engine);
   useStore.getState().setTwin(engine.snapshot());
   return engine;
@@ -23,7 +34,7 @@ export function resetEngine(seed?: number) {
  * Worker-decision mailbox (only with `?worker=1`): each engine exception point is POSTed to the sim
  * server; if the worker answers within 4 s the decision overrides the deterministic default already applied.
  */
-const WORKER_ON = new URLSearchParams(window.location.search).get("worker") === "1";
+const WORKER_ON = launchConfig.worker;
 const SIM_SERVER = import.meta.env.VITE_SIM_SERVER ?? "http://localhost:8790";
 function attachWorker(eng: SimEngine) {
   if (!WORKER_ON) return;

@@ -194,9 +194,7 @@ export function BrainPanel() {
             );
           })}
         </div>
-        <div className="brain-tree">
-          {tree.roots.length ? tree.roots.map((n) => renderNode(n, 0)) : <div className="brain-empty">{live ? "No graph for this version" : "Harness API offline"}</div>}
-        </div>
+        <button className="btn-outline" style={{ marginTop: 4 }} onClick={() => useStore.getState().setViewTab("BRAIN")}>Open the knowledge graph →</button>
         <div className="brain-sup">
           <div className="brain-sup-h">
             <span>Supervisor{round ? <span className={"rnd" + (round.running ? " on" : "")}>{round.running ? `round ${round.n} running` : `round ${round.n} done`}</span> : null}</span>

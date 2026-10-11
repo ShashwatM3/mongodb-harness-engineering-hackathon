@@ -47,6 +47,24 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 async def _startup():
     st = get_state()
     st.bus.loop = asyncio.get_running_loop()
+    asyncio.create_task(_tail_brain_reads(st))
+
+
+async def _tail_brain_reads(st: State):
+    """Every brain read written to the KG by any agent (worker MCP, supervisor, dashboard) becomes a brain_read
+    event, so the graph lights up for reads this process did not make itself."""
+    import datetime as _dt
+    last = _dt.datetime.now(_dt.timezone.utc)
+    while True:
+        try:
+            rows = await asyncio.to_thread(lambda: list(st.improver.c("brain_reads").find({"at": {"$gt": last}}).sort("at", 1).limit(100)))
+            for r in rows:
+                last = max(last, r["at"].replace(tzinfo=_dt.timezone.utc) if r["at"].tzinfo is None else r["at"])
+                st.bus.emit("brain_read", node_id=r.get("node_id"), scope=r.get("scope", []), version=r.get("version"), reader=r.get("reader", "agent"),
+                            component_ids=r.get("component_ids", []), source="kg")
+        except Exception as e:  # never let the tail kill the app
+            log.debug("brain_reads tail: %s", e)
+        await asyncio.sleep(0.8)
 
 
 def state() -> State:
@@ -240,9 +258,13 @@ async def api_health(st: State = Depends(state)):
 
 
 @app.get("/api/brain/graph")
-async def brain_graph(v: int | None = None, compare_to: int | None = None, st: State = Depends(state)):
-    V = v if v is not None else st.gate.latest_version()
-    return st.improver.graph_snapshot(V, compare_to)
+async def brain_graph(v: str | None = None, compare_to: str | None = None, st: State = Depends(state)):
+    latest = st.gate.latest_version()
+    V = int(v) if v else latest
+    C = int(compare_to) if compare_to else None
+    if V > latest or V < 1:
+        raise HTTPException(404, f"no brain version {V} (latest is {latest})")
+    return st.improver.graph_snapshot(V, C)
 
 
 @app.get("/api/brain/versions")
@@ -266,6 +288,8 @@ async def brain_explain(component_id: str, st: State = Depends(state)):
 async def scores(v: int | None = None, st: State = Depends(state)):
     V = v if v is not None else st.gate.latest_version()
     cur = T.current_scores(st, V)
+    if not cur.get("zones"):
+        cur = await asyncio.to_thread(T.ensure_baseline, st, V)
     base = T.current_scores(st, 1) if V != 1 else cur
     return {"version": V, "zones": cur["zones"], "worst_zone": cur.get("worst_zone"), "v1": base["zones"], "source": cur.get("source")}
 

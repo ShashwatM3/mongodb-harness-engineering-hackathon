@@ -28,10 +28,8 @@ ZONE_NAMES = {"A": "zone A (ground, inbound)", "B": "zone B (ground, sorting/out
 # ── reads ────────────────────────────────────────────────────
 
 def get_brain_context(st: State, task_node_id: str, version: int | None = None, reader: str = "supervisor") -> dict:
-    out = st.improver.get_brain_context(task_node_id, version, reader=reader)
-    st.bus.emit("brain_read", node_id=task_node_id, scope=out["scope"], version=out["version"], reader=reader,
-                component_ids=[c["_id"] for c in out["components"]])
-    return out
+    # the brain_reads tail in app.py turns the KG record into the dashboard event, so nothing is emitted here
+    return st.improver.get_brain_context(task_node_id, version, reader=reader)
 
 
 def get_signals(st: State, shift_id: str) -> dict:
@@ -85,6 +83,20 @@ def suggest(st: State, version: int | None = None, k: int = 3) -> dict:
 def brain_context_markdown(st: State, version: int | None = None) -> str:
     V = version if version is not None else st.improver.latest_version()
     return st.improver.get_context(V)["markdown"]
+
+
+def ensure_baseline(st: State, version: int | None = None) -> dict:
+    """Run a brain on the training seeds and record the shifts when none exist yet (fresh database)."""
+    imp = st.improver
+    V = version if version is not None else imp.latest_version()
+    cur = imp.current_scores(V)
+    if cur.get("zones"):
+        return cur
+    brain = imp.export_brain(V)
+    res = imp.runner.run_shift(brain, imp.cfg.train_seeds, ticks=imp.cfg.ticks, profile=imp.cfg.profile)
+    imp.record_shifts(res, "train", brain=brain)
+    st.bus.emit("baseline", version=V, zones={z: m.score for z, m in res.pooled.zones.items()})
+    return imp.current_scores(V)
 
 
 # ── change path ──────────────────────────────────────────────

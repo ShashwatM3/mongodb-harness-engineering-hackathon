@@ -1,6 +1,7 @@
 import { spec, site, useStore, tickToClock } from "../../state/store";
 import { SPECS, specKey, switchSpec } from "../../spec/registry";
 import { simControl } from "../../simulation/runner";
+import { launchConfig } from "../../state/launch";
 import { Icon } from "../ui/primitives";
 
 export function TopBar() {
@@ -18,11 +19,12 @@ export function TopBar() {
   const unack = Object.values(alerts).filter((a) => !a.acknowledged).length;
   return (
     <header className="topbar">
-      <div className="brand"><span className="ai">Twin</span><span>Forge</span><span className="brand-sub">{spec.meta.name}</span></div>
-      <a className="tb-btn" href="?home=1" title="All environments" style={{ textDecoration: "none" }}><span>Environments</span></a>
+      <div className="brand"><span className="ai">Site</span><span>Sim</span><span className="brand-sub">{spec.meta.name}</span></div>
+      <a className="tb-btn" href="/" title="Launch screen: fleet size and allotment" style={{ textDecoration: "none" }}><span>Launch</span></a>
       <select className="spec-picker" title="Active environment spec — a new environment is just a new spec file" value={specKey} onChange={(e) => switchSpec(e.target.value)}>
         {Object.entries(SPECS).map(([k, s]) => <option key={k} value={k}>{s.meta.vertical}: {s.meta.name}</option>)}
       </select>
+      <span className="launch-chip" title="Deployed agents · brain version (see Brain panel)">{launchConfig.agents ?? spec.fleet.spawns.length} agents · brain v?</span>
       <span className={"badge-live " + (paused ? "paused" : mode === "WHATIF" ? "whatif" : "live")}>
         <span className="dot" style={{ background: "currentColor", width: 6, height: 6 }} />{paused ? "PAUSED" : mode === "WHATIF" ? "SIMULATION" : "LIVE"}
       </span>

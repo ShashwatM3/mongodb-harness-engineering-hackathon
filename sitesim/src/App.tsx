@@ -3,13 +3,14 @@ import { useStore } from "./state/store";
 import { TopBar } from "./components/shell/TopBar";
 import { useSimulationRunner } from "./simulation/runner";
 import { Viewport } from "./components/views/Viewport";
-import { AlertsPanel, FleetOverviewPanel, SystemStatusPanel, TaskOverviewPanel } from "./components/panels/LeftPanels";
-import { EventLogPanel, LiveCameraPanel, SelectedRobotPanel } from "./components/panels/RightPanels";
+import { FleetOverviewPanel } from "./components/panels/LeftPanels";
+import { SelectedRobotPanel } from "./components/panels/RightPanels";
 import { BrainPanel } from "./components/panels/BrainPanel";
-import { RobotStatusPanel, TaskQueuePanel, ThroughputPanel } from "./components/panels/BottomPanels";
+import { BrainMini } from "./components/views/BrainGraphView";
 import { ScenariosDrawer } from "./components/ops/ScenariosDrawer";
 import { OpsDrawer } from "./components/ops/OpsDrawer";
 import { Landing } from "./components/home/Landing";
+import { Launch } from "./components/home/Launch";
 
 /**
  * The layout is designed at 1536×860 CSS px; smaller windows scale the whole
@@ -46,9 +47,9 @@ function NarrowScreenGate({ children }: { children: React.ReactNode }) {
   if (narrow && !dismissed) {
     return (
       <div className="narrow-gate">
-        <div className="brand"><span className="ai">Twin</span><span>Forge</span></div>
+        <div className="brand"><span className="ai">Site</span><span>Sim</span></div>
         <h2>Designed for desktop</h2>
-        <p>TwinForge is a 3D operations console that works best on screens ≥ 1280 px wide (it still runs, scaled down, from 1024 px). On a phone the interface would shrink to about a quarter of its size and become unreadable.</p>
+        <p>SiteSim is a 3D operations console that works best on screens ≥ 1280 px wide (it still runs, scaled down, from 1024 px). On a phone the interface would shrink to about a quarter of its size and become unreadable.</p>
         <button className="btn" onClick={() => setDismissed(true)}>Continue anyway</button>
       </div>
     );
@@ -62,25 +63,14 @@ function Console() {
   return (
     <div className="shell">
       <TopBar />
-      <div className="shell-body">
-        <aside className="col-left">
-          <FleetOverviewPanel />
-          <TaskOverviewPanel />
-          <SystemStatusPanel />
-          <AlertsPanel />
-        </aside>
+      <div className="shell-body stripped">
         <main className="center"><Viewport /></main>
-        <aside className="col-right">
+        <aside className="col-right wide">
           <BrainPanel />
+          <BrainMini />
+          <FleetOverviewPanel />
           <SelectedRobotPanel />
-          <LiveCameraPanel />
-          <EventLogPanel />
         </aside>
-        <footer className="bottom">
-          <TaskQueuePanel />
-          <ThroughputPanel />
-          <RobotStatusPanel />
-        </footer>
       </div>
       <ScenariosDrawer />
       <OpsDrawer />
@@ -90,8 +80,9 @@ function Console() {
 }
 
 export default function App() {
-  // Step zero: no ?spec= means the landing page (environment list + create flow).
-  const hasSpec = new URLSearchParams(window.location.search).has("spec");
-  if (!hasSpec) return <Landing />;
+  // Step zero: no ?spec= means the Launch screen (fleet size + allotment);
+  // ?home=1 keeps the TwinForge environment list reachable for the other specs.
+  const q = new URLSearchParams(window.location.search);
+  if (!q.has("spec")) return q.has("home") ? <Landing /> : <Launch />;
   return <NarrowScreenGate><Console /></NarrowScreenGate>;
 }

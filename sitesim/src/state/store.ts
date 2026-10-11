@@ -2,8 +2,9 @@ import { create } from "zustand";
 import { spec, site } from "../spec/registry";
 import type { SpecLocation } from "../spec/types";
 import type { TwinState, RobotId } from "../schema/twin_state";
+import { launchConfig } from "./launch";
 
-export type ViewTab = "3D" | "MAP" | "TRAFFIC" | "HEATMAP" | "WORKERS";
+export type ViewTab = "3D" | "BRAIN" | "WORKERS" | "MAP" | "TRAFFIC" | "HEATMAP";
 export type Quality = "low" | "medium" | "high";
 export type SceneTool = "select" | "pan" | "paths" | "labels" | "measure";
 export type TimeOfDay = "day" | "dusk" | "night";
@@ -62,7 +63,7 @@ const EMPTY: TwinState = {
 
 export const useStore = create<Store>((set) => ({
   twin: EMPTY,
-  speed: 1, paused: false, seed: 42,
+  speed: 1, paused: false, seed: launchConfig.seed,
   notice: null,
   setNotice: (text, kind = "warn") => set({ notice: text ? { text, kind, until: Date.now() + 4000 } : null }),
   activeFloor: "all",

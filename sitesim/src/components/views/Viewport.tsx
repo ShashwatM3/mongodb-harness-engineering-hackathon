@@ -3,8 +3,9 @@ import { Icon } from "../ui/primitives";
 import { Scene3D } from "../scene/Scene3D";
 import { MapView2D } from "./MapView2D";
 import { WorkersView } from "./WorkersView";
+import { BrainGraphView } from "./BrainGraphView";
 
-const TABS: Array<[ViewTab, string]> = [["3D", "3D VIEW"], ["WORKERS", "WORKERS"], ["MAP", "MAP VIEW"], ["TRAFFIC", "TRAFFIC VIEW"], ["HEATMAP", "HEATMAP"]];
+const TABS: Array<[ViewTab, string]> = [["3D", "3D VIEW"], ["WORKERS", "WORKER VIEWS"], ["BRAIN", "BRAIN"]];
 
 export function Viewport() {
   const tab = useStore((s) => s.viewTab);
@@ -27,7 +28,7 @@ export function Viewport() {
   return (
     <div className="viewport">
       <div className="view-tabs">{TABS.map(([k, l]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}</div>
-      <div className="vp-toolbar">
+      <div className="vp-toolbar" style={tab === "BRAIN" || tab === "WORKERS" ? { display: "none" } : undefined}>
         {upper.length > 0 && (
           <select className="sel" title="Floor" value={String(activeFloor)} onChange={(e) => {
             const v = e.target.value === "all" || e.target.value === "exploded" ? e.target.value as "all" | "exploded" : Number(e.target.value);
@@ -47,7 +48,7 @@ export function Viewport() {
         <button className="icon-btn" title="Reset camera" onClick={() => focus(homeFocus)}>{Icon.expand}</button>
         <button className="icon-btn" title="Viewport settings">{Icon.gear}</button>
       </div>
-      {tab === "3D" ? <Scene3D /> : tab === "WORKERS" ? <WorkersView /> : <MapView2D mode={tab} />}
+      {tab === "3D" ? <Scene3D /> : tab === "WORKERS" ? <WorkersView /> : tab === "BRAIN" ? <BrainGraphView /> : <MapView2D mode={tab} />}
       {tab === "3D" && (
         <div className="scene-toolbar">
           {toolBtn("select", Icon.cursor, "Select")}

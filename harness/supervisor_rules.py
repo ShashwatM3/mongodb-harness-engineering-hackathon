@@ -75,13 +75,17 @@ def run_round_rules(st: State, round_no: int) -> dict[str, Any]:
         return res
 
     scores = call("current_scores", version=V)
+    if not scores.get("zones"):
+        say(f"No shifts recorded for brain v{V} yet; running the baseline on the training seeds first.")
+        scores = call("ensure_baseline", version=V)
     zone = scores.get("worst_zone") or "M"
     traj = call("get_trajectories", zone=zone, limit=6)
     fc = traj.get("failure_counts") or {}
     failure = max(fc, key=fc.get) if fc else None
     ts = (traj.get("zones") or {}).get(zone, {}).get("time_split") or {}
     state = max(ts, key=ts.get) if ts else None
-    say(f"Brain v{V}. Zone {zone} is the worst at {scores['zones'].get(zone):.3f}; its shifts show {failure or 'no dominant failure'}" + (f" and spend most task time in {state} ({ts.get(state, 0):.0%})." if state else "."))
+    zs0 = scores.get("zones", {}).get(zone)
+    say(f"Brain v{V}. Zone {zone} is the worst at {zs0 if zs0 is None else f'{zs0:.3f}'}; its shifts show {failure or 'no dominant failure'}" + (f" and spend most task time in {state} ({ts.get(state, 0):.0%})." if state else "."))
     call("get_playbook", task_node=f"task:{zone}:PICK")
     call("get_brain_context", task_node_id=f"task:{zone}:PICK")
     summary: dict[str, Any] = {"round": round_no, "base_version": V, "text": "", "tool_calls": calls, "promoted_to": None, "pending_approval": None, "backend": "rules"}

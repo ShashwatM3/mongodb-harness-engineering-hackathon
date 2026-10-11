@@ -144,7 +144,15 @@ interface RobotRt {
   floorPref: "stairs" | "lift" | null;
 }
 
-export interface EngineOptions { seed?: number }
+export interface EngineOptions {
+  seed?: number;
+  /** Deploy only the first N entries of spec.fleet.spawns (default: all). */
+  agents?: number;
+  /** Robot id → allowed task type ids. A robot not listed takes any task. */
+  allotment?: Record<string, string[]>;
+  /** Task type id → generation weight, overriding spec.tasks.types[].weight. */
+  taskMix?: Record<string, number>;
+}
 
 export class SimEngine {
   readonly site: CompiledSite;
@@ -187,9 +195,16 @@ export class SimEngine {
   private nearMissUntil: Record<string, number> = {};
   /** Optional worker hook: called at an exception point with the robot; may return an action to apply. */
   onException: ((r: RobotState, kind: "OBSTACLE_DETECTED" | "FLOOR_CHOICE", ctx: Record<string, unknown>) => void) | null = null;
+  /** Launch-screen choices (see EngineOptions); all optional, absent = spec defaults. */
+  private readonly agents: number | undefined;
+  private readonly allotment: Record<string, string[]> | undefined;
+  private readonly taskMix: Record<string, number> | undefined;
 
   constructor(site: CompiledSite, opts: EngineOptions = {}) {
     this.site = site;
+    this.agents = opts.agents;
+    this.allotment = opts.allotment;
+    this.taskMix = opts.taskMix;
     this.P = { ...SIM, ...(site.spec.sim ?? {}) } as SimParams;
     this.grids = site.grids;
     this.grid = site.grids[1];
@@ -216,7 +231,8 @@ export class SimEngine {
   private buildInitialState(seed: number): TwinState {
     const S = this.site, spec = S.spec;
     const robots: Record<string, RobotState> = {};
-    for (const sp of spec.fleet.spawns) {
+    const spawns = this.agents !== undefined ? spec.fleet.spawns.slice(0, Math.max(1, this.agents)) : spec.fleet.spawns;
+    for (const sp of spawns) {
       const cls = this.classes[sp.class];
       robots[sp.id] = {
         id: sp.id, model: sp.class, locomotion: this.locomotion(cls), position: [Math.floor(sp.position[0]) + 0.5, sp.position[1] ?? 0, Math.floor(sp.position[2]) + 0.5], heading: sp.heading, velocity: 0,
@@ -503,9 +519,10 @@ export class SimEngine {
     let pr: TaskPriority = "NORMAL", acc = 0;
     for (const [band, prio] of T.priority_bands) { acc += band; if (rPr < acc) { pr = prio; break; } }
     const rTy = this.rng();
-    const total = T.types.reduce((a, t) => a + t.weight, 0) || 1;
+    const weightOf = (t: { id: string; weight: number }) => this.taskMix?.[t.id] ?? t.weight;
+    const total = T.types.reduce((a, t) => a + weightOf(t), 0) || 1;
     let chosen = T.types[T.types.length - 1], cum = 0;
-    for (const t of T.types) { cum += t.weight / total; if (rTy < cum) { chosen = t; break; } }
+    for (const t of T.types) { cum += weightOf(t) / total; if (rTy < cum) { chosen = t; break; } }
     if (!chosen) return;
     const pick = (kinds: string[]): SpecLocation | undefined => {
       const pool = kinds.flatMap((k) => this.locsByKind[k] ?? []);
@@ -545,6 +562,8 @@ export class SimEngine {
 
   private targetEligibility(r: RobotState, task: TaskState): string | null {
     if (this.isStatic(r)) return "static sensor is ineligible for movement tasks";
+    const allowed = this.allotment?.[r.id];
+    if (allowed && !allowed.includes(task.type)) return `not allotted ${task.type}`;
     if (this.commsBlackouts.has(r.id)) return "comms blackout — returning to base";
     const flight = r.flight;
     if (this.isAerial(r)) {

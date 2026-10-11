@@ -57,7 +57,7 @@ def heldout_check(gate: kg.KG, gate_run_id: str, cfg: Settings, seed_set: str = 
     cand = gate.export_brain(run["base_version"])
     # rebuild the candidate: base with the run's edits applied at site level
     cand = gate._apply_edits(base, {e["target"]: e["value"] for e in run["edits"]}, run.get("origin") or {"source": "gate"})
-    kw = {"ticks": gate.env.ticks, "profile": gate.env.profile, "held_out": True}
+    kw = {"ticks": gate.cfg.ticks, "profile": gate.cfg.profile, "held_out": True}
     try:
         rb = gate.runner.run_shift(base, seeds, **kw)
         rc = gate.runner.run_shift(cand, seeds, allow_locked=bool(run.get("locked_edits")), **kw)
@@ -104,7 +104,7 @@ def final_proof(st) -> dict:
     gate, cfg = st.gate, st.cfg
     V = gate.latest_version()
     seeds = gate.c("heldout_seeds").find_one({"_id": "final"})["seeds"]
-    kw = {"ticks": gate.env.ticks, "profile": gate.env.profile, "held_out": True}
+    kw = {"ticks": gate.cfg.ticks, "profile": gate.cfg.profile, "held_out": True}
     r1 = gate.runner.run_shift(gate.export_brain(1), seeds, **kw)
     rN = gate.runner.run_shift(gate.export_brain(V), seeds, allow_locked=False, **kw) if V != 1 else r1
     z1 = {z: m.score for z, m in r1.pooled.zones.items()}
