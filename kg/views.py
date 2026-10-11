@@ -16,7 +16,7 @@ from typing import Optional
 
 from . import metrics
 from .hashing import same_value
-from .ontology import COMPONENT_KINDS, FAILURE_GROUPS, SKELETON_KINDS, TIME_STATES, failure_group_of
+from .ontology import FAILURE_GROUPS, SKELETON_KINDS, TIME_STATES, failure_group_of
 from .registry import LEVER_GROUPS
 
 
@@ -86,6 +86,17 @@ def lever_group_order(kg, A: Optional[dict], learned: Optional[dict] = None) -> 
     return order
 
 
+def brain_summary(kg, V: int, split: str = "train", patch_hash: Optional[str] = None) -> Optional[dict]:
+    """Section A: brain V pooled over its recorded shifts on one split, in the current env (None if none yet,
+    or if no runner env is set, e.g. in the approval agent: callers then fall back to brain_versions.scores)."""
+    if kg._env is None:
+        return None
+    H = patch_hash or kg.validate(kg.export_brain(V)).patch_hash
+    results = [s["result"] for s in kg.c("shifts").find({"env_key": kg.env.key, "patch_hash": H, "split": split},
+                                                        {"result": 1})]
+    return metrics.summarize(results) if results else None
+
+
 def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None) -> dict:
     env = kg.env
     base = kg.export_brain(V)
@@ -93,9 +104,7 @@ def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None
     H = val.patch_hash
 
     # A. the current brain
-    results = [s["result"] for s in kg.c("shifts").find({"env_key": env.key, "patch_hash": H, "split": split},
-                                                        {"result": 1})]
-    A = metrics.summarize(results) if results else None
+    A = brain_summary(kg, V, split, patch_hash=H)
 
     # B. everything evaluated on this brain, in this env
     runs = list(kg.c("gate_runs").find({"env_key": env.key, "base_patch_hash": H}).sort("created_at", 1))
@@ -120,7 +129,7 @@ def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None
         if not s.is_lever:
             continue
         d = envelope.get(s.target, {})
-        cur = current.get(s.target)
+        cur = current.get(s.target, d.get("engine_default", s.engine_default))  # absent: the engine default runs
         tried = sorted(tested.get(s.target, []))
         nxt = [v for v in s.candidates() if not same_value(v, cur) and not any(same_value(v, t) for t in tried)]
         rows.append({"target": s.target, "lever_group": s.group, "status": d.get("status", s.status),

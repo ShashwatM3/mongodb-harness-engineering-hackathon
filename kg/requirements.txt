@@ -1,0 +1,7 @@
+# Python 3.11. Every pin was at least 7 days old on 2026-10-11:
+#   uv pip install --exclude-newer 2026-10-04 -r kg/requirements.txt
+pymongo==4.18.2
+pydantic==2.13.5
+httpx==0.28.1
+raindrop-ai==0.0.73
+pytest==9.1.1

@@ -101,18 +101,27 @@ class Proposal:
         return d
 
 
-def component_doc(target: str, value: float, status: str, since: int, evidence: dict, origin: dict,
-                  setting: Optional[registry.Setting] = None, parent_id: str = SITE_ID) -> dict:
-    """A rule (editable setting) or guardrail (locked setting) that compiles to one typed edit.
-    For these components `key` equals the setting target, so "same key, deeper wins" is the compiler's rule."""
-    kind = "guardrail" if status == "locked" else "rule"
-    lever = setting.lever_id if setting is not None and setting.is_lever else None
+def setting_component(target: str, value: float, status: str, origin: dict,
+                      setting: Optional[registry.Setting] = None, parent_id: str = SITE_ID) -> dict:
+    """A rule (editable setting) or guardrail (locked setting) that compiles to one typed edit, as an `add`
+    item for commit_brain_version. `key` equals the setting target, so "same key, deeper wins" is the
+    compiler's rule; `when`/`then` are doc 03's readable form, `compiles_to` is what the engine runs."""
+    when, then = registry.rule_text(target, value)
     return {
-        "_id": f"{kind}:{target}@{parent_id}:v{since}", "kind": kind, "parent_id": parent_id,
-        "key": target, "label": registry.label_for(target, value),
+        "kind": "guardrail" if status == "locked" else "rule", "parent_id": parent_id, "key": target,
+        "label": registry.label_for(target, value), "when": when, "then": then,
         "compiles_to": {"op": "set", "target": target, "value": norm_number(value)},
-        "lever": lever, "since": since, "until": None, "evidence": evidence, "origin": origin,
+        "lever": setting.lever_id if setting is not None and setting.is_lever else None, "origin": origin,
     }
+
+
+def finalize_component(item: dict, version: int, evidence: Optional[dict] = None) -> dict:
+    """Stamp an `add` item for version N: id `<kind>:<key>@<node>:v<N>`, since N, until null, merged evidence."""
+    d = {k: v for k, v in item.items() if k not in ("_id", "since", "until")}
+    d["_id"] = item.get("_id") or f"{item['kind']}:{item['key']}@{item['parent_id']}:v{version}"
+    d["since"], d["until"] = version, None
+    d["evidence"] = {**(item.get("evidence") or {}), **(evidence or {})}
+    return d
 
 
 def parse_candidate(candidate: Any) -> dict[str, float]:
@@ -171,7 +180,7 @@ class KG:
     def use_runner(self, runner, env_epoch: Optional[str] = None) -> Env:
         """Point the KG at a runner. Its /health fixes the env key for everything recorded from now on."""
         h = runner.health()
-        spec_hash = (h.model_extra or {}).get("spec_hash")
+        spec_hash = h.spec_hash
         tag = f"spec:{spec_hash}" if spec_hash else f"epoch:{env_epoch or self.cfg.env_epoch}"
         self._env = Env(engine_sha=h.engine_sha, spec_id=h.spec_id, spec_hash_or_epoch=tag,
                         ticks=self.cfg.ticks, profile=self.cfg.profile)
@@ -219,22 +228,28 @@ class KG:
         for s in self.settings:
             fields = {"target": s.target, "description": s.description, "status": s.status, "min": s.min,
                       "max": s.max, "v1": s.v1, "engine_default": s.engine_default, "note": s.note,
-                      "lever": s.lever_id if s.is_lever else None, "lever_group": s.group}
+                      "integer": s.integer, "lever": s.lever_id if s.is_lever else None, "lever_group": s.group}
             upsert("envelope", s.target, set_fields=fields, on_insert={"approvals": [], "approved_value": s.v1})
 
-        v1_values = {s.target: s.v1 for s in self.settings if s.gets_v1_component}
-        if v1_brain is not None:
+        by_t = registry.by_target(self.settings)
+        if v1_brain is None:
+            v1_values = {s.target: s.v1 for s in self.settings if s.gets_v1_component}
+        else:  # brains/v1.json (WP-B) verbatim, so export_brain(1) compiles to the same patch hash
+            v1_values = {}
             for t, v in self._read_v1_brain(v1_brain).items():
-                if t in v1_values:
+                if t in by_t:
                     v1_values[t] = v
                 else:
                     report["warnings"].append(f"v1 brain sets {t}, which the registry doesn't list; skipped")
-        by_t = registry.by_target(self.settings)
+            for s in self.settings:
+                if s.gets_v1_component and s.target not in v1_values:
+                    report["warnings"].append(f"v1 brain omits {s.target}: the engine default {s.engine_default:g} "
+                                              f"applies instead of v1 {s.v1:g}")
         added = []
         for t, v in v1_values.items():
             s = by_t[t]
-            doc = component_doc(t, v, s.status, since=1, evidence={"origin": "baseline"},
-                                origin={"source": "baseline"}, setting=s)
+            doc = finalize_component(setting_component(t, v, s.status, {"source": "baseline"}, s), 1,
+                                     {"origin": "baseline"})
             have = self.c("brain_nodes").find_one({"_id": doc["_id"]})
             if have is None:
                 self.c("brain_nodes").insert_one(doc)
@@ -357,9 +372,11 @@ class KG:
         nodes = [BrainNode(node_id=n["_id"], parent_id=n.get("parent_id"), level=n["kind"], zone=n.get("zone"),
                            label=n.get("label")) for n in skel]
         for c in comps:
+            body = c.get("compiles_to") or c.get("body") or (
+                {"when": c.get("when"), "then": c["then"]} if c.get("then") else None)  # carried through untouched
             nodes.append(BrainNode(node_id=c["_id"], parent_id=c["parent_id"], level=c["kind"], zone=c.get("zone"),
-                                   body=c.get("compiles_to") or c.get("body"), origin=c.get("origin"),
-                                   key=c.get("key"), label=c.get("label"), since=c["since"]))
+                                   body=body, origin=c.get("origin"), key=c.get("key"), label=c.get("label"),
+                                   since=c["since"]))
         brain = Brain(version=V, nodes=nodes)
         brain.approvals = self._approvals_for(brain)
         return brain
@@ -430,16 +447,27 @@ class KG:
             v, d = e["value"], env.get(t)
             if d is None:
                 rejected.append({"target": t, "value": v, "node_id": e["node_id"], "reason": "unknown setting"})
-            elif d["status"] in ("spec", "fixed"):
+            elif d["status"] == "spec":
                 rejected.append({"target": t, "value": v, "node_id": e["node_id"],
-                                 "reason": f"{d['status']} setting: never set by the brain"})
+                                 "reason": "spec setting: describes the building or the robot, never set by the brain"})
+            elif d["status"] == "fixed" and not same_value(v, d["v1"]):
+                rejected.append({"target": t, "value": v, "node_id": e["node_id"],
+                                 "reason": f"fixed setting ({d['v1']:g}): never editable or approvable"})
             elif not (d["min"] - 1e-9 <= v <= d["max"] + 1e-9):
                 rejected.append({"target": t, "value": v, "node_id": e["node_id"],
                                  "reason": f"out of range [{d['min']}, {d['max']}]"})
+            elif d.get("integer") and not float(v).is_integer():
+                rejected.append({"target": t, "value": v, "node_id": e["node_id"], "reason": "must be a whole number"})
             elif d["status"] == "locked" and not same_value(v, d["v1"]) and \
                     not any(at == t and same_value(av, v) for at, av in approved):
                 locked.append({"target": t, "value": v, "baseline": d["v1"], "node_id": e["node_id"],
                                "reason": "locked: needs the Robotics Lead's approval"})
+        val = lambda t: eff[t]["value"] if t in eff else (env.get(t) or {}).get("engine_default")
+        if "sim.PERC_SLOW" in env and "sim.PERC_STOP" in env and val("sim.PERC_SLOW") < val("sim.PERC_STOP"):
+            t = "sim.PERC_SLOW" if "sim.PERC_SLOW" in eff else "sim.PERC_STOP"
+            if t in eff:
+                rejected.append({"target": t, "value": eff[t]["value"], "node_id": eff[t]["node_id"],
+                                 "reason": "PERC_SLOW must be at least PERC_STOP"})
         for t, d in env.items():
             if t in eff or d["status"] not in ("editable", "locked") or same_value(d["engine_default"], d["v1"]):
                 continue
@@ -482,7 +510,7 @@ class KG:
 
     def record_proposal(self, base_V: int, candidate: Any, origin: Union[None, str, dict] = None, round: int = 0,
                         policy: str = "p0", split: str = "train", seeds: Optional[Iterable[int]] = None,
-                        hypothesis: Optional[str] = None) -> Proposal:
+                        hypothesis: Optional[str] = None, attempt: Optional[int] = None) -> Proposal:
         """Diff the candidate against brain base_V into `edits` and record a gate run before anything runs.
         Refuses only rejected edits (unknown, out of range, spec-only) and no-ops; locked edits go through
         and come back in `locked_edits`. Status: new (run it), cached (already measured), invalid."""
@@ -507,6 +535,8 @@ class KG:
             for t in sorted(set(cand_v.effective) | set(base_v.effective)):
                 cv = cand_v.effective.get(t, {}).get("value")
                 bv = base_v.effective.get(t, {}).get("value")
+                if bv is None:  # absent from the base brain: the engine default runs
+                    bv = (env_docs.get(t) or {}).get("engine_default")
                 if cv is not None and not same_value(cv, bv):
                     edits.append({"target": t, "value": cv, "base_value": bv, "scope": "fleet",
                                   "lever_group": (env_docs.get(t) or {}).get("lever_group")})
@@ -516,7 +546,7 @@ class KG:
                 reason = f"no-op: the candidate changes no setting of v{base_V}"
         cand_hash = cand_v.patch_hash if cand_v else "bad-" + digest(str(candidate), 16)
         gid = make_gate_run_id(env.key, seeds, base_v.patch_hash, cand_hash)
-        eid = make_event_id(gid, round, policy)
+        eid = make_event_id(gid, round, policy, attempt)
         invalid = reason is not None
         doc = {
             "_id": gid, "base": f"v{base_V}", "base_version": base_V, "base_patch_hash": base_v.patch_hash,
@@ -528,8 +558,8 @@ class KG:
             "hypothesis": hypothesis, "created_at": now(), "events": [],
         }
         self.c("gate_runs").update_one({"_id": gid}, {"$setOnInsert": doc}, upsert=True)
-        ev = {"event_id": eid, "round": int(round), "policy": str(policy), "origin": origin, "at": now(),
-              "signals_sent": []}
+        ev = {"event_id": eid, "round": int(round), "policy": str(policy), "attempt": attempt, "origin": origin,
+              "at": now(), "signals_sent": []}
         self.c("gate_runs").update_one({"_id": gid, "events.event_id": {"$ne": eid}}, {"$push": {"events": ev}})
         run = self.c("gate_runs").find_one({"_id": gid})
         first = next(e["event_id"] for e in run["events"] if e["policy"] == str(policy))
@@ -575,7 +605,7 @@ class KG:
         want = (env.engine_sha, env.spec_id, env.ticks, env.profile)
         if got != want:
             raise EnvMismatch(f"response env {got} does not match {want}; refusing to mix results")
-        spec_hash = (resp.model_extra or {}).get("spec_hash")
+        spec_hash = resp.spec_hash
         if spec_hash and env.spec_hash_or_epoch.startswith("spec:") and env.spec_hash_or_epoch != f"spec:{spec_hash}":
             raise EnvMismatch(f"spec_hash {spec_hash} does not match the env's {env.spec_hash_or_epoch}")
         if run is not None:
@@ -746,8 +776,8 @@ class KG:
             self.c("playbook").update_one({"_id": ref}, {"$inc": {field_: 1}})
 
     def promote(self, gate_run_id: str, hypothesis: Optional[str] = None) -> dict:
-        """New version N+1: components for the run's edits (since N+1), the replaced component at the same
-        node retired (until N+1), and a brain_versions document. Refuses stale bases and unapproved locked edits."""
+        """New version N+1 from a gate run: one component per edit at site:main (since N+1), the component it
+        replaces retired (until N+1), evidence attached. A thin layer over commit_brain_version."""
         self._require_gate("promote()")
         run = self.c("gate_runs").find_one({"_id": gate_run_id})
         if run is None:
@@ -755,63 +785,203 @@ class KG:
         if run["verdict"] == "promoted":
             v = self.c("brain_versions").find_one({"version": run["promoted_to"]})
             return {"version": v["version"], "added": v["added"], "retired": v["retired"], "already": True}
+        self._check_promotable(run, self.latest_version())
+        env, by_t = self._envelope(), registry.by_target(self.settings)
+        add = [setting_component(e["target"], e["value"], env.get(e["target"], {}).get("status", "editable"),
+                                 run.get("origin") or {"source": "unknown"}, by_t.get(e["target"]))
+               for e in run["edits"]]
+        return self.commit_brain_version(add, [], self._evidence_for(run),
+                                         hypothesis=hypothesis or run.get("hypothesis"), _run=run)
+
+    def _check_promotable(self, run: dict, latest: int):
+        if run["verdict"] == "promoted":
+            raise KGError(f"gate run {run['_id']} is already promoted to v{run['promoted_to']}")
         if run["verdict"] in ("invalid", "rejected"):
             raise KGError(f"gate run is {run['verdict']}: {run.get('reason')}")
         if run.get("zones") is None:
             raise KGError("not evaluated yet")
+        if run["base_version"] != latest and run["base_patch_hash"] != self._patch_hash_like(run, latest):
+            raise StalePromotion(f"evaluated against v{run['base_version']}, but the latest brain is v{latest} and "
+                                 "runs differently: re-evaluate the candidate on the latest brain")
+
+    def _patch_hash_like(self, run: dict, V: int) -> str:
+        """Brain V's patch hash from the same source the run used, so a newer version that only added
+        non-compiling components (a saved preference, a note) doesn't make pending runs stale."""
+        brain = self._build_brain(V)
+        if run.get("hash_source") == "runner" and self.runner is not None:
+            return self.validate(brain).patch_hash
+        return self._local_validation(brain).patch_hash
+
+    def commit_brain_version(self, add: list[dict], retire: Iterable[str] = (), evidence: Optional[dict] = None, *,
+                             hypothesis: Optional[str] = None, force: bool = False, _run: Optional[dict] = None) -> dict:
+        """The interface contract's one write path into the brain (SCRATCHPADS/interface-contracts.md):
+        insert-many the new components with since = N+1, update-many the retired ones to until = N+1,
+        insert one brain_versions document. Never an aggregate with $merge or $out.
+
+        `add` items are {kind, parent_id, key, ...fields}; one that compiles to a setting uses the target as
+        its key. A component that changes a setting needs `evidence.gate_run_id` naming a run that is
+        evaluated, not rejected, on the latest brain, with the same edit (force=True is a human override).
+        Locked settings need an approval in the envelope. An active component with the same key at the
+        same node is retired even when `retire` omits it (one component per key per node)."""
+        self._require_gate("commit_brain_version()")
+        evidence = dict(evidence or {})
         latest = self.latest_version()
-        if run["base_version"] != latest:
-            raise StalePromotion(f"evaluated against v{run['base_version']}, but the latest brain is v{latest}: "
-                                 "re-evaluate the candidate on the latest brain")
-        env = self._envelope()
-        approvals, missing = [], []
-        for ed in run["edits"]:
-            d = env.get(ed["target"])
-            if d and d["status"] == "locked" and not same_value(ed["value"], d["v1"]):
-                a = next((a for a in reversed(d.get("approvals") or []) if a.get("decision") == "approve"
-                          and same_value(a["value"], ed["value"])), None)
-                if a is None:
-                    missing.append(f"{ed['target']}={ed['value']}")
-                else:
-                    approvals.append({"target": ed["target"], "value": ed["value"], "approved_by": a["approved_by"],
-                                      "ref": a.get("ref")})
-        if missing:
-            raise NeedsApproval(f"locked edits need the Robotics Lead's approval first: {', '.join(missing)}")
         N = latest + 1
+        run = _run
+        if run is None and evidence.get("gate_run_id"):
+            run = self.c("gate_runs").find_one({"_id": evidence["gate_run_id"]})
+            if run is None:
+                raise KeyError(f"no gate run {evidence['gate_run_id']}")
+        if run is not None:
+            self._check_promotable(run, latest)
+            evidence.setdefault("gate_run_id", run["_id"])
+        if not add and not retire:
+            raise ValueError("nothing to commit: add or retire at least one component")
+
+        nodes = {d["_id"] for d in self.c("brain_nodes").find({"kind": {"$in": SKELETON_KINDS}}, {"_id": 1})}
+        env, by_t = self._envelope(), registry.by_target(self.settings)
+        current = {t: e["value"] for t, e in effective_edits(self._build_brain(latest)).items()}
+        docs, approvals, changes = [], [], {}
+        for item in add:
+            item = dict(item)
+            item.setdefault("parent_id", SITE_ID)
+            ct = item.get("compiles_to")
+            if ct:
+                item.setdefault("key", ct["target"])
+                if item["key"] != ct["target"]:
+                    raise ValueError(f"a component that compiles to {ct['target']} must use it as its key")
+                when, then = registry.rule_text(ct["target"], ct["value"])
+                item.setdefault("when", when)
+                item.setdefault("then", then)
+                item.setdefault("label", registry.label_for(ct["target"], ct["value"]))
+                s = by_t.get(ct["target"])
+                item.setdefault("lever", s.lever_id if s is not None and s.is_lever else None)
+            if item.get("kind") not in COMPONENT_KINDS:
+                raise ValueError(f"kind must be one of {COMPONENT_KINDS}, got {item.get('kind')!r}")
+            if item["parent_id"] not in nodes:
+                raise ValueError(f"no skeleton node {item['parent_id']!r}")
+            if not item.get("key"):
+                raise ValueError("every component needs a key")
+            doc = finalize_component(item, N, evidence)
+            if ct:
+                t, v = ct["target"], norm_number(ct["value"])
+                d = env.get(t)
+                if d is None or d["status"] in ("spec", "fixed"):
+                    raise KGError(f"{t} is not a setting the brain may set")
+                if not (d["min"] - 1e-9 <= v <= d["max"] + 1e-9):
+                    raise KGError(f"{t}={v} is outside [{d['min']}, {d['max']}]")
+                if d["status"] == "locked" and not same_value(v, d["v1"]):
+                    a = next((a for a in reversed(d.get("approvals") or []) if a.get("decision") == "approve"
+                              and same_value(a["value"], v)), None)
+                    if a is None:
+                        raise NeedsApproval(f"locked edit {t}={v} needs the Robotics Lead's approval first")
+                    approvals.append({"target": t, "value": v, "approved_by": a["approved_by"], "ref": a.get("ref")})
+                if not same_value(current.get(t), v):
+                    changes[t] = v
+            docs.append(doc)
+        if changes and run is None and not force:
+            raise KGError(f"{', '.join(changes)}: a setting change needs evidence.gate_run_id (or force=True for "
+                          "a human override)")
+        if run is not None:
+            tested = {e["target"]: e["value"] for e in run["edits"]}
+            for t, v in changes.items():
+                if t not in tested or not same_value(tested[t], v):
+                    raise KGError(f"{t}={v} is not the edit gate run {run['_id']} measured")
+
+        active = {c["_id"]: c for c in self.c("brain_nodes").find(self._active_filter(latest),
+                                                                  {"parent_id": 1, "key": 1})}
+        retire = list(dict.fromkeys(retire))
+        for r in retire:
+            if r not in active:
+                raise KGError(f"{r} is not active in v{latest}")
+        for d in docs:
+            for cid, c in active.items():
+                if c["parent_id"] == d["parent_id"] and c.get("key") == d["key"] and cid not in retire:
+                    retire.append(cid)
         try:
             self.c("brain_versions").insert_one({
-                "_id": f"v{N}", "version": N, "parent": f"v{latest}", "status": "pending", "added": [], "retired": [],
-                "hypothesis": hypothesis or run.get("hypothesis"), "promoted_by": gate_run_id,
+                "_id": f"v{N}", "version": N, "parent": f"v{latest}", "status": "pending", "added": [],
+                "retired": [], "hypothesis": hypothesis, "promoted_by": run["_id"] if run else None,
                 "approvals": approvals, "scores": {}, "heldout_passed": None, "final": None, "created_at": now()})
         except DuplicateKeyError:
-            raise KGError(f"v{N} is being created by another promotion; retry after it commits")
-        evidence = self._evidence_for(run)
-        by_t = registry.by_target(self.settings)
-        added, retired = [], []
-        for ed in run["edits"]:
-            t = ed["target"]
-            d = env.get(t, {})
-            comp = component_doc(t, ed["value"], d.get("status", "editable"), since=N, evidence=evidence,
-                                 origin=run.get("origin") or {"source": "unknown"}, setting=by_t.get(t))
-            for old in self.c("brain_nodes").find({"parent_id": SITE_ID, "key": t, "kind": {"$in": COMPONENT_KINDS},
-                                                   "until": None, "since": {"$lt": N}}, {"_id": 1}):
-                self.c("brain_nodes").update_one({"_id": old["_id"], "until": None}, {"$set": {"until": N}})
-                retired.append(old["_id"])
-            self.c("brain_nodes").update_one({"_id": comp["_id"]}, {"$setOnInsert": comp}, upsert=True)
-            added.append(comp["_id"])
-        heldout = None
-        if self.role == "gate":
-            rows = list(self.c("heldout_results").find({"gate_run_id": gate_run_id}, {"passed": 1}))
-            heldout = all(r["passed"] for r in rows) if rows else None
-        self.c("brain_versions").update_one({"_id": f"v{N}"}, {"$set": {
-            "status": "committed", "added": added, "retired": retired,
-            "patch_hash": self._local_validation(self.export_brain(N)).patch_hash,
-            "scores": self._scores_for(run), "heldout_passed": heldout, "committed_at": now()}})
-        self.c("gate_runs").update_one({"_id": gate_run_id}, {"$set": {"verdict": "promoted", "promoted_to": N}})
-        self.c("gate_runs").update_one({"_id": gate_run_id, "gate_decision": None}, {"$set": {"gate_decision": "passed"}})
-        self._count_playbook(gate_run_id)
-        self._sync_raindrop(gate_run_id)
-        return {"version": N, "added": added, "retired": retired, "approvals": approvals}
+            raise KGError(f"v{N} is being created by another commit; retry after it lands")
+        if docs:
+            self.c("brain_nodes").insert_many(docs)
+        if retire:
+            self.c("brain_nodes").update_many({"_id": {"$in": retire}, "until": None}, {"$set": {"until": N}})
+        fields = {"status": "committed", "added": [d["_id"] for d in docs], "retired": retire,
+                  "patch_hash": self._local_validation(self._build_brain(N)).patch_hash, "committed_at": now()}
+        if run is not None:
+            fields["scores"] = self._scores_for(run)
+            rows = list(self.c("heldout_results").find({"gate_run_id": run["_id"]}, {"passed": 1}))
+            fields["heldout_passed"] = all(r["passed"] for r in rows) if rows else None
+        self.c("brain_versions").update_one({"_id": f"v{N}"}, {"$set": fields})
+        if run is not None:
+            self.c("gate_runs").update_one({"_id": run["_id"]}, {"$set": {"verdict": "promoted", "promoted_to": N}})
+            self.c("gate_runs").update_one({"_id": run["_id"], "gate_decision": None},
+                                           {"$set": {"gate_decision": "passed"}})
+            self._count_playbook(run["_id"])
+            self._sync_raindrop(run["_id"])
+        return {"version": N, "added": fields["added"], "retired": retire, "approvals": approvals}
+
+    def get_brain_context(self, task_node_id: str, version: Optional[int] = None,
+                          reader: Optional[str] = None) -> dict:
+        """The interface contract's read: every component that applies to a node at `version` (default: the
+        latest), as {kind, key, when, then, since, until, evidence} plus the KG's own fields. Also logs the
+        read to `brain_reads`, which the dashboard can watch to light up the nodes an agent just read."""
+        V = version if version is not None else self.latest_version()
+        lb = self.load_brain(V, task_node_id)
+        comps = []
+        for c in lb["components"]:
+            when, then = c.get("when"), c.get("then")
+            ct = c.get("compiles_to")
+            if ct and (when is None or then is None):
+                when, then = registry.rule_text(ct["target"], ct["value"])
+            comps.append({"kind": c["kind"], "key": c.get("key"), "when": when, "then": then, "since": c["since"],
+                          "until": c.get("until"), "evidence": c.get("evidence") or {}, "_id": c["_id"],
+                          "parent_id": c["parent_id"], "label": c.get("label"), "compiles_to": ct})
+        try:
+            self.c("brain_reads").insert_one({"node_id": task_node_id, "version": V, "scope": lb["scope"],
+                                              "component_ids": [c["_id"] for c in comps], "reader": reader,
+                                              "at": now()})
+        except OperationFailure:
+            pass  # a read-only user still gets the context; only the dashboard pulse is lost
+        return {"version": V, "node_id": task_node_id, "scope": lb["scope"], "components": comps}
+
+    def save_preference(self, text: str, by: str, ref: Optional[str] = None, node_id: str = SITE_ID) -> dict:
+        """A Robotics Lead's instruction from the call becomes a brain component at once (iteration 03):
+        a non-compiling rule the supervisor and workers read through get_brain_context. It changes no
+        setting, so it needs no gate run and leaves pending gate runs promotable."""
+        slug = "".join(ch if ch.isalnum() else "-" for ch in text.lower()).strip("-")
+        slug = "-".join(w for w in slug.split("-") if w)[:48] or "preference"
+        item = {"kind": "rule", "parent_id": node_id, "key": f"preference:{slug}", "label": text, "when": "always",
+                "then": text, "origin": {"source": "robotics_lead", "ref": ref}}
+        return self.commit_brain_version([item], [], {"origin": "robotics_lead", "said_by": by, "ref": ref},
+                                         hypothesis=f"Robotics Lead preference: {text}")
+
+    def current_scores(self, version: Optional[int] = None, split: str = "train") -> dict:
+        """Per-zone scores of a brain (default: the latest) on training seeds, for the call agent's
+        get_current_scores webhook and the dashboard. Training/validation only, never held-out."""
+        V = version if version is not None else self.latest_version()
+        from .views import brain_summary
+        A = brain_summary(self, V, split)
+        if A:
+            return {"version": V, "split": split, "zones": {z: m["score"] for z, m in A["zones"].items()},
+                    "worst_zone": A["worst_zone"], "source": "shifts"}
+        v = self.c("brain_versions").find_one({"version": V}, {"scores": 1}) or {}
+        zones = (v.get("scores") or {}).get(split) or {}
+        return {"version": V, "split": split, "zones": zones,
+                "worst_zone": min(zones, key=zones.get) if zones else None, "source": "brain_versions"}
+
+    def get_playbook(self, task_node: str) -> list[dict]:
+        """Human habits that apply to a node: those scoped to it or an ancestor (`applies_to`), plus unscoped
+        ones, best evidence first (helpful minus harmful)."""
+        scope = self.load_brain(self.latest_version(), task_node)["scope"]
+        q = {"$or": [{"applies_to": {"$in": scope}}, {"applies_to": {"$in": [None, []]}},
+                     {"applies_to": {"$exists": False}}]}
+        habits = list(self.c("playbook").find(q))
+        habits.sort(key=lambda h: (-(h.get("helpful", 0) - h.get("harmful", 0)), h["_id"]))
+        return habits
 
     def _scores_for(self, run: dict) -> dict:
         scores = {run["split"]: {z: v["cand"] for z, v in run["zones"].items()}}
@@ -975,6 +1145,7 @@ class KG:
         """Person C's pipeline writes habits (Gemini output); the KG owns only the counters."""
         if not habit_id.startswith("habit:"):
             habit_id = f"habit:{habit_id}"
+        extra = {k: v for k, v in extra.items() if k not in ("helpful", "harmful", "_id")}  # counters are the KG's
         fields = {"text": text, "clip": clip, "steps": steps or [], "lever_group": lever_group, **extra}
         self.c("playbook").update_one({"_id": habit_id}, {"$set": fields,
                                                           "$setOnInsert": {"helpful": 0, "harmful": 0}}, upsert=True)
@@ -982,9 +1153,14 @@ class KG:
 
     # ── read views (implemented in views.py) ─────────────────
 
-    def get_context(self, V: int, split: str = "train") -> dict:
+    def get_context(self, V: int, split: str = "train", use_learned: bool = False) -> dict:
+        """Sections A-C. use_learned=True orders section C by the Phase 3 learned lever groups, where stored."""
         from .views import get_context
-        return get_context(self, V, split)
+        learned = None
+        if use_learned:
+            learned = {d["_id"]: d["learned_lever_groups"] for d in
+                       self.c("concepts").find({"learned_lever_groups": {"$exists": True}}, {"learned_lever_groups": 1})}
+        return get_context(self, V, split, learned)
 
     def suggest(self, V: int, k: int = 3, split: str = "train") -> dict:
         from .views import suggest

@@ -162,19 +162,25 @@ def test_env_key_changes_with_epoch_or_spec_hash(gate, runner):
     base = dict(engine_sha="abc1234", spec_id="warehouse-humanoid", ticks=12000, profile="standard")
     keys = {Env(**base, spec_hash_or_epoch=t).key for t in ("epoch:e1", "epoch:e2", "spec:9f2c", "spec:9f2d")}
     assert len(keys) == 4
-    e1 = gate.use_runner(runner, env_epoch="e1").key
-    e2 = gate.use_runner(runner, env_epoch="e2").key
-    assert e1 != e2
+    from kg.contract import HealthResponse
 
-    class SpecHashHealth:
+    class Stub:
+        def __init__(self, **h):
+            self.h = HealthResponse(ok=True, engine_sha="abc1234-dirty", spec_id="warehouse-humanoid", mode="real", **h)
+
         def health(self):
-            from kg.contract import HealthResponse
-            return HealthResponse(ok=True, engine_sha="abc1234-dirty", spec_id="warehouse-humanoid", mode="real",
-                                  spec_hash="9f2c")
+            return self.h
+
         validate_brain = settings = lambda self, *a: None
 
-    env = gate.use_runner(SpecHashHealth())
+    # a runner without spec_hash: the manual epoch is the env key, so bumping it separates results
+    old_runner = Stub()
+    assert gate.use_runner(old_runner, env_epoch="e1").key != gate.use_runner(old_runner, env_epoch="e2").key
+    # a runner that reports spec_hash: it wins over the epoch, and a retuned spec changes the key
+    env = gate.use_runner(Stub(spec_hash="9f2c"), env_epoch="e1")
     assert env.spec_hash_or_epoch == "spec:9f2c" and env.engine_sha.endswith("-dirty")
+    assert env.key != gate.use_runner(Stub(spec_hash="9f2d")).key
+    assert gate.use_runner(runner).spec_hash_or_epoch == "spec:fake"
 
 
 def test_results_from_another_env_are_refused(gate, improver, runner):

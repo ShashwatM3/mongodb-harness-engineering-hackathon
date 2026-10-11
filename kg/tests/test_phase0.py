@@ -95,3 +95,17 @@ def test_export_brain_v1_runs_through_fake_run_shift(gate):
     fixture = FixtureRunner().run_shift(b, list(range(101, 113)))
     live = fake.run_shift(b, list(range(101, 113)))
     assert live.model_dump(mode="json") == fixture.model_dump(mode="json")
+
+
+def test_v1_patch_hash_matches_brains_v1_json(gate, tmp_path):
+    """Section 7's first test: without it every trial runs the wrong fleet or gets a 422. Runs TwinForge's
+    own compiler (WP-B) through tsx, so it needs the physical-ai checkout with brains/v1.json."""
+    from kg.runner import default_twinforge_dir
+    from kg.tools.checks import check_v1
+    v1 = default_twinforge_dir() / "brains" / "v1.json"
+    if not v1.exists() or not (default_twinforge_dir() / "src" / "harness" / "brain.ts").exists():
+        pytest.skip("needs physical-ai with brains/v1.json and src/harness/brain.ts (WP-B)")
+    r = check_v1(gate, None, v1)
+    assert r["ok"], r
+    assert r["kg_patch_hash"] == r["v1_json_patch_hash"] == r["kg_local_patch_hash"]
+    assert r["diffs"] == []

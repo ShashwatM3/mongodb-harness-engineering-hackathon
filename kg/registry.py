@@ -52,8 +52,9 @@ class Setting:
 
     @property
     def gets_v1_component(self) -> bool:
-        """Every setting the brain may carry gets a baseline component, so no engine default leaks in."""
-        return self.status in ("editable", "locked")
+        """Brain v1 sets exactly the settings whose v1 differs from the engine default, so no default leaks in
+        (stair threshold 0 → 99, max_speed 1.5 → 1.2) and its patch equals brains/v1.json's (WP-B)."""
+        return self.status in ("editable", "locked") and self.engine_default != self.v1
 
     @property
     def lever_id(self) -> Optional[str]:
@@ -68,9 +69,10 @@ class Setting:
                 out.append(self.v1 * f)
             out += [self.min, self.max]
         seen, clean = set(), []
+        whole = self.integer or all(float(x).is_integer() for x in (self.v1, self.min, self.max))
         for v in out:
             v = min(self.max, max(self.min, v))
-            v = round(v) if self.integer else round(v, 2)
+            v = round(v) if whole else round(v, 2)
             if v not in seen:
                 seen.add(v)
                 clean.append(v)
@@ -81,63 +83,63 @@ def _s(target, description, default, v1, lo, hi, status, group, integer=True, gr
     return Setting(target, description, default, v1, lo, hi, status, group, integer, tuple(grid), note)
 
 
-# Section 6 of the TwinForge plan. Order is the display order inside each lever group.
+# Mirrors physical-ai src/harness/settings.ts (WP-B; read at 12:40, uncommitted), which serves GET /settings.
+# `integer` matches its flags (the compiler rejects a fraction there). Order is the display order per group.
 SETTINGS: list[Setting] = [
     # floor_change
-    _s("sim.STAIR_MIN_LIFT_QUEUE", "Take the stairs when at least this many robots queue for the best lift",
+    _s("sim.STAIR_MIN_LIFT_QUEUE", "Take the stairs when the best lift's queue holds at least this many robots",
        0, 99, 0, 99, "editable", "floor_change", grid=(2, 3, 1, 5, 0),
-       note="engine default 0 = always stairs; v1 99 = never"),
-    _s("sim.STAIR_MAX_LOAD", "Take the stairs only when carrying at most this load",
+       note="engine default 0 = always stairs; v1 99 = only when no lift works"),
+    _s("sim.STAIR_MAX_LOAD", "...and only when carrying at most this many load units (0 = only empty-handed)",
        99, 99, 0, 99, "editable", "floor_change", grid=(0, 1),
-       note="registry range is 0 to class capacity (HUM-1 carries 1), so 1..99 behave the same; GET /settings will settle the max"),
-    _s("sim.LIFT_RETRY_TICKS", "Ticks before retrying a busy lift", 50, 50, 20, 200, "editable", "floor_change",
-       grid=(30, 100, 20, 150)),
-    _s("sim.LIFT_XFLOOR_PENALTY_M", "Metres added to a cross-floor task's cost in assignment",
-       40, 40, 0, 100, "editable", "floor_change", grid=(20, 60, 0, 80)),
+       note="values at or above the class capacity (HUM-1 carries 1) mean no load limit"),
+    _s("sim.LIFT_RETRY_TICKS", "Ticks between retries when the chosen lift has faulted", 50, 50, 20, 200,
+       "editable", "floor_change", grid=(30, 100, 20, 150)),
+    _s("sim.LIFT_XFLOOR_PENALTY_M", "Metres added to a cross-floor candidate's distance in task assignment",
+       40, 40, 0, 100, "editable", "floor_change", integer=False, grid=(20, 60, 0, 80)),
     # waiting
-    _s("sim.WAIT_REPLAN_TICKS", "Ticks a blocked robot waits before replanning", 25, 25, 10, 80, "editable", "waiting",
-       grid=(15, 40, 10, 60)),
-    _s("sim.WAIT_BACKOFF_TICKS", "Ticks a blocked robot waits before backing off (deadlock breaker)",
-       80, 80, 30, 200, "editable", "waiting", grid=(50, 120, 30, 160)),
+    _s("sim.WAIT_REPLAN_TICKS", "Ticks blocked before a robot replans its route", 25, 25, 10, 80, "editable",
+       "waiting", grid=(15, 40, 10, 60)),
+    _s("sim.WAIT_BACKOFF_TICKS", "Ticks blocked before a robot backs off to break a deadlock", 80, 80, 30, 200,
+       "editable", "waiting", grid=(50, 120, 30, 160)),
     # energy
-    _s("sim.CHARGE_AT_PCT", "Battery percent at which a robot goes to charge", 35, 35, 25, 60, "editable", "energy",
-       grid=(30, 45, 25, 55)),
-    _s("assign.W_BATTERY", "Assignment weight on battery level", 0.25, 0.25, 0, 1, "editable", "energy",
+    _s("sim.CHARGE_AT_PCT", "An idle robot below this battery % goes to charge", 35, 35, 25, 60, "editable", "energy",
+       integer=False, grid=(30, 45, 25, 55)),
+    _s("assign.W_BATTERY", "Task-assignment weight on battery level", 0.25, 0.25, 0, 1, "editable", "energy",
        integer=False, grid=(0.4, 0.15)),
     # dispatch
-    _s("assign.W_DISTANCE", "Assignment weight on distance to the task", 0.35, 0.35, 0, 1, "editable", "dispatch",
-       integer=False, grid=(0.5, 0.25)),
-    _s("assign.W_WORKLOAD", "Assignment weight on robot workload", 0.15, 0.15, 0, 1, "editable", "dispatch",
-       integer=False, grid=(0.3, 0.05)),
-    _s("assign.W_CONGESTION", "Assignment weight on zone congestion", 0.15, 0.15, 0, 1, "editable", "dispatch",
-       integer=False, grid=(0.3, 0.05)),
-    _s("assign.W_HEALTH", "Assignment weight on robot health", 0.10, 0.10, 0, 1, "editable", "dispatch",
+    _s("assign.W_DISTANCE", "Task-assignment weight on distance to the task", 0.35, 0.35, 0, 1, "editable",
+       "dispatch", integer=False, grid=(0.5, 0.25)),
+    _s("assign.W_WORKLOAD", "Task-assignment weight on spreading work across robots", 0.15, 0.15, 0, 1,
+       "editable", "dispatch", integer=False, grid=(0.3, 0.05)),
+    _s("assign.W_CONGESTION", "Task-assignment weight on avoiding congested zones", 0.15, 0.15, 0, 1, "editable",
+       "dispatch", integer=False, grid=(0.3, 0.05)),
+    _s("assign.W_HEALTH", "Task-assignment weight on robot health", 0.10, 0.10, 0, 1, "editable", "dispatch",
        integer=False, grid=(0.2, 0.0)),
-    _s("sim.IDLE_TO_PARK_TICKS", "Ticks an idle robot waits before going to park", 300, 300, 100, 1200,
+    _s("sim.IDLE_TO_PARK_TICKS", "Idle ticks before a ground-floor robot walks to parking", 300, 300, 100, 1200,
        "editable", "dispatch", grid=(150, 600, 100, 900)),
-    _s("zone.M.capacity", "Robots zone M counts as full (feeds the congestion reading only)", 8, 8, 2, 12,
-       "editable", "dispatch", grid=(6, 10, 4, 12),
-       note="a weak lever: capacity changes a congestion reading, not entry (TwinForge finding 8); zones A-D use the engine default 6"),
-    _s("class.HUM-1.capacity", "Load units a humanoid carries", 1, 1, 1, 1, "editable", "dispatch",
-       note="Digit 4 carries one 16 kg tote, which is also the spec-sheet maximum"),
+    *[_s(f"zone.{z}.capacity", f"Robots in zone {z} before it reads as congested (only affects assignment scoring)",
+         cap, cap, 2, 12, "editable", "dispatch", grid=(cap - 2, cap + 2, 4, 12),
+         note="a weak lever: it does not limit how many robots enter the zone (TwinForge finding 8)")
+      for z, cap in (("A", 6), ("B", 6), ("C", 6), ("D", 6), ("M", 8))],
+    _s("class.HUM-1.capacity", "Load units a HUM-1 robot carries", 1, 1, 1, 1, "editable", "dispatch",
+       note="up to the spec-sheet maximum: Digit 4 carries one 16 kg tote"),
     # motion (locked)
-    _s("class.HUM-1.max_speed", "Humanoid top walking speed, m/s", 1.5, 1.2, 0, 1.5, "locked", "motion",
-       integer=False, grid=(1.35, 1.5, 1.0), note="v1 is 80% of Digit's published 1.5 m/s"),
-    _s("sim.PERC_STOP", "Stopping distance, m", 1.7, 1.7, 1.2, 3.0, "locked", "motion", integer=False,
-       grid=(1.5, 2.0), note="registry gives only 'at least 1.2 m'; max 3.0 is a placeholder until GET /settings"),
-    _s("sim.PERC_SLOW", "Slow-down distance, m", 2.8, 2.8, 1.7, 5.0, "locked", "motion", integer=False,
-       grid=(2.4, 3.2), note="registry gives 'at least PERC_STOP'; min uses v1 PERC_STOP, max 5.0 is a placeholder"),
-    _s("sim.MIN_SEP", "Hard minimum distance between robots, m", 0.9, 0.9, 0.9, 0.9, "locked", "motion",
-       integer=False, note="registry range is 'fixed'"),
+    _s("class.HUM-1.max_speed", "Top walking speed of HUM-1 robots (m/s)", 1.5, 1.2, 0.3, 1.5, "locked", "motion",
+       integer=False, grid=(1.35, 1.5, 1.0), note="brain v1 runs at 80% of the spec sheet; raising it needs a call"),
+    _s("sim.PERC_STOP", "LiDAR stopping distance (m)", 1.7, 1.7, 1.2, 5, "locked", "motion", integer=False,
+       grid=(1.5, 2.0)),
+    _s("sim.PERC_SLOW", "LiDAR slow-down distance (m); at least PERC_STOP", 2.8, 2.8, 1.2, 8, "locked", "motion",
+       integer=False, grid=(2.4, 3.2)),
     # never changed by the brain (envelope only)
-    _s("sim.HUMAN_CLEARANCE_M", "Distance to a person that counts as a safety event, m (scoring only)",
-       2.0, 2.0, 2.0, 2.0, "fixed", None, integer=False, note="locked and never approvable"),
-    _s("sim.STAIR_CAPACITY", "Robots that may climb one stairwell at once", 99, 2, 2, 2, "spec", None,
-       note="set by the warehouse-humanoid spec (overlay STAIR_COSTS), frozen in WP-T"),
-    _s("sim.STAIR_LOAD_TICKS", "Extra climb ticks per load unit", 0, 40, 40, 40, "spec", None,
-       note="set by the warehouse-humanoid spec (overlay STAIR_COSTS), frozen in WP-T"),
-    _s("sim.BATTERY_STAIR", "Battery drained per tick while climbing", 0, 0.01, 0.01, 0.01, "spec", None,
-       integer=False, note="set by the warehouse-humanoid spec (overlay STAIR_COSTS), frozen in WP-T"),
+    _s("sim.MIN_SEP", "Hard minimum distance between robot centres (m)", 0.9, 0.9, 0.9, 0.9, "fixed", None,
+       integer=False, note="a brain may restate 0.9; any other value is rejected"),
+    _s("sim.HUMAN_CLEARANCE_M", "Scoring: a robot inside this distance of a person is a safety event (m)",
+       2.0, 2.0, 2.0, 2.0, "fixed", None, integer=False, note="never approvable"),
+    *[_s(f"sim.{k}", "Stair cost: describes the building and the robot, so the spec sets it, never the brain",
+         d, v, v, v, "spec", None, integer=False, note="frozen in WP-T (overlay STAIR_COSTS)")
+      for k, d, v in (("STAIR_CLIMB_TICKS", 80, 240), ("STAIR_CAPACITY", 99, 2), ("STAIR_LOAD_TICKS", 0, 40),
+                      ("BATTERY_STAIR", 0, 0.01))],
 ]
 
 
@@ -163,7 +165,7 @@ def from_settings_response(resp: SettingsResponse) -> list[Setting]:
     out = []
     for d in resp.settings:
         k = known.get(d.target)
-        integer = k.integer if k else all(float(x).is_integer() for x in (d.v1, d.min, d.max))
+        integer = bool((d.model_extra or {}).get("integer", False))
         group = k.group if k else group_for(d.target)
         out.append(Setting(d.target, d.description, d.engine_default, d.v1, d.min, d.max, d.status,
                            group if d.status in ("editable", "locked") else None,
@@ -188,6 +190,43 @@ def label_for(target: str, value: float) -> str:
     s = by_target().get(target)
     desc = s.description if s else target
     return f"{desc}: {value:g}"
+
+
+def rule_text(target: str, value: float) -> tuple[str, str]:
+    """Team doc 03's free-text `when` / `then` for a component that compiles to one setting.
+    The text is for people and agents; `compiles_to` is what the engine runs. Ticks are 100 ms."""
+    v = value
+    s = lambda ticks: f"{ticks / 10:g} s"
+    if target == "sim.STAIR_MIN_LIFT_QUEUE":
+        if v >= 99:
+            return "a robot must change floors", "queue for the freight lift (never the stairs)"
+        if v <= 0:
+            return "a robot must change floors", "take the west stairs (never the lift)"
+        return (f"a robot must change floors and the best lift's queue has {v:g} or more robots",
+                "take the west stairs instead of waiting for the lift")
+    if target == "sim.STAIR_MAX_LOAD":
+        return "a robot must change floors", ("use the stairs only when empty" if v < 1
+                                              else f"use the stairs carrying up to {v:g} load units")
+    fixed = {
+        "sim.WAIT_REPLAN_TICKS": (f"a robot has been blocked for {s(v)}", "replan its route"),
+        "sim.WAIT_BACKOFF_TICKS": (f"a robot has been blocked for {s(v)}", "back off and let the other robot pass"),
+        "sim.LIFT_RETRY_TICKS": ("the chosen lift is busy", f"try again after {s(v)}"),
+        "sim.LIFT_XFLOOR_PENALTY_M": ("assigning a task on another floor", f"count the trip as {v:g} m longer"),
+        "sim.CHARGE_AT_PCT": (f"battery is at {v:g}% or less", "go to a charger"),
+        "sim.IDLE_TO_PARK_TICKS": (f"a robot has been idle for {s(v)}", "go to a parking spot"),
+        "class.HUM-1.max_speed": ("always", f"walk no faster than {v:g} m/s"),
+        "class.HUM-1.capacity": ("picking", f"carry at most {v:g} load units"),
+        "sim.PERC_STOP": (f"an obstacle is within {v:g} m", "stop"),
+        "sim.PERC_SLOW": (f"an obstacle is within {v:g} m", "slow down"),
+        "sim.MIN_SEP": (f"another robot is within {v:g} m", "hold position"),
+    }
+    if target in fixed:
+        return fixed[target]
+    if target.startswith("assign.W_"):
+        return "choosing a robot for a task", f"weigh {target.removeprefix('assign.W_').lower()} at {v:g}"
+    if target.startswith("zone.") and target.endswith(".capacity"):
+        return f"zone {target.split('.')[1]} holds {v:g} robots", "treat it as congested when assigning"
+    return "always", f"set {target} to {v:g}"
 
 
 def with_overrides(settings: list[Setting], **changes) -> list[Setting]:

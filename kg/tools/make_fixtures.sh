@@ -13,7 +13,7 @@ mkdir -p "$OUT"
 
 TRAIN="101,102,103,104,105,106,107,108,109,110,111,112"
 VAL="201,202,203,204,205,206"
-SHA="$(git -C "$TWINFORGE_DIR" rev-parse --short HEAD)"
+SHA="$(git -C "$TWINFORGE_DIR" rev-parse --short HEAD)$(git -C "$TWINFORGE_DIR" diff --quiet HEAD -- src/harness || echo -dirty)"
 BRANCH="$(git -C "$TWINFORGE_DIR" rev-parse --abbrev-ref HEAD)"
 
 for q in 0 1 2 3 4 5 10 99; do

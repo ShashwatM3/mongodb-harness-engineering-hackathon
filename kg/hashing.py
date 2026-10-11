@@ -8,9 +8,11 @@ recorded twice lands on the same document:
 
 Until the runner serves /validate_brain, patch hashes come from `compile_patch`,
 which applies the compiler's precedence (deepest node wins; a tie goes to the
-later node, as in physical-ai src/harness/fake.ts) and hashes the resulting
-SpecPatch. Local hashes start with "kg-", so they are never mistaken for the
-runner's; the env key (engine_sha "fake" vs a real SHA) keeps the two apart anyway.
+later node, as in physical-ai src/harness/brain.ts) and hashes the resulting
+SpecPatch with the runner's own scheme (hash.ts shortHash: SHA-256 of key-sorted
+compact JSON, first 16 hex chars). So the KG's v1 hash equals brains/v1.json's and
+the replay HUD's. The env key (engine_sha "fake" vs a real SHA) still keeps fake and
+real results apart.
 """
 from __future__ import annotations
 
@@ -87,9 +89,12 @@ def gate_run_id(env_key: str, seeds: Iterable[int], base_hash: str, cand_hash: s
     return "gr-" + digest([env_key, sorted_seeds(seeds), base_hash, cand_hash])
 
 
-def event_id(gate_run: str, round_: int, policy: str) -> str:
-    """UUID-shaped, so any Raindrop surface that expects a UUID accepts it; deterministic."""
-    return str(uuid.UUID(hex=digest([gate_run, int(round_), str(policy)], 32)))
+def event_id(gate_run: str, round_: int, policy: str, attempt: Optional[int] = None) -> str:
+    """UUID-shaped, so any Raindrop surface that expects a UUID accepts it; deterministic.
+    `attempt` separates several proposals of one candidate within a round (GEPA calls many times per round);
+    without it, the same (round, policy) is one event and a retried call records nothing new."""
+    parts = [gate_run, int(round_), str(policy)] + ([int(attempt)] if attempt is not None else [])
+    return str(uuid.UUID(hex=digest(parts, 32)))
 
 
 def episode_ids(shift: str, failures: list[dict]) -> list[str]:
@@ -169,4 +174,6 @@ def compile_patch(effective: dict[str, dict]) -> tuple[dict, list[dict]]:
 
 
 def local_patch_hash(patch: dict) -> str:
-    return "kg-" + digest(patch, 16)
+    """Same as TwinForge's shortHash(patch) for every value a setting can take (Python and JS print
+    floats alike except in exponent notation, e.g. 1e-07 vs 1e-7, which no setting uses)."""
+    return digest(patch, 16)

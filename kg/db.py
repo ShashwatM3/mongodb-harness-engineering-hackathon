@@ -1,9 +1,11 @@
 """Collections, indexes and per-collection permissions.
 
 Two database users, one MongoClient each:
-  improver  custom role: find on every improver-visible collection, insert/update where the
-            evaluator writes (brain_nodes, gate_runs, shifts, episodes), no remove, and nothing
-            at all on heldout_* (privileges only add, so it simply never gets them)
+  improver  custom role: find on every improver-visible collection, insert/update only where the
+            evaluator records evidence (gate_runs, shifts, episodes) and brain reads are logged
+            (brain_reads), no remove, and nothing at all on heldout_* (privileges only add, so it
+            simply never gets them). It never writes the brain: brain_nodes and brain_versions are
+            written only through commit_brain_version, on the gate client.
   gate      readWrite on the database
 
 On Atlas, users and roles can't be created with createUser/createRole over a driver
@@ -20,12 +22,12 @@ from pymongo.database import Database
 from pymongo.errors import CollectionInvalid, OperationFailure
 
 COLLECTIONS = ["brain_nodes", "brain_versions", "envelope", "concepts", "gate_runs", "shifts", "episodes",
-               "playbook", "heldout_results", "heldout_seeds"]
+               "playbook", "brain_reads", "heldout_results", "heldout_seeds"]
 GATE_ONLY = ["heldout_results", "heldout_seeds"]
 
 #: what the improver's custom role grants, per collection (section 3 of the KG plan)
 IMPROVER_PRIVILEGES = {
-    "brain_nodes": ["find", "insert", "update"],
+    "brain_nodes": ["find"],                      # brain writes go through commit_brain_version (gate)
     "brain_versions": ["find"],
     "envelope": ["find"],
     "concepts": ["find"],
@@ -33,6 +35,7 @@ IMPROVER_PRIVILEGES = {
     "shifts": ["find", "insert", "update"],
     "episodes": ["find", "insert", "update"],
     "playbook": ["find"],
+    "brain_reads": ["find", "insert"],            # get_brain_context logs reads for the dashboard
 }
 
 INDEXES = {
@@ -44,6 +47,7 @@ INDEXES = {
     "shifts": [[("env_key", ASCENDING), ("patch_hash", ASCENDING), ("split", ASCENDING)]],
     "episodes": [[("shift_id", ASCENDING), ("type", ASCENDING), ("zone", ASCENDING)]],
     "heldout_results": [[("gate_run_id", ASCENDING)]],
+    "brain_reads": [[("at", ASCENDING)]],
 }
 
 
@@ -96,10 +100,13 @@ def create_roles_and_users(admin: MongoClient, db_name: str, improver_pw: str, g
 def atlas_cli_commands(db_name: str = "kg", project_id: str = "<PROJECT_ID>") -> list[str]:
     """Atlas CLI commands for the same role and users (needs Project Owner; roles take ~30 s on M0/Flex)."""
     privs = ",".join(f"{a.upper()}@{db_name}.{c}" for c, acts in IMPROVER_PRIVILEGES.items() for a in acts)
+    sfx = "" if db_name == "kg" else f"_{db_name}"  # e.g. kg_test gets its own role and users, no name clash
     return [
-        f"atlas customDbRoles create kgImprover --privilege '{privs}' --projectId {project_id}",
-        f"atlas dbusers create --username improver --password '<IMPROVER_PW>' --role kgImprover --projectId {project_id}",
-        f"atlas dbusers create --username gate --password '<GATE_PW>' --role readWrite@{db_name} --projectId {project_id}",
+        f"atlas customDbRoles create kgImprover{sfx} --privilege '{privs}' --projectId {project_id}",
+        f"atlas dbusers create --username improver{sfx} --password '<IMPROVER_PW>' --role kgImprover{sfx} "
+        f"--projectId {project_id}",
+        f"atlas dbusers create --username gate{sfx} --password '<GATE_PW>' --role readWrite@{db_name} "
+        f"--projectId {project_id}",
     ]
 
 

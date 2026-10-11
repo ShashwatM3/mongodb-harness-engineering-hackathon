@@ -1,12 +1,11 @@
 """Pydantic mirror of the TwinForge runner contract.
 
-Source: physical-ai `src/harness/contract.ts`, last changed in commit c07a2c1
-(branch hackathon/humanoid-twin, checked at 214f270). TwinForge stays out of this
-repo; the KG talks to it only through this HTTP contract.
+Source: physical-ai `src/harness/contract.ts` at c07a2c1, plus the spec_hash fields added (uncommitted) on
+top of 2253f36, branch hackathon/humanoid-twin, read at 12:40. TwinForge stays out of this repo; the KG
+talks to it only through this HTTP contract.
 
-Deliberate loosening, so a runner that adds fields or failure types never breaks
-the KG mid-demo:
-  - response models keep unknown fields (`extra="allow"`), e.g. a future `spec_hash`;
+Deliberate loosening, so a runner that adds fields or failure types never breaks the KG mid-demo:
+  - response models keep unknown fields (`extra="allow"`), and spec_hash is optional for older runners;
   - failure types are plain strings, with the known ones in FAILURE_TYPES.
 """
 from __future__ import annotations
@@ -216,6 +215,8 @@ class _Pooled(_Open):
 class RunShiftResponse(_Open):
     engine_sha: str
     spec_id: str
+    #: hash of the environment before the brain; changes when the spec (e.g. a stair cost) is retuned
+    spec_hash: Optional[str] = None
     brain_version: int
     patch_hash: str
     ticks: int
@@ -238,6 +239,7 @@ class BrainRejection(_Open):
 
 class ValidateBrainResponse(_Open):
     ok: bool
+    spec_hash: Optional[str] = None
     patch: SpecPatch
     patch_hash: str
     effective: list[EffectiveEdit] = Field(default_factory=list)
@@ -262,6 +264,7 @@ class SettingDef(_Open):
 
 class SettingsResponse(_Open):
     spec_id: str
+    spec_hash: Optional[str] = None
     settings: list[SettingDef]
 
 
@@ -269,4 +272,5 @@ class HealthResponse(_Open):
     ok: bool
     engine_sha: str
     spec_id: str
+    spec_hash: Optional[str] = None
     mode: str
