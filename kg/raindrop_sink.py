@@ -85,8 +85,15 @@ class RaindropSink:
 
     def event(self, event_id, properties):
         try:
+            props = clean_properties(properties)
+            # The SDK rejects a track_ai call with neither input nor output; the candidate's edits are the
+            # improver's input and the gate's outcome is its output.
+            ai_input = f"brain v{props.get('brain_version')} candidate: {props.get('edits') or 'no edits'}" \
+                       f" (levers {props.get('lever_groups')}, origin {props.get('origin')}, round {props.get('round')})"
+            zm = props.get("zone_M_score")
+            ai_output = f"status {props.get('status')}" + (f"; zone M {zm} ({props.get('zone_M_delta'):+})" if zm is not None else "")
             self.client.track_ai(user_id=self.user_id, event=EVENT_NAME, event_id=event_id,
-                                 properties=clean_properties(properties))
+                                 properties=props, input=ai_input, output=ai_output, model="sitesim-gate")
         except Exception as e:  # never let observability break the loop
             log.warning("raindrop track_ai failed: %s", e)
 
