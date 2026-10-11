@@ -66,13 +66,24 @@ export class CallOrchestrator {
       this.events.signal('call.transcript', call.incident_id, { call_id: call._id });
     }
     if (p.state === 'in_call') {
-      if (call.status === 'RINGING') await this.answer(call._id);
+      if (call.status === 'RINGING') await this.answerFromProvider(call._id);
       return;
     }
     this.lastPolled.delete(call._id);
     if (call.status === 'RINGING' && !p.answered) return this.finishUnanswered(call._id, 'NO_ANSWER', p.reason);
-    if (call.status === 'RINGING') await this.answer(call._id);
+    if (call.status === 'RINGING') await this.answerFromProvider(call._id);
     await this.end(call._id, p.reason);
+  }
+
+  /** Polls and tool calls may observe the same ringing snapshot; the first one owns the transition. */
+  private async answerFromProvider(call_id: string): Promise<void> {
+    try {
+      await this.answer(call_id);
+    } catch (error) {
+      if (!(error instanceof GatewayError) || error.code !== 'CALL_NOT_RINGING') throw error;
+      const current = await this.db.c.calls.findOne({ _id: call_id });
+      if (current?.status !== 'ANSWERED' && current?.status !== 'ENDED') throw error;
+    }
   }
 
   async place(incident_id: string): Promise<CallDoc | null> {

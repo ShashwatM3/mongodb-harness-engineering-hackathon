@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { installAudioUnlock, isAudioUnlocked, onAudioUnlockChange } from './audio';
 import { api, fmtTime, type Aggregate, type IncidentRow, type Metric, type ServerEvent, type Trajectory } from './api';
 import { IncidentDetail } from './components/IncidentDetail';
 import { StatusPill } from './components/bits';
@@ -23,10 +24,12 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [scenario, setScenario] = useState('A');
+  const [soundOn, setSoundOn] = useState(isAudioUnlocked());
   const selRef = useRef<string | null>(null);
   selRef.current = selected;
   /** Call answered in this tab; other tabs dismiss their ringing card when the call is answered elsewhere. */
   const answeredHere = useRef<string | null>(null);
+  const ringEventVersion = useRef(0);
 
   const notify = useCallback((m: string) => {
     setToast(m);
@@ -37,6 +40,16 @@ export function App() {
   const loadDetail = useCallback(async (id: string) => {
     const a = await api<Aggregate>('GET', `/api/incidents/${id}`);
     if (selRef.current === id) setAgg(a);
+  }, []);
+
+  // Phones block sound until the first tap: unlock it then, so an incoming call can ring.
+  useEffect(() => {
+    const removeUnlock = installAudioUnlock();
+    const removeListener = onAudioUnlockChange(setSoundOn);
+    return () => {
+      removeUnlock();
+      removeListener();
+    };
   }, []);
 
   useEffect(() => {
@@ -58,16 +71,30 @@ export function App() {
   useEffect(() => {
     const es = new EventSource('/api/stream');
     let pending: number | null = null;
-    es.onopen = () => setConnected(true);
+    es.onopen = () => {
+      setConnected(true);
+      // SSE cannot replay a call that started before this tab connected.
+      const version = ringEventVersion.current;
+      void api<Ringing | null>('GET', '/api/calls/ringing').then((current) => {
+        if (current && version === ringEventVersion.current) setRing((existing) => existing ?? current);
+      }).catch(() => {});
+    };
     es.onerror = () => setConnected(false);
     es.onmessage = (msg) => {
       const e = JSON.parse(msg.data) as ServerEvent;
       if (e.type === 'call.ringing' && e.data.provider && e.data.provider !== 'simulated') notify('Calling your phone…');
       else if (e.type === 'call.ringing') {
+        ringEventVersion.current++;
         setRing({ call_id: e.data.call_id, incident_id: e.incident_id!, supervisor: e.data.supervisor, severity: e.data.severity, robot_id: e.data.robot_id, summary: e.data.summary, ring_deadline: e.data.ring_deadline });
       }
-      if (['call.no_answer', 'call.declined', 'call.failed'].includes(e.type)) setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
-      if (e.type === 'call.answered' && answeredHere.current !== e.data.call_id) setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
+      if (['call.no_answer', 'call.declined', 'call.failed', 'call.ended'].includes(e.type)) {
+        ringEventVersion.current++;
+        setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
+      }
+      if (e.type === 'call.answered' && answeredHere.current !== e.data.call_id) {
+        ringEventVersion.current++;
+        setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
+      }
       if (e.type === 'trajectory.focus') {
         setSelected(e.incident_id);
         setFocus({ incident: e.incident_id!, segment: e.data.segment_id ?? null, at: Date.now() });
@@ -89,8 +116,13 @@ export function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${selected ? 'has-selection' : ''}`}>
       <header className="topbar">
+        {selected && (
+          <button className="ghost back" onClick={() => setSelected(null)} aria-label="Back to incidents">
+            ‹
+          </button>
+        )}
         <h1>Robot Fleet · Human Review</h1>
         <span className={`dot ${connected ? 'on' : ''}`} title={connected ? 'live' : 'disconnected'} />
         <span className="spacer" />
@@ -127,6 +159,7 @@ export function App() {
       </main>
       {ring && <Softphone key={ring.call_id} ring={ring} onClose={() => setRing(null)} onOpenIncident={setSelected} onAnswered={(id) => (answeredHere.current = id)} />}
       {toast && <div className="toast">{toast}</div>}
+      {!soundOn && !ring && <div className="unlock">Tap anywhere to enable call ringing</div>}
     </div>
   );
 }

@@ -65,9 +65,32 @@ export function registerApiRoutes(app: FastifyInstance, gw: Gateway) {
   });
 
   // ---- simulated phone leg (softphone in the dashboard) ----
+  app.get('/api/calls/ringing', async () => {
+    const call = await gw.db.c.calls.findOne(
+      { provider: 'simulated', status: 'RINGING', ring_deadline: { $gt: new Date() } },
+      { sort: { created_at: -1 } },
+    );
+    if (!call?.ring_deadline) return null;
+    const inc = await gw.incidents.get(call.incident_id);
+    return {
+      call_id: call._id,
+      incident_id: call.incident_id,
+      supervisor: inc.incident.responsible_supervisor.name,
+      severity: inc.incident.severity,
+      robot_id: inc.incident.robot_id,
+      summary: inc.incident.plain_summary ?? inc.incident.failure_summary,
+      ring_deadline: call.ring_deadline.toISOString(),
+    };
+  });
   app.post<{ Params: { id: string } }>('/api/calls/:id/answer', async (req) => {
     const call = await gw.calls.answer(req.params.id, true);
-    return { ...(await sessionFor(gw, call._id)), answer_token: call.answer_token };
+    try {
+      return { ...(await sessionFor(gw, call._id)), answer_token: call.answer_token };
+    } catch (error) {
+      // The call was already marked answered. Release it immediately if the voice session cannot be prepared.
+      await gw.calls.end(call._id, 'voice session unavailable');
+      throw error;
+    }
   });
   app.post<{ Params: { id: string } }>('/api/calls/:id/decline', async (req) => {
     await gw.calls.decline(req.params.id);
