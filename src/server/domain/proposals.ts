@@ -193,16 +193,14 @@ export class ProposalEngine {
       );
       await this.db.c.decisions.insertOne(
         {
-          _id: `dec_${crypto.randomUUID()}`,
+          _id: `fb_${crypto.randomUUID()}`,
           incident_id,
           proposal_id: head._id,
           revision: req.base_revision,
           decision: 'MODIFY',
           final: false,
           supervisor_id: who.supervisor_id,
-          identity_method: who.channel === 'VOICE' ? 'VOICE_PIN' : 'DASHBOARD_SESSION',
-          confirmation: { status: 'NOT_REQUIRED', utterance: null, confirmed_at: null },
-          reason: req.rationale,
+          feedback: req.rationale,
           requested_modifications: changes,
           channel: who.channel,
           call_id: who.call_id,
@@ -217,7 +215,7 @@ export class ProposalEngine {
         'proposal.revised',
         incident_id,
         actor,
-        { revision: next, based_on_revision: req.base_revision, summary: proposal.summary, note: result.note ?? null },
+        { revision: next, based_on_revision: req.base_revision, summary: proposal.plain_summary ?? proposal.summary, note: result.note ?? null },
         session,
       );
     });
@@ -238,14 +236,13 @@ function normalizeForCompare(changes: Change[]): Change[] {
   return changes.map((c) => (c.op === 'set_param' ? { op: 'set_param', key: c.key, value: Number.isFinite(Number(c.value)) && typeof c.value !== 'boolean' ? Number(c.value) : c.value } : { op: 'request', text: c.text.trim() }));
 }
 
-export function emptySubmission(state: 'NOT_REQUIRED' | 'HELD' | 'PENDING') {
+export function emptySubmission(state: 'NOT_REQUIRED' | 'PENDING') {
   return {
     state,
     attempts: 0,
     next_attempt_at: state === 'PENDING' ? new Date() : null,
     lease_until: null,
     last_error: null,
-    execution_id: null,
     harness_reason: null,
   };
 }

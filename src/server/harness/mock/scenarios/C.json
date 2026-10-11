@@ -40,7 +40,8 @@
     "synthetic": true,
     "metadata": {
       "zone": "M"
-    }
+    },
+    "plain_summary": "Robots in zone M are taking more than twice as long to pick items, mostly because they wait for the freight lift one at a time."
   },
   "proposal": {
     "source_agent": "harness-supervisor",
@@ -89,7 +90,8 @@
     "constraints": [
       "Lift payload limit 2 AMRs."
     ],
-    "risk": "LOW"
+    "risk": "LOW",
+    "plain_summary": "Let two robots ride the lift together, waiting up to 20 seconds for a second robot."
   },
   "trajectory": null,
   "metrics": [
@@ -258,22 +260,6 @@
         "op": "gt",
         "value": 2,
         "reason": "The freight lift is rated for at most two AMRs per trip."
-      }
-    ]
-  },
-  "execution": {
-    "outcome": "APPLIED",
-    "detail": "Sequencer updated; first 20 minutes after the change measured on the twin.",
-    "result_metrics": [
-      {
-        "key": "mean_cycle_time_s",
-        "label": "Mean PICK cycle time (after change)",
-        "value": 204,
-        "unit": "s",
-        "kind": "MEASURED",
-        "expected": 135,
-        "timestamp": "2026-10-11T12:20:00-07:00",
-        "source": "twin.shift_runner (synthetic)"
       }
     ]
   }

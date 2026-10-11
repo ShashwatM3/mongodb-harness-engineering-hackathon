@@ -40,7 +40,8 @@
     "metadata": {
       "zone": "M",
       "brain_version_candidate": 3
-    }
+    },
+    "plain_summary": "The improver found a change that cuts lift jams a lot, but only by letting robots get closer to people."
   },
   "proposal": {
     "source_agent": "harness-improver",
@@ -74,7 +75,8 @@
       "Envelope changes require human authority.",
       "Harness re-checks against site safety rules before promotion."
     ],
-    "risk": "HIGH"
+    "risk": "HIGH",
+    "plain_summary": "Lower the minimum distance to people in the lift lobby from 1 metre to 0.8 metres."
   },
   "trajectory": null,
   "metrics": [
@@ -137,10 +139,5 @@
   },
   "reconcile": {
     "refuse": []
-  },
-  "execution": {
-    "outcome": "APPLIED",
-    "detail": "Envelope updated for zone M lift lobby; brain v3 promoted.",
-    "result_metrics": []
   }
 }

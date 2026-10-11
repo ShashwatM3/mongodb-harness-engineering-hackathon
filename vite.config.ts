@@ -9,6 +9,6 @@ export default defineConfig({
   build: { outDir: '../../dist/web', emptyOutDir: true },
   server: {
     port: 5173,
-    proxy: { '/api': api, '/v1': api, '/dev': api },
+    proxy: { '/api/': api, '/v1/': api, '/dev/': api },
   },
 });

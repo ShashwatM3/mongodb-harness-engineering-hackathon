@@ -39,14 +39,12 @@ export function TrajectoryView({ trajectory, focusSegment }: { trajectory: Traje
   return (
     <div className="traj">
       <div className="row" style={{ marginBottom: 8 }}>
-        <span className="small muted">Segments:</span>
         <button className={segment === null ? 'primary' : ''} onClick={() => setSegment(null)}>All</button>
         {trajectory.segments.map((x) => (
           <button key={x.id} className={segment === x.id ? 'primary' : ''} onClick={() => setSegment(x.id)}>
             {x.label} <span className="mono small">{x.t_start}–{x.t_end}s</span>
           </button>
         ))}
-        {trajectory.synthetic && <span className="badge b-warn">SYNTHETIC</span>}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Planned and actual trajectory">
         {trajectory.zones.map((z) => (
@@ -79,24 +77,7 @@ export function TrajectoryView({ trajectory, focusSegment }: { trajectory: Traje
           <text x={W - 55} y={20}>actual</text>
         </g>
       </svg>
-      <div className="row" style={{ marginTop: 8 }}>
-        <span className="small muted">Scrub</span>
-        <input type="range" min={0} max={tMax} step={0.1} value={t ?? 0} onChange={(e) => setT(Number(e.target.value))} style={{ flex: 1 }} />
-        <span className="mono small">{t === null ? '—' : `t=${t.toFixed(1)}s  x=${cursor?.x.toFixed(2)} y=${cursor?.y.toFixed(2)} ${trajectory.units}`}</span>
-      </div>
-      <table style={{ marginTop: 8 }}>
-        <thead><tr><th>t (s)</th><th>Deviation</th><th>Kind</th><th>Description</th></tr></thead>
-        <tbody>
-          {trajectory.deviations.map((d, i) => (
-            <tr key={i} onClick={() => setT(d.t)} style={{ cursor: 'pointer' }}>
-              <td className="num">{d.t}</td>
-              <td className="num">{d.magnitude_m} m</td>
-              <td><KindBadge kind={d.kind} /></td>
-              <td>{d.description}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <p className="small muted" style={{ marginTop: 8 }}>Dashed: planned path · solid: what the robot did · red dots: where it went off course.</p>
       <div className="small muted" style={{ marginTop: 6 }}>Source: {trajectory.source} · frame {trajectory.frame}{trajectory.viewer_url ? <> · <a href={trajectory.viewer_url}>open specialised viewer</a></> : null}</div>
     </div>
   );

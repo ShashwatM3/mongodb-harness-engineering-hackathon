@@ -8,7 +8,6 @@ import { FactLookupSupervisor } from '../src/server/harness/mock/supervisor';
 
 export const HARNESS_TOKEN = 'test-harness-token-0123456789';
 export const TOOL_SECRET = 'test-tool-secret-0123456789';
-export const PIN = '2468';
 
 export interface TestEnv {
   gw: Gateway;
@@ -25,17 +24,15 @@ export async function setup(overrides: Partial<Record<keyof Config, unknown>> = 
     HARNESS_TOKEN,
     TOOL_SECRET,
     CALL_MODE: 'scripted',
-    MOCK_EXEC_STEP_MS: 0,
     SUPERVISOR_SYNC_BUDGET_MS: 500,
     CALL_RETRY_DELAY_MS: 0,
-    SUPERVISOR_PINS: `sup-lead-01:${PIN}`,
     ANTHROPIC_API_KEY: '',
     ELEVENLABS_API_KEY: '',
     ELEVENLABS_AGENT_ID: '',
     ELEVENLABS_WEBHOOK_SECRET: 'whsec_test',
     ...overrides,
   });
-  const mock = new MockHarness(new FactLookupSupervisor(), 0);
+  const mock = new MockHarness(new FactLookupSupervisor());
   const gw = await createGateway(config, { harness: mock });
   const app = await buildApp(gw);
   return {
@@ -82,13 +79,6 @@ export async function tool(env: TestEnv, ctx: Ctx, name: string, args: Record<st
     payload: { incident_id: ctx.incident_id, call_id: ctx.call_id, conversation_id: ctx.conversation_id, ...args },
   });
   return { status: res.statusCode, body: res.json() as Record<string, any> };
-}
-
-export async function verified(env: TestEnv, scenario: string) {
-  const ctx = await triggerAndAnswer(env, scenario);
-  const r = await tool(env, ctx, 'verify_identity', { code: PIN });
-  if (!r.body.verified) throw new Error('verify failed');
-  return ctx;
 }
 
 export async function waitFor<T>(fn: () => Promise<T | null | undefined | false>, timeoutMs = 5000): Promise<T> {

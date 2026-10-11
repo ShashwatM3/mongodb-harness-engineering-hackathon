@@ -39,7 +39,8 @@
     "synthetic": true,
     "metadata": {
       "zone": "D"
-    }
+    },
+    "plain_summary": "Two robots got stuck facing each other at an intersection in zone D for 28 seconds, and the supervisor is not sure why."
   },
   "proposal": {
     "source_agent": "harness-supervisor",
@@ -72,7 +73,8 @@
     "constraints": [
       "Longer horizons reduce intersection throughput."
     ],
-    "risk": "MEDIUM"
+    "risk": "MEDIUM",
+    "plain_summary": "Make robots reserve the intersection further ahead, 8 seconds instead of 4. This only helps if the planner was the cause."
   },
   "trajectory": {
     "task_id": "x",
@@ -425,7 +427,7 @@
       "key": "localization_covariance",
       "label": "Localization covariance (before t = 14 s)",
       "value": null,
-      "unit": "m²",
+      "unit": "m\u00b2",
       "kind": "MEASURED",
       "timestamp": "2026-10-11T10:19:40-07:00",
       "source": "amr03.localization (synthetic)",
@@ -511,10 +513,5 @@
   },
   "reconcile": {
     "refuse": []
-  },
-  "execution": {
-    "outcome": "APPLIED",
-    "detail": "Reservation horizon set to 8 s in zone D.",
-    "result_metrics": []
   }
 }

@@ -1,17 +1,15 @@
-// Offline fallback: plays the ElevenLabs agent's tool calls against the most recent ringing/answered call, so the full
-// loop can be shown on the dashboard without ElevenLabs. Uses exactly the same HTTP tool endpoints the real agent uses.
-//   npm run simulate:agent -- <incident_id> [approve|reject|hangup]
+// Offline fallback: plays the ElevenLabs agent against a ringing call so the loop can be shown without ElevenLabs.
+// Uses exactly the same HTTP tool endpoints the real agent uses.
+//   npm run simulate:agent -- <incident_id> [approve|reject|defer|hangup]
+export {};
 const base = process.env.GATEWAY_URL ?? `http://localhost:${process.env.PORT ?? 8787}`;
 const secret = process.env.TOOL_SECRET || 'dev-tool-secret-change-me';
-const pin = (process.env.SUPERVISOR_PINS || 'sup-lead-01:2468').split(',')[0].split(':')[1];
 const [incidentId, ending = 'approve'] = process.argv.slice(2);
 if (!incidentId) {
-  console.error('usage: npm run simulate:agent -- <incident_id> [approve|reject|hangup]');
+  console.error('usage: npm run simulate:agent -- <incident_id> [approve|reject|defer|hangup]');
   process.exit(1);
 }
-export {};
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 async function json(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
   const res = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
   return res.json() as Promise<any>;
@@ -19,56 +17,53 @@ async function json(method: string, path: string, body?: unknown, headers: Recor
 
 const agg = await json('GET', `/api/incidents/${incidentId}`);
 const call = agg.calls.at(-1);
-if (!call) throw new Error('No call for this incident yet');
-let answer_token: string | undefined;
-if (call.status === 'RINGING') {
-  console.log('☎  answering', call._id);
-  answer_token = (await json('POST', `/api/calls/${call._id}/answer`)).answer_token;
-}
+if (!call || call.status !== 'RINGING') throw new Error('No ringing call for this incident (trigger one first, and do not answer it in the browser).');
+const session = await json('POST', `/api/calls/${call._id}/answer`);
+const { answer_token, dynamic_variables: dv } = session;
 const conversation_id = `sim-${call._id}`;
+await json('POST', `/api/calls/${call._id}/connected`, { conversation_id, answer_token });
+
+const line = (role: 'agent' | 'user', text: string) => {
+  console.log(`${role === 'agent' ? '🤖' : '👤'} ${text}`);
+  return json('POST', `/api/calls/${call._id}/transcript`, { answer_token, role, text });
+};
 const tool = async (name: string, args: Record<string, unknown> = {}) => {
   const r = await json('POST', `/v1/agent-tools/${name}`, { incident_id: incidentId, call_id: call._id, conversation_id, ...args }, { authorization: `Bearer ${secret}` });
-  console.log(`\n🤖 ${name}(${JSON.stringify(args)})\n   → ${JSON.stringify(r).slice(0, 400)}`);
-  await json('POST', `/api/calls/${call._id}/transcript`, { answer_token, role: 'agent', text: `[tool ${name}] ${r.message ?? r.answer ?? r.summary ?? r.status ?? (r.ok ? 'ok' : r.error_code)}` });
-  await pause(1200);
+  console.log(`   🔧 ${name} → ${JSON.stringify(r).slice(0, 220)}`);
+  await pause(800);
   return r;
 };
-const say = async (text: string) => {
-  console.log(`\n👤 ${text}`);
-  await json('POST', `/api/calls/${call._id}/transcript`, { answer_token, role: 'user', text });
-  await pause(800);
-};
 
-await say(`My code is ${pin.split('').join(' ')}`);
-await tool('verify_identity', { code: pin });
-await tool('get_incident');
-await say('What exactly went wrong, and why do you think it happened?');
-await tool('ask_supervisor', { question: 'What exactly went wrong, and why do you think it happened?' });
-await say('Show me the trajectory.');
-await tool('get_trajectory');
-await tool('get_metrics');
-const p = await tool('get_proposal');
-let rev = p.revision as number;
-const param = p.editable_parameters?.find((x: any) => x.proposed !== x.current) ?? p.editable_parameters?.[0];
-if (param && typeof param.proposed === 'number' && typeof param.current === 'number' && ending !== 'hangup') {
-  const mid = Math.round(((param.proposed + param.current) / 2) * 100) / 100;
-  await say(`Make the ${param.label} ${mid} ${param.unit} instead.`);
-  const r = await tool('revise_proposal', { base_revision: rev, parameter_key: param.key, new_value: String(mid), unit: param.unit, rationale: 'Supervisor prefers a smaller change.' });
-  if (r.accepted) rev = r.new_revision;
-}
+await line('agent', `Hi ${dv.supervisor_name}, this is the fleet supervisor. ${dv.incident_brief} The proposed fix: ${dv.proposal_brief} Do you want to approve it, change it, or ask me anything?`);
+await pause(1500);
+await line('user', 'Why do you think that happened?');
+const a = await tool('ask_supervisor', { question: 'Why do you think that happened?' });
+await line('agent', a.answer ?? a.missing ?? 'The supervisor could not answer that.');
+await line('user', 'Show me the path.');
+await tool('show_trajectory');
 if (ending === 'hangup') {
-  await say('I need to go — call me later.');
+  await line('user', 'I have to go, call me later.');
   await json('POST', `/api/calls/${call._id}/end`, { answer_token, reason: 'hung up by human' });
-  console.log('\n📴 hung up without a decision');
   process.exit(0);
 }
-const verb = ending === 'reject' ? 'reject' : 'approve';
-await say(`I ${verb} revision ${rev}.`);
-await tool('submit_decision', { revision: rev, decision: verb === 'approve' ? 'APPROVE' : 'REJECT', confirmation_utterance: `I ${verb} revision ${rev}.` });
-for (let i = 0; i < 8 && verb === 'approve'; i++) {
-  const s = await tool('get_execution_status');
-  if (['APPLIED', 'FAILED', 'REJECTED_BY_HARNESS', 'CANCELLED'].includes(s.execution_status)) break;
-  await pause(1500);
+
+// Change the first setting the plan touches to halfway between current and proposed.
+const ctx: string = dv.incident_context;
+const m = ctx.match(/- (.+?) \[key ([^\]]+)\]: currently ([\d.]+) (\S*), plan ([\d.]+)/);
+let revision = Number(dv.current_revision);
+if (m && m[3] !== m[5]) {
+  const mid = Math.round(((Number(m[3]) + Number(m[5])) / 2) * 100) / 100;
+  await line('user', `Make the ${m[1].toLowerCase()} ${mid} ${m[4]} instead.`);
+  const c = await tool('change_plan', { parameter_key: m[2], new_value: String(mid), unit: m[4], reason: 'Prefer a smaller change.' });
+  if (c.changed) {
+    revision = c.revision;
+    await line('agent', `Done. ${c.new_plan} Do you approve?`);
+  }
 }
+const decision = ({ approve: 'APPROVE', reject: 'REJECT', defer: 'DEFER' } as Record<string, string>)[ending] ?? 'APPROVE';
+const feedback = decision === 'APPROVE' ? 'Approved. Watch the cycle time for the next shift and tell me if it gets worse.' : decision === 'REJECT' ? 'No — get me camera footage first.' : 'Not now, call me after the shift.';
+await line('user', feedback);
+const f = await tool('send_feedback', { revision, decision, feedback });
+await line('agent', f.message ?? 'Sent.');
 await json('POST', `/api/calls/${call._id}/end`, { answer_token, reason: 'agent ended call' });
-console.log('\n📴 call ended');
+console.log('📴 call ended');

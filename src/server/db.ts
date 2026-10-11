@@ -4,8 +4,6 @@ import type {
   Change,
   Channel,
   DecisionKind,
-  ExecutionEvent,
-  ExecutionStatus,
   HeadState,
   IncidentInput,
   IncidentState,
@@ -54,8 +52,9 @@ export interface ProposalRevisionDoc {
   created_at: Date;
 }
 
+/** The human's feedback on an exact proposal revision. This is what the gateway sends back to the supervisor. */
 export interface DecisionDoc {
-  _id: string; // decision_id
+  _id: string; // feedback/decision id
   incident_id: string;
   proposal_id: string;
   revision: number;
@@ -63,21 +62,20 @@ export interface DecisionDoc {
   /** APPROVE and REJECT are final for a proposal: guarded by a partial unique index. */
   final: boolean;
   supervisor_id: string;
-  identity_method: 'VOICE_PIN' | 'DASHBOARD_SESSION';
-  confirmation: { status: 'CONFIRMED' | 'PENDING_SECOND_FACTOR' | 'NOT_REQUIRED'; utterance: string | null; confirmed_at: Date | null };
-  reason: string | null;
+  /** The human's own words (or the agent's faithful summary of them). */
+  feedback: string | null;
   requested_modifications: Change[] | null;
   channel: Channel;
   call_id: string | null;
   conversation_id: string | null;
   idempotency_key: string;
+  /** Delivery of this feedback to the harness (transactional outbox). */
   submission: {
     state: SubmissionState;
     attempts: number;
     next_attempt_at: Date | null;
     lease_until: Date | null;
     last_error: string | null;
-    execution_id: string | null;
     harness_reason: string | null;
   };
   created_at: Date;
@@ -93,26 +91,12 @@ export interface CallDoc {
   active: boolean;
   ring_deadline: Date | null;
   conversation_id: string | null;
-  identity_verified: boolean;
   /** Issued to whoever answered the simulated call; only its holder may end it or bind/annotate the session. */
   answer_token: string | null;
-  pin_failures: number;
   end_reason: string | null;
   transcript: Array<{ role: string; text: string; at: Date }>;
   post_call: Record<string, unknown> | null;
   created_at: Date;
-  updated_at: Date;
-}
-
-export interface ExecutionDoc {
-  _id: string; // execution_id
-  decision_id: string;
-  incident_id: string;
-  status: ExecutionStatus;
-  seq: number;
-  detail: string | null;
-  result_metrics: ExecutionEvent['result_metrics'] | null;
-  events: ExecutionEvent[];
   updated_at: Date;
 }
 
@@ -138,12 +122,6 @@ export interface AuditEventDoc {
   at: Date;
 }
 
-export interface SupervisorDoc {
-  _id: string;
-  pin_hash: string;
-  pin_salt: string;
-}
-
 export interface WebhookReceiptDoc {
   _id: string;
   received_at: Date;
@@ -155,10 +133,8 @@ export interface Collections {
   proposal_revisions: Collection<ProposalRevisionDoc>;
   decisions: Collection<DecisionDoc>;
   calls: Collection<CallDoc>;
-  executions: Collection<ExecutionDoc>;
   supervisor_queries: Collection<SupervisorQueryDoc>;
   audit_events: Collection<AuditEventDoc>;
-  supervisors: Collection<SupervisorDoc>;
   webhook_receipts: Collection<WebhookReceiptDoc>;
 }
 
@@ -188,10 +164,8 @@ export async function connectDatabase(uri: string, dbName: string): Promise<Data
     proposal_revisions: db.collection('proposal_revisions'),
     decisions: db.collection('decisions'),
     calls: db.collection('calls'),
-    executions: db.collection('executions'),
     supervisor_queries: db.collection('supervisor_queries'),
     audit_events: db.collection('audit_events'),
-    supervisors: db.collection('supervisors'),
     webhook_receipts: db.collection('webhook_receipts'),
   };
   await ensureIndexes(c);
@@ -227,7 +201,6 @@ async function ensureIndexes(c: Collections): Promise<void> {
     c.calls.createIndex({ incident_id: 1 }, { unique: true, partialFilterExpression: { active: true }, name: 'one_active_call' }),
     c.calls.createIndex({ conversation_id: 1 }, { unique: true, partialFilterExpression: { conversation_id: { $type: 'string' } } }),
     c.calls.createIndex({ status: 1, ring_deadline: 1 }),
-    c.executions.createIndex({ decision_id: 1 }),
     c.supervisor_queries.createIndex({ incident_id: 1, normalized: 1, created_at: -1 }),
     c.audit_events.createIndex({ incident_id: 1, _id: 1 }),
   ]);

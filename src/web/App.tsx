@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fmtTime, type Aggregate, type IncidentRow, type Metric, type ServerEvent, type Trajectory } from './api';
 import { IncidentDetail } from './components/IncidentDetail';
-import { SeverityBadge, StateBadge } from './components/bits';
+import { StatusPill } from './components/bits';
 import { Softphone, type Ringing } from './components/Softphone';
 
 interface Config {
@@ -18,18 +18,19 @@ export function App() {
   const [agg, setAgg] = useState<Aggregate | null>(null);
   const [trajectory, setTrajectory] = useState<Trajectory | null>(null);
   const [metrics, setMetrics] = useState<Metric[]>([]);
-  const [focus, setFocus] = useState<{ incident: string; segment: string | null } | null>(null);
+  const [focus, setFocus] = useState<{ incident: string; segment: string | null; at: number } | null>(null);
   const [ring, setRing] = useState<Ringing | null>(null);
-  /** Call answered in this tab; other tabs dismiss their ringing card when the call is answered elsewhere. */
-  const answeredHere = useRef<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
+  const [scenario, setScenario] = useState('A');
   const selRef = useRef<string | null>(null);
   selRef.current = selected;
+  /** Call answered in this tab; other tabs dismiss their ringing card when the call is answered elsewhere. */
+  const answeredHere = useRef<string | null>(null);
 
   const notify = useCallback((m: string) => {
     setToast(m);
-    setTimeout(() => setToast((t) => (t === m ? null : t)), 3500);
+    setTimeout(() => setToast((t) => (t === m ? null : t)), 3000);
   }, []);
 
   const loadList = useCallback(() => api<IncidentRow[]>('GET', '/api/incidents').then(setRows).catch(() => {}), []);
@@ -53,7 +54,7 @@ export function App() {
     void api<{ metrics: Metric[] }>('GET', `/api/incidents/${selected}/metrics`).then((r) => selRef.current === selected && setMetrics(r.metrics));
   }, [selected, loadDetail]);
 
-  // Live sync: every committed state change arrives as an event; the UI re-reads authoritative state.
+  // Live sync: every committed change arrives as an event; the UI re-reads authoritative state.
   useEffect(() => {
     const es = new EventSource('/api/stream');
     let pending: number | null = null;
@@ -68,11 +69,10 @@ export function App() {
       if (e.type === 'call.answered' && answeredHere.current !== e.data.call_id) setRing((r) => (r && r.call_id === e.data.call_id ? null : r));
       if (e.type === 'trajectory.focus') {
         setSelected(e.incident_id);
-        setFocus({ incident: e.incident_id!, segment: e.data.segment_id ?? null });
-        notify('Voice agent highlighted the trajectory');
+        setFocus({ incident: e.incident_id!, segment: e.data.segment_id ?? null, at: Date.now() });
       }
-      if (e.type === 'proposal.revised') notify(`New proposal revision ${e.data.revision} (${e.actor.toLowerCase()})`);
-      if (e.type === 'execution.updated') notify(`Harness: ${e.data.status}`);
+      if (e.type === 'proposal.revised') notify(`Plan updated to version ${e.data.revision}`);
+      if (e.type === 'feedback.delivered') notify('Feedback delivered to the supervisor');
       if (pending) window.clearTimeout(pending);
       pending = window.setTimeout(() => {
         void loadList();
@@ -82,54 +82,47 @@ export function App() {
     return () => es.close();
   }, [loadList, loadDetail, notify]);
 
-  const trigger = async (name: string) => {
-    const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${name}/trigger`);
+  const trigger = async () => {
+    const r = await api<{ incident_id: string }>('POST', `/dev/scenarios/${scenario}/trigger`);
     setSelected(r.incident_id);
-    notify(`Supervisor raised incident ${r.incident_id}`);
   };
 
   return (
     <div className="app">
       <header className="topbar">
-        <h1>Robotics Intervention Gateway</h1>
-        <span className={`badge ${connected ? 'b-ok' : 'b-bad'}`}>{connected ? 'live' : 'disconnected'}</span>
-        {config && (
-          <span className="small muted">
-            harness: {config.harness} · calls: {config.call_mode} · voice: {config.elevenlabs_configured ? 'ElevenLabs' : 'not configured'}
-          </span>
-        )}
+        <h1>Robot Fleet · Human Review</h1>
+        <span className={`dot ${connected ? 'on' : ''}`} title={connected ? 'live' : 'disconnected'} />
         <span className="spacer" />
-        {config?.scenarios.length ? <span className="small muted">Simulate supervisor trigger:</span> : null}
-        {config?.scenarios.map((s) => (
-          <button key={s.name} title={s.description} onClick={() => void trigger(s.name)}>
-            {s.name} · {s.title.split(' ').slice(0, 2).join(' ')}
-          </button>
-        ))}
+        {config && !config.elevenlabs_configured && <span className="muted small">voice not configured</span>}
+        {config?.scenarios.length ? (
+          <div className="row">
+            <select value={scenario} onChange={(e) => setScenario(e.target.value)}>
+              {config.scenarios.map((s) => (
+                <option key={s.name} value={s.name}>{s.title}</option>
+              ))}
+            </select>
+            <button className="primary" onClick={() => void trigger()}>Simulate incident</button>
+          </div>
+        ) : null}
       </header>
       <aside className="sidebar">
-        {rows.length === 0 && <div className="muted" style={{ padding: 14 }}>No incidents yet. Trigger a scenario or POST to /v1/incidents.</div>}
+        {rows.length === 0 && <p className="muted empty">No incidents yet.</p>}
         {rows.map((r) => (
-          <div key={r.incident_id} className={`inc ${selected === r.incident_id ? 'sel' : ''}`} onClick={() => setSelected(r.incident_id)}>
+          <button key={r.incident_id} className={`inc ${selected === r.incident_id ? 'sel' : ''}`} onClick={() => setSelected(r.incident_id)}>
             <div className="row">
-              <SeverityBadge severity={r.severity} />
-              <span className="t">{r.robot_id}</span>
+              <StatusPill state={r.state} />
               <span className="spacer" />
-              <span className="mono small muted">{fmtTime(r.created_at)}</span>
+              <span className="muted small">{fmtTime(r.created_at)}</span>
             </div>
-            <div className="small" style={{ margin: '3px 0' }}>{r.failure_summary}</div>
-            <div className="row small">
-              <StateBadge state={r.state} />
-              {r.call_status && <span className="badge b-neutral">call {r.call_status.toLowerCase()}</span>}
-              {r.latest_revision && <span className="badge b-neutral mono">rev {r.latest_revision}</span>}
-              <span className="mono muted">{r.category}</span>
-            </div>
-          </div>
+            <div className="inc-text">{r.plain_summary}</div>
+            <div className="muted small">{r.robot_id}</div>
+          </button>
         ))}
       </aside>
       <main className="main">
-        {!selected && <div className="muted">Select an incident.</div>}
-        {selected && !agg && <div className="muted">Loading…</div>}
-        {agg && <IncidentDetail agg={agg} trajectory={trajectory} metrics={metrics} focusSegment={focus?.incident === agg.incident_id ? focus.segment : null} notify={notify} />}
+        {!selected && <p className="muted empty">Select an incident, or simulate one.</p>}
+        {selected && !agg && <p className="muted empty">Loading…</p>}
+        {agg && <IncidentDetail agg={agg} trajectory={trajectory} metrics={metrics} focus={focus?.incident === agg.incident_id ? focus : null} notify={notify} />}
       </main>
       {ring && <Softphone key={ring.call_id} ring={ring} onClose={() => setRing(null)} onOpenIncident={setSelected} onAnswered={(id) => (answeredHere.current = id)} />}
       {toast && <div className="toast">{toast}</div>}

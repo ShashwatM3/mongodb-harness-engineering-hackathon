@@ -27,7 +27,6 @@ type Phase = 'ringing' | 'connecting' | 'live' | 'unconfigured' | 'ended';
 export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring: Ringing; onClose: () => void; onOpenIncident: (id: string) => void; onAnswered: (callId: string) => void }) {
   const [phase, setPhase] = useState<Phase>('ringing');
   const [mode, setMode] = useState<string>('');
-  const [lines, setLines] = useState<Array<{ role: string; text: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [left, setLeft] = useState(() => Math.max(0, Math.round((new Date(ring.ring_deadline).getTime() - Date.now()) / 1000)));
   const conv = useRef<Conversation | null>(null);
@@ -88,7 +87,8 @@ export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring:
         setPhase('unconfigured');
         return;
       }
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Ask for the browser's echo cancellation / noise suppression so background noise reaches the agent less.
+      await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       conv.current = await Conversation.startSession({
         signedUrl: s.signed_url,
         connectionType: 'websocket',
@@ -99,7 +99,6 @@ export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring:
         },
         onMessage: (m) => {
           const role = (m as { role?: string }).role ?? (m.source === 'ai' ? 'agent' : 'user');
-          setLines((l) => [...l, { role, text: m.message }]);
           void api('POST', `/api/calls/${ring.call_id}/transcript`, { role, text: m.message, answer_token: token.current }).catch(() => {});
         },
         onModeChange: ({ mode }) => setMode(mode),
@@ -120,51 +119,34 @@ export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring:
   return (
     <div className={`phone ${phase === 'ringing' ? 'ringing' : ''}`}>
       <div className="row">
-        <span className="badge b-accent">{phase === 'ringing' ? 'Incoming call' : phase === 'live' ? 'On call' : phase}</span>
-        <span className="small muted">simulated phone line · ElevenLabs voice</span>
+        <span className="phone-title">{phase === 'ringing' ? 'Incoming call' : phase === 'live' ? 'On the call' : phase === 'connecting' ? 'Connecting…' : 'Call ended'}</span>
         <span className="spacer" />
-        {phase === 'ringing' && <span className="mono small">{left}s</span>}
+        {phase === 'ringing' && <span className="muted small">{left}s</span>}
+        {phase === 'live' && <span className={`talk ${mode === 'speaking' ? 'on' : ''}`}>{mode === 'speaking' ? 'speaking' : 'listening'}</span>}
       </div>
-      <div style={{ margin: '8px 0 4px', fontWeight: 600 }}>
-        Robotics gateway → {ring.supervisor}
-      </div>
-      <div className="small">
-        <span className={`badge ${ring.severity === 'HIGH' || ring.severity === 'CRITICAL' ? 'b-bad' : 'b-warn'}`}>{ring.severity}</span> {ring.robot_id} — {ring.summary}
-      </div>
+      <p className="phone-sub">Fleet supervisor · {ring.robot_id}</p>
+      <p className="small">{ring.summary}</p>
 
       {phase === 'ringing' && (
-        <div className="row" style={{ marginTop: 10 }}>
+        <div className="row">
           <button className="ok" onClick={answer}>Answer</button>
-          <button className="bad" onClick={decline}>Decline</button>
+          <button className="ghost" onClick={decline}>Decline</button>
         </div>
       )}
-      {phase === 'connecting' && <div className="muted" style={{ marginTop: 8 }}>Connecting to the voice agent…</div>}
-      {phase === 'unconfigured' && (
-        <div className="banner warn" style={{ marginTop: 8 }}>
-          ElevenLabs is not configured (ELEVENLABS_API_KEY / ELEVENLABS_AGENT_ID), so there is no voice. The call is marked answered; use the dashboard controls, then hang up.
+      {phase === 'unconfigured' && <p className="small error">Voice isn't configured (ELEVENLABS_API_KEY / ELEVENLABS_AGENT_ID). Use the dashboard, then hang up.</p>}
+      {(phase === 'live' || phase === 'unconfigured' || phase === 'connecting') && (
+        <div className="row">
+          <button className="bad" onClick={() => end('hung up by human')}>Hang up</button>
+          <span className="muted small">Tip: a headset keeps background voices out.</span>
         </div>
-      )}
-      {(phase === 'live' || phase === 'unconfigured') && (
-        <>
-          {phase === 'live' && <div className="small muted" style={{ marginTop: 6 }}>Agent is {mode || '…'} · transcript is display-only</div>}
-          <div className="transcript">
-            {lines.map((l, i) => (
-              <div key={i} className={`bubble ${l.role === 'user' ? 'user' : 'agent'}`}>{l.text}</div>
-            ))}
-          </div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className="bad" onClick={() => end('hung up by human')}>Hang up</button>
-          </div>
-        </>
       )}
       {phase === 'ended' && (
-        <div className="row" style={{ marginTop: 8 }}>
-          <span className="muted">Call ended. No decision is inferred from the call ending.</span>
+        <div className="row">
           <span className="spacer" />
-          <button onClick={onClose}>Close</button>
+          <button className="ghost" onClick={onClose}>Close</button>
         </div>
       )}
-      {error && <div className="banner bad small" style={{ marginTop: 8 }}>{error}</div>}
+      {error && <p className="small error">{error}</p>}
     </div>
   );
 }

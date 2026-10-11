@@ -1,5 +1,7 @@
 # Feasibility: voice intervention gateway
 
+> **Update, 13:00:** at the user's request the system was simplified. The identity PIN, execution tracking and the high-risk second factor are removed; the call now ends with the human's feedback being delivered to the supervisor (see `ARCHITECTURE.md`). Rows below that mention them describe the earlier design.
+
 Assessed 2026-10-11 (hackathon day). Sources: current ElevenLabs docs, the installed `@elevenlabs/elevenlabs-js` 2.71 and `@elevenlabs/client` 1.27 type definitions and source code, Twilio trial docs, and executable local tests.
 
 ## Verdict: CONDITIONAL GO

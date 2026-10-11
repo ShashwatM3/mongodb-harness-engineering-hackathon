@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { ExecutionEvent, IncidentInput } from '../../shared/schemas';
+import { IncidentInput } from '../../shared/schemas';
 import type { Gateway } from '../gateway';
 import { requireBearer } from './common';
 
@@ -15,11 +15,5 @@ export function registerHarnessRoutes(app: FastifyInstance, gw: Gateway) {
     const r = await gw.incidents.ingest(parsed.data);
     if (!r.duplicate) void gw.tick();
     return reply.code(r.duplicate ? 200 : 201).send({ incident_id: r.incident_id, duplicate: r.duplicate });
-  });
-
-  app.post('/v1/harness/events', async (req, reply) => {
-    if (!requireBearer(req, reply, gw.config.HARNESS_TOKEN)) return;
-    const e = ExecutionEvent.parse(req.body);
-    return gw.executions.ingest(e);
   });
 }

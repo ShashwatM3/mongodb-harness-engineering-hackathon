@@ -5,23 +5,19 @@ export function KindBadge({ kind }: { kind: string }) {
   return <span className={`badge ${cls}`} title="Provenance of this value">{kind.toLowerCase()}</span>;
 }
 
-const STATE_CLASS: Record<string, string> = {
-  RESOLVED: 'b-ok',
-  SUBMITTED: 'b-accent',
-  EXECUTING: 'b-accent',
-  IN_CALL: 'b-accent',
-  CALLING: 'b-accent',
-  CALL_PENDING: 'b-neutral',
-  AWAITING_DECISION: 'b-warn',
-  AWAITING_CONFIRMATION: 'b-warn',
-  DEFERRED: 'b-neutral',
-  UNREACHED: 'b-bad',
-  EXECUTION_FAILED: 'b-bad',
-  HARNESS_REJECTED: 'b-bad',
-  CLOSED_REJECTED: 'b-neutral',
+const STATUS: Record<string, [string, string]> = {
+  CALL_PENDING: ['Calling soon', 'b-neutral'],
+  CALLING: ['Calling', 'b-accent'],
+  IN_CALL: ['On the call', 'b-accent'],
+  AWAITING_DECISION: ['Needs your decision', 'b-warn'],
+  UNREACHED: ['Missed call', 'b-bad'],
+  DEFERRED: ['Postponed', 'b-neutral'],
+  APPROVED: ['Approved', 'b-ok'],
+  REJECTED: ['Rejected', 'b-neutral'],
 };
-export function StateBadge({ state }: { state: string }) {
-  return <span className={`badge ${STATE_CLASS[state] ?? 'b-neutral'}`}>{state.replaceAll('_', ' ').toLowerCase()}</span>;
+export function StatusPill({ state }: { state: string }) {
+  const [label, cls] = STATUS[state] ?? [state.toLowerCase(), 'b-neutral'];
+  return <span className={`badge ${cls}`}>{label}</span>;
 }
 
 export function SeverityBadge({ severity }: { severity: string }) {

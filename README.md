@@ -8,8 +8,7 @@ When the harness supervisor finds a problem it can't fix on its own authority, i
 3. Answers arbitrary questions by querying the supervisor through generic tools.
 4. Takes modifications as new proposal revisions.
 5. Records an explicit decision against an **exact revision**.
-6. Delivers that decision to the harness exactly once.
-7. Reports the harness's real execution outcome.
+6. Sends that feedback (decision + the human's own words) back to the supervisor exactly once. Executing it is the harness's job.
 
 A live dashboard shows the same state.
 
@@ -19,11 +18,11 @@ Built at the MongoDB "Harness Engineering" hackathon (SF, 2026-10-11) as the app
 
 ```bash
 npm install
-npm test                      # 39 tests (in-memory MongoDB, scripted calls, mock harness) — no network
+npm test                      # 27 tests (in-memory MongoDB, scripted calls, mock harness) — no network
 npm run dev                   # gateway http://localhost:8787 + dashboard http://localhost:5173
 ```
 
-In the dashboard, click **A · Trajectory deviation**. The softphone rings, and answering starts the voice agent (supervisor code `2468`).
+In the dashboard, pick a scenario and click **Simulate incident**. The softphone rings, and answering starts the voice agent.
 
 Without ElevenLabs credentials, run `npm run simulate:agent -- <incident_id>` to play the agent's tool calls.
 

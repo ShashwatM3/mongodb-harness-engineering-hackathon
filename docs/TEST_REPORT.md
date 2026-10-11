@@ -1,49 +1,58 @@
 # Test report
 
-Run 2026-10-11 12:12 PDT on WSL2 Ubuntu, Node 24.18, MongoDB 8.2.6 (mongodb-memory-server replica set). `npm test`: **39 passed, 0 failed** (2 files, ~8 s). Type check (`tsc --noEmit`, TS 7.0.2) is clean, and the dashboard production build succeeds.
+Last run: 2026-10-11 13:05 PDT, after the simplification. `npm test` → **27 passed, 0 failed**. `tsc` is clean and the dashboard build succeeds.
 
-## What the automated tests exercise
+## What the simplification changed
 
-The tests run against real HTTP routes (Fastify `inject`), with the real MongoDB transactions and indexes and the real domain services. The test code plays the ElevenLabs agent, calling `/v1/agent-tools/*` exactly as the provider would (tool secret, dynamic-variable ids, conversation id). Calls use `ScriptedCallProvider` (auto-answer) or `SimulatedCallProvider` (ring timeout). The harness is `MockHarness` with the deterministic `FactLookupSupervisor`. **No ElevenLabs, Twilio, Anthropic or Atlas calls are made.**
+**Removed:**
+- the identity code;
+- execution tracking (no harness execution events and no RESOLVED/FAILED states);
+- the HIGH-risk second factor;
+- the forced "I approve revision N" read-back.
 
-| Brief test | Result | What is asserted |
+**Added:**
+- plain-language opening summaries;
+- full incident context given to the agent up front;
+- 4 voice tools instead of 10;
+- feedback (decision + the human's words) as the final output delivered to the supervisor.
+
+The tests were rewritten to match.
+
+## Automated tests
+
+These run through real HTTP routes against an in-memory MongoDB replica set. The test code plays the ElevenLabs agent by calling the webhook tools, and the harness is the mock with a deterministic supervisor. No network.
+
+| Area | Result | Asserted |
 |---|---|---|
-| 1 Proactive trigger | PASS | 201 then 200 `duplicate:true` for the same `event_id`; three concurrent placement attempts produce exactly one call; 401 on a bad token; 400 on an invalid payload, with nothing stored |
-| 2 Dynamic context | PASS | Categories A and B through the same tools return their own context; identity gate (`IDENTITY_REQUIRED`, 3-strike lock → 403); wrong tool secret → 401; a call bound to another incident → 403 |
-| 3 Arbitrary question | PASS | The question text reaches `MockHarness.askSupervisor`, and the answer and evidence ids are returned. A slow supervisor gives `PENDING`; a retry reuses the same `query_id` (supervisor asked once); `get_supervisor_answer` returns the answer |
-| 4 Trajectory | PASS | The right task's trajectory (deviation at 41.2 s, 0.48 m, MEASURED); `trajectory.focus` event emitted for the dashboard; `/api/incidents/:id/trajectory` serves the points; with no trajectory → `available:false` |
-| 5 Metrics | PASS | Value 18.4, unit N, kind MEASURED, expected 25, timestamp, source; an unknown metric → `available:false` |
-| 6 Modification | PASS | Revision 2 created via the harness, with no harness decision and no execution; a replay returns the same revision; out-of-bounds, unit mismatch, unknown parameter and harness refusal create no revision |
-| 7 Approval | PASS | "yeah sure" and "I do not approve revision 1" are refused; the approval is persisted; before dispatch, `applied:false`; a retry is replayed; concurrent dispatch delivers exactly **one** APPROVE to the harness; RESOLVED only after harness events; HIGH-risk approval is held until dashboard confirmation |
-| 8 Rejection | PASS | CLOSED_REJECTED; the harness receives only a REJECT notice; no executions; a later approval is refused |
-| 9 Stale revision | PASS | Approving rev 1 when rev 2 exists → `STALE_REVISION` with `latest_revision:2`; rev 7 → `UNKNOWN_REVISION`; revise on a stale base → `REVISION_CONFLICT` |
-| 10 Unknown information | PASS | Lidar question on scenario D → `INSUFFICIENT_EVIDENCE`, `answer:null`, the limitation explains the logs were not retained, and the instruction says "Do not guess" |
-| 11 Interruption | PASS | Hang-up after a revision → AWAITING_DECISION, no final decision, nothing sent to the harness, tools for the ended call refused; unanswered → one retry → UNREACHED |
-| 12 Execution outcome | PASS | Scenario A → RESOLVED (APPLIED); scenario B → EXECUTION_FAILED with the harness detail; a late lower-`seq` event can't regress APPLIED; harness refusal → HARNESS_REJECTED |
-| 13 Voice/dashboard consistency | PASS | A dashboard revision is read by the voice tool; a voice revision appears in the dashboard aggregate with the correct statuses and sources; a stale dashboard approval → 409; simultaneous voice and dashboard approvals → exactly one final decision |
-| 14 Concurrent incidents | PASS | Four incidents in parallel: decisions, executions and harness payloads stay tied to their own proposal; a cross-incident tool call → 403 |
-| Post-call webhook | PASS | Bad signature → 401; valid → stored; redelivery → `duplicate:true`; a summary saying "approve" records **no** decision |
-| Unit: confirmation, validation, state machine, signature | PASS (13) | See `tests/unit/guards.test.ts` |
+| Proactive trigger | PASS | 201 then `duplicate:true`; three concurrent placements produce one call; 401 on a bad token; 400 on a bad payload with nothing stored |
+| One agent, any incident | PASS | The opening is ≤ 2 plain sentences per category (A, B, C); the context contains the robot and the current plan; wrong secret → 401; cross-incident call → 403 |
+| Questions | PASS | An unscripted question reaches the supervisor and the grounded answer comes back; missing data → `INSUFFICIENT_EVIDENCE` with no answer; a slow supervisor → `PENDING`, and re-asking returns the answer without asking twice |
+| Trajectory | PASS | `trajectory.focus` pushed to the dashboard; with no trajectory, the agent is told "there is none" |
+| Changing the plan | PASS | The new revision comes from the supervisor and nothing is sent yet; out-of-range, wrong-unit and supervisor-refused changes create no revision; feedback on an old revision → `STALE_REVISION` with the new plan in words |
+| Feedback to the supervisor | PASS | Approve plus the human's words are delivered exactly once despite tool retries and parallel dispatchers; rejection closes the incident; deferral keeps it open; a failed delivery is retried and delivered once |
+| Call interruption | PASS | Hang-up → AWAITING_DECISION with nothing sent; tools refused after hang-up; a second tab can't end someone else's call (`CALL_NOT_YOURS`); no answer → one retry → UNREACHED; an answered call whose voice never connects is ended |
+| Voice ↔ dashboard | PASS | A dashboard edit makes a voice decision on the old version stale, and vice versa; simultaneous approvals produce exactly one decision |
+| Concurrent incidents | PASS | Feedback, plans and calls stay separate |
+| Post-call webhook | PASS | Signature verified; redelivery deduped; "Human said approve" in the summary records nothing |
+| Units | PASS | Parameter validation, state machine terminals, webhook signature |
 
-## Manual verification against the running server
+## Live checks (real services)
 
-These checks used `npm run dev`-equivalent processes, `curl`, `scripts/trigger.ts`, `scripts/simulate-agent.ts`, and headless Chromium screenshots:
+| Check | Result |
+|---|---|
+| MongoDB Atlas: connect, transactions, gateway boot with indexes | ✓ (`npm run check:setup`) |
+| ElevenLabs: key, agent provisioning (secret + tools + agent), signed URL, tunnel reachable | ✓ |
+| Live agent, previous design: asked for the code, called `verify_identity`/`get_incident`/`get_proposal`, briefed accurately, routed an unscripted question to `ask_supervisor` | ✓ (two runs; both calls were cut by a second dashboard tab, which is now fixed server-side) |
+| Live agent, **new design** | ✗ **Not run.** The session was refused with `quota_exceeded`: the ElevenLabs account is out of credits |
+| Offline agent (`simulate:agent`) on the running server, new design | ✓ Scenario B: plain opening → question → no-trajectory notice → plan v2 → approved v2 with feedback → `ACKED`, incident Approved |
+| Dashboard rendering (headless Chromium, :5173) | ✓ no console errors after fixing the Vite proxy bug (`'/api'` was also proxying `/api.ts`) |
 
-- Trigger → dedupe → the softphone rings (screenshot: incoming-call card with countdown, Answer/Decline).
-- Full flow over real HTTP: answer → identity gate → verify → `ask_supervisor` → revise to rev 2 → stale approve refused → approve rev 2 → harness RECEIVED…APPLIED → RESOLVED. SSE carried every event type (13 distinct types observed).
-- `simulate:agent` offline fallback on scenario A: RESOLVED with rev 1 SUPERSEDED, rev 2 APPROVED.
-- A real browser session (yours) answered and hung up a ringing call. The gateway recorded `hung up by human` and returned the incident to AWAITING_DECISION with no decision.
-- Dashboard rendered with **no console errors**. Found and fixed: the static server didn't serve rebuilt assets, which caused a blank page after a rebuild.
+## Open gaps
 
-## NOT verified (gaps)
-
-| Gap | Why | How to close |
-|---|---|---|
-| **Live ElevenLabs voice conversation** | No API key in this environment yet | Set the key, `ngrok http 8787`, `npm run provision:agent`, then run DEMO §2 and record the result here |
-| `provision-agent.ts` against the real API | Same; only type-checked against SDK 2.71 | Run it; if the API rejects a field, use the manual fallback in ELEVENLABS_SETUP |
-| `system__conversation_id` delivered in browser-session tool calls | Needs a live session | Check that `call.connected` / binding appears in the audit log; the `call_id` binding works regardless |
-| Claude-grounded mock supervisor | No Anthropic key here; tests use the deterministic brain | Set `ANTHROPIC_API_KEY`, ask scenario A questions, and confirm the answers cite evidence ids |
-| MongoDB Atlas | No URI yet; the same driver and transactions run on the in-memory replica set | Set `MONGODB_URI`, then restart and check that incidents survive the restart |
-| Twilio / PSTN | Out of scope by decision | See ELEVENLABS_SETUP §6 |
-| Real robotics harness | Not built yet | Implement `docs/HARNESS_CONTRACT.md`, then set `HARNESS_MODE=http` |
-| Agent behaviour quality (does the LLM always use tools, read units, and ask for "I approve revision N"?) | Needs live conversations | Run the DEMO script several times; transcripts are stored on each call |
+- **A live voice run of the new prompt needs ElevenLabs credits.** After adding them, check that:
+  - the opening is two sentences;
+  - follow-up answers stay short;
+  - "approve" mid-sentence works;
+  - the feedback text matches what was said.
+- **Background-voice robustness is best effort.** It relies on patient turn-taking, interruption-ignore terms, no interruption during tools, browser noise suppression and a prompt rule. ElevenLabs offers no speaker isolation, and this has not been tested with real background talk.
+- The real harness and the Claude-grounded mock supervisor are untested (no harness API yet, no Anthropic key).

@@ -1,6 +1,6 @@
 # ElevenLabs setup
 
-One agent, ten webhook tools, one workspace secret, provisioned from code. No Twilio: the "call" is a browser voice session started from the dashboard softphone.
+One agent, four webhook tools, one workspace secret, provisioned from code. No Twilio: the "call" is a browser voice session started from the dashboard softphone.
 
 ## 1. Prerequisites
 
@@ -24,7 +24,7 @@ npm run provision:agent
 What it does (`scripts/provision-agent.ts`, SDK `@elevenlabs/elevenlabs-js`):
 
 1. Creates or updates the workspace secret `intervention_gateway_tool_auth` = `Bearer $TOOL_SECRET`.
-2. Creates or updates the ten webhook tools from `agent/agent-config.ts`, matched by name. Each one:
+2. Creates or updates the four webhook tools (`ask_supervisor`, `show_trajectory`, `change_plan`, `send_feedback`) from `agent/agent-config.ts`, matched by name. Each one:
    - is a `POST $PUBLIC_BASE_URL/v1/agent-tools/<name>`;
    - sends header `authorization` from the secret above;
    - has body properties `incident_id` ← `{{incident_id}}`, `call_id` ← `{{call_id}}` and `conversation_id` ← `{{system__conversation_id}}`, filled by the platform, not the LLM, plus the tool's own LLM-filled arguments;
@@ -41,7 +41,7 @@ What it does (`scripts/provision-agent.ts`, SDK `@elevenlabs/elevenlabs-js`):
 Do the same in the ElevenLabs dashboard:
 - Agents → Create agent → paste `agent/system-prompt.md` and the first message from `agent/agent-config.ts`.
 - Add the dynamic variables `incident_id, call_id, supervisor_name, robot_id, severity, category, one_line_summary`.
-- Tools → Add webhook tool, ten times, with the names, descriptions and parameters from `agent/agent-config.ts`. Set `incident_id`/`call_id` as *Dynamic variable* values and `conversation_id` as `system__conversation_id`.
+- Tools → Add webhook tool, four times, with the names, descriptions and parameters from `agent/agent-config.ts`. Set `incident_id`/`call_id` as *Dynamic variable* values and `conversation_id` as `system__conversation_id`.
 - Add header `authorization` as a Secret with value `Bearer <TOOL_SECRET>`.
 - Enable the system tool *End call*.
 
@@ -58,7 +58,7 @@ ElevenLabs dashboard → Agents platform settings → Webhooks → post-call →
 1. The harness POSTs an incident. The gateway places a call, and the dashboard softphone rings with a 45 s timeout and one retry.
 2. **Answer** → `POST /api/calls/:id/answer`. The gateway mints a signed URL (`GET /v1/convai/conversation/get-signed-url?agent_id=…`) and returns the dynamic variables.
 3. The browser runs `Conversation.startSession({ signedUrl, dynamicVariables, … })`. The microphone permission prompt appears.
-4. The agent asks for the supervisor code (demo PIN in `SUPERVISOR_PINS`, default `sup-lead-01:2468`) and then uses the tools.
+4. The agent opens with the incident in 1–2 plain sentences and the proposed fix in 1–2 sentences, then answers questions and takes the decision. There is no identity check (removed for simplicity).
 5. Hang-up, or the agent's `end_call` → `POST /api/calls/:id/end` → the incident returns to AWAITING_DECISION unless a decision was recorded.
 
 ## 5. Verify

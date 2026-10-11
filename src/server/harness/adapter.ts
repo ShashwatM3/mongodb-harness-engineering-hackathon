@@ -1,12 +1,11 @@
 import type {
   Change,
   DecisionKind,
-  ExecutionEvent,
+  FeedbackAck,
   IncidentInput,
   Metric,
   ProposalContent,
   ReviseResult,
-  SubmitDecisionResult,
   SupervisorAnswer,
   Trajectory,
 } from '../../shared/schemas';
@@ -39,26 +38,25 @@ export interface HarnessAdapter {
     requested_by: string,
   ): Promise<ReviseResult>;
 
-  /** Deliver a human decision. Must be idempotent on `idempotency_key`. Only APPROVE may start an execution. */
-  submitDecision(incident: IncidentInput, decision: HarnessDecision): Promise<SubmitDecisionResult>;
-
-  getExecutionStatus(incident: IncidentInput, execution_id: string): Promise<ExecutionEvent | null>;
+  /**
+   * Deliver the human's feedback on an exact proposal revision. This is the end of the gateway's job: what the harness
+   * does with it (apply, re-plan, learn a preference) is the harness's business. Must be idempotent on `idempotency_key`.
+   */
+  submitFeedback(incident: IncidentInput, feedback: HumanFeedback): Promise<FeedbackAck>;
 }
 
-export interface HarnessDecision {
-  decision_id: string;
+export interface HumanFeedback {
+  feedback_id: string;
   idempotency_key: string;
   incident_id: string;
   proposal_id: string;
   revision: number;
   decision: DecisionKind;
+  /** The exact proposal revision the human decided on. */
   proposal: ProposalContent;
+  /** The human's own words. */
+  feedback: string | null;
   supervisor_id: string;
-  identity_method: string;
   channel: string;
-  reason: string | null;
   decided_at: string;
 }
-
-/** Sink for execution events. The real harness POSTs to /v1/harness/events; the mock calls this in-process. */
-export type ExecutionEventSink = (e: ExecutionEvent) => Promise<void>;

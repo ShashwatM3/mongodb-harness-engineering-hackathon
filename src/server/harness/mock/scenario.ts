@@ -2,11 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { ExecutionStatus, IncidentInput, Metric, ProposalContent, Trajectory, ValueKind } from '../../../shared/schemas';
+import { IncidentInput, Metric, ProposalContent, Trajectory, ValueKind } from '../../../shared/schemas';
 
 /**
  * A mock scenario is pure data: the incident the supervisor would send, plus the evidence, telemetry, reconciliation
- * rules and execution outcome the mock harness uses to answer. All values are SYNTHETIC.
+ * rules the mock harness uses to answer. All values are SYNTHETIC.
  */
 export const Scenario = z.object({
   name: z.string(),
@@ -27,15 +27,8 @@ export const Scenario = z.object({
       refuse: z.array(z.object({ key: z.string(), op: z.enum(['gt', 'lt', 'eq']), value: z.number(), reason: z.string() })).default([]),
     })
     .default({ refuse: [] }),
-  execution: z.object({
-    outcome: z.enum(['APPLIED', 'FAILED', 'REJECTED_BY_HARNESS']),
-    detail: z.string(),
-    result_metrics: z.array(Metric).default([]),
-  }),
 });
 export type Scenario = z.infer<typeof Scenario>;
-export type ScenarioOutcome = Scenario['execution']['outcome'];
-export { ExecutionStatus };
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const SCENARIO_DIR = join(here, 'scenarios');

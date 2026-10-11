@@ -2,7 +2,7 @@
 // Idempotent: re-run after changing PUBLIC_BASE_URL (e.g. a new ngrok URL) or the prompt.
 //   npm run provision:agent
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
-import { DYNAMIC_VARIABLE_PLACEHOLDERS, FIRST_MESSAGE, SYSTEM_PROMPT, TOOLS, webhookToolConfig } from '../agent/agent-config';
+import { FIRST_MESSAGE, IGNORE_AS_INTERRUPTION, OBSOLETE_TOOLS, SYSTEM_PROMPT, TOOLS, webhookToolConfig } from '../agent/agent-config';
 
 const AGENT_NAME = 'Robotics Intervention Gateway';
 const SECRET_NAME = 'intervention_gateway_tool_auth';
@@ -55,7 +55,6 @@ async function main() {
     agent: {
       firstMessage: FIRST_MESSAGE,
       language: 'en',
-      dynamicVariables: { dynamicVariablePlaceholders: DYNAMIC_VARIABLE_PLACEHOLDERS },
       prompt: {
         prompt: SYSTEM_PROMPT,
         llm,
@@ -64,9 +63,14 @@ async function main() {
         builtInTools: { endCall: { type: 'system' as const, name: 'end_call', description: 'End the call when the supervisor is done.', params: { systemToolType: 'end_call' as const } } },
       },
     },
+    // Focus on the person on the call: wait for complete turns, don't let back-channel words or background speech
+    // interrupt, and boost the decision vocabulary in speech recognition.
     turn: {
-      softTimeoutConfig: { timeoutSeconds: 3, message: 'One moment, I am checking with the supervisor.' },
+      turnEagerness: 'patient' as const,
+      interruptionIgnoreTerms: IGNORE_AS_INTERRUPTION,
+      softTimeoutConfig: { timeoutSeconds: 3, message: 'One moment, checking with the supervisor.' },
     },
+    asr: { keywords: ['approve', 'reject', 'revision', 'trajectory', 'metres', 'newtons'] },
   };
   let agentId = existingAgent;
   if (agentId) {
@@ -75,6 +79,16 @@ async function main() {
   } else {
     agentId = (await client.conversationalAi.agents.create({ name: AGENT_NAME, conversationConfig: conversationConfig as never })).agentId;
     console.log(`✓ created agent ${agentId}\n  → add ELEVENLABS_AGENT_ID=${agentId} to .env and restart the gateway`);
+  }
+  // 4. Remove tools from earlier versions (only after the agent no longer references them).
+  for (const t of existing) {
+    const name = (t.toolConfig as { name?: string }).name ?? '';
+    if (OBSOLETE_TOOLS.includes(name)) {
+      await client.conversationalAi.tools.delete(t.id).then(
+        () => console.log(`✓ deleted obsolete tool ${name}`),
+        (err: unknown) => console.warn(`! could not delete obsolete tool ${name}: ${(err as Error)?.message ?? String(err)}`),
+      );
+    }
   }
   console.log(`\nPost-call webhook (optional, manual): ElevenLabs dashboard → Agents → Settings → Webhooks → ${baseUrl}/v1/webhooks/elevenlabs ; copy the HMAC secret into ELEVENLABS_WEBHOOK_SECRET.`);
 }

@@ -1,16 +1,6 @@
 import { z } from 'zod';
-import {
-  ExecutionEvent,
-  Metric,
-  ReviseResult,
-  SubmitDecisionResult,
-  SupervisorAnswer,
-  Trajectory,
-  type Change,
-  type IncidentInput,
-  type ProposalContent,
-} from '../../shared/schemas';
-import type { HarnessAdapter, HarnessDecision } from './adapter';
+import { FeedbackAck, Metric, ReviseResult, SupervisorAnswer, Trajectory, type Change, type IncidentInput, type ProposalContent } from '../../shared/schemas';
+import type { HarnessAdapter, HumanFeedback } from './adapter';
 
 /**
  * Real harness adapter. Speaks the HTTP contract in docs/HARNESS_CONTRACT.md. Every response is schema-validated; a
@@ -30,7 +20,7 @@ export class HttpHarnessAdapter implements HarnessAdapter {
   private async call<T>(schema: z.ZodType<T>, method: string, path: string, body?: unknown, headers: Record<string, string> = {}, timeoutMs = this.timeoutMs): Promise<T | null> {
     const res = await fetch(new URL(path, this.baseUrl), {
       method,
-      headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json', ...headers },
+      headers: { authorization: `Bearer ${this.token}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -66,13 +56,9 @@ export class HttpHarnessAdapter implements HarnessAdapter {
     return r;
   }
 
-  async submitDecision(_incident: IncidentInput, d: HarnessDecision): Promise<SubmitDecisionResult> {
-    const r = await this.call(SubmitDecisionResult, 'POST', '/decisions', d, { 'idempotency-key': d.idempotency_key });
-    if (!r) throw new Error('harness has no decisions endpoint');
+  async submitFeedback(_incident: IncidentInput, f: HumanFeedback): Promise<FeedbackAck> {
+    const r = await this.call(FeedbackAck, 'POST', '/feedback', f, { 'idempotency-key': f.idempotency_key });
+    if (!r) throw new Error('harness has no feedback endpoint');
     return r;
-  }
-
-  async getExecutionStatus(_incident: IncidentInput, execution_id: string): Promise<ExecutionEvent | null> {
-    return this.call(ExecutionEvent, 'GET', `/executions/${encodeURIComponent(execution_id)}`);
   }
 }

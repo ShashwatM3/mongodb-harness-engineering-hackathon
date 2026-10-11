@@ -144,6 +144,7 @@ export class IncidentService {
         robot_id: d.incident.robot_id,
         task_id: d.incident.task_id,
         failure_summary: d.incident.failure_summary,
+        plain_summary: d.incident.plain_summary ?? d.incident.failure_summary,
         synthetic: d.incident.synthetic,
         latest_revision: head?.latest_revision ?? null,
         head_state: head?.state ?? null,
@@ -157,11 +158,10 @@ export class IncidentService {
   /** Everything the dashboard detail page needs, in one read. */
   async aggregate(incident_id: string) {
     const doc = await this.get(incident_id);
-    const [head, revisions, decisions, executions, calls, queries, audit] = await Promise.all([
+    const [head, revisions, decisions, calls, queries, audit] = await Promise.all([
       this.db.c.proposal_heads.findOne({ _id: doc.proposal_id }),
       this.db.c.proposal_revisions.find({ proposal_id: doc.proposal_id }).sort({ revision: 1 }).toArray(),
       this.db.c.decisions.find({ incident_id }).sort({ created_at: 1 }).toArray(),
-      this.db.c.executions.find({ incident_id }).toArray(),
       this.db.c.calls.find({ incident_id }).sort({ created_at: 1 }).toArray(),
       this.db.c.supervisor_queries.find({ incident_id }).sort({ created_at: 1 }).toArray(),
       this.db.c.audit_events.find({ incident_id }).sort({ _id: 1 }).limit(500).toArray(),
@@ -175,7 +175,6 @@ export class IncidentService {
       head,
       revisions,
       decisions,
-      executions,
       calls: calls.map(({ transcript, ...rest }) => ({ ...rest, transcript })),
       queries,
       audit: audit.map((a) => ({ id: a._id.toHexString(), type: a.type, actor: a.actor, data: a.data, at: a.at })),

@@ -1,25 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { validateChanges } from '../../src/server/domain/proposals';
 import { canTransition, INCIDENT_TRANSITIONS } from '../../src/server/domain/state';
-import { confirmationMatches } from '../../src/server/domain/util';
 import { signElevenLabs, verifyElevenLabsSignature } from '../../src/server/routes/webhooks';
 import { GatewayError } from '../../src/server/domain/errors';
 import type { ParamSpec } from '../../src/shared/schemas';
-
-describe('confirmationMatches', () => {
-  it.each([
-    ['I approve revision 2', 'APPROVE', 2, true],
-    ['yes, approve revision two', 'APPROVE', 2, true],
-    ['I approve revision 1', 'APPROVE', 2, false],
-    ['yes', 'APPROVE', 2, false],
-    ['sounds good, go ahead', 'APPROVE', 2, false],
-    ["I don't approve revision 2", 'APPROVE', 2, false],
-    ['reject revision 3', 'REJECT', 3, true],
-    ['approve revision 3', 'REJECT', 3, false],
-  ] as const)('%s → %s rev %d = %s', (u, d, r, expected) => {
-    expect(confirmationMatches(u, d, r)).toBe(expected);
-  });
-});
 
 describe('validateChanges', () => {
   const specs: ParamSpec[] = [
@@ -51,11 +35,11 @@ describe('validateChanges', () => {
 });
 
 describe('incident state machine', () => {
-  it('has no way out of terminal states and no path from approval back to undecided', () => {
-    for (const t of ['RESOLVED', 'EXECUTION_FAILED', 'HARNESS_REJECTED', 'CLOSED_REJECTED'] as const) expect(INCIDENT_TRANSITIONS[t]).toEqual([]);
-    expect(canTransition('SUBMITTED', 'AWAITING_DECISION')).toBe(false);
-    expect(canTransition('IN_CALL', 'RESOLVED')).toBe(false); // only harness events resolve, via SUBMITTED/EXECUTING
+  it('ends at the human decision; nothing leaves APPROVED or REJECTED', () => {
+    expect(INCIDENT_TRANSITIONS.APPROVED).toEqual([]);
+    expect(INCIDENT_TRANSITIONS.REJECTED).toEqual([]);
     expect(canTransition('IN_CALL', 'AWAITING_DECISION')).toBe(true);
+    expect(canTransition('APPROVED', 'AWAITING_DECISION')).toBe(false);
   });
 });
 

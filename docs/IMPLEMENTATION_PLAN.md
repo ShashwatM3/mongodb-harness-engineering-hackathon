@@ -45,3 +45,15 @@ All 14 brief tests and the webhook test are automated and passing. See `docs/TES
 - The mock-supervisor default model is `claude-opus-5-5` (low effort), not Haiku. It's configurable through `MOCK_SUPERVISOR_MODEL`; the PENDING pattern absorbs the latency.
 - The 14 acceptance tests live in one file (`tests/e2e/acceptance.test.ts`) instead of 14 files, so they share a single replica-set startup.
 - Added `scripts/simulate-agent.ts` as a stage fallback if ElevenLabs is unavailable.
+
+## v2: simplification (13:00, at the user's request)
+
+- [x] Removed the identity code, execution tracking (events, RESOLVED/FAILED states) and the HIGH-risk second factor.
+- [x] Removed the forced read-back: the human can approve, reject or postpone at any moment.
+- [x] The final output is the human's **feedback** (decision + their words, exact revision), delivered once via the outbox (`FeedbackDispatcher` → `HarnessAdapter.submitFeedback`).
+- [x] Plain-language `plain_summary` on incident and plan, supplied by the harness. The agent opens with the incident in 1–2 sentences and the plan in 1–2 sentences.
+- [x] The full incident context goes into the session (`incident_context` dynamic variable), so follow-ups don't need tool calls. 4 tools instead of 10.
+- [x] Background-voice settings: patient turns, interruption-ignore terms, no interruption during tools, ASR keywords, browser noise suppression, prompt rule.
+- [x] Dashboard redesigned: one column, plain headline, fix card with Approve / Reject / Not now, feedback card, call transcript, technical details folded away.
+- [x] Fixed: second-tab hang-up (server `answer_token`), the Vite proxy blanking the dev dashboard, and calls stuck when the voice session never connects.
+- [ ] Live voice test of v2. **Blocked: the ElevenLabs account is out of credits** (`quota_exceeded`).

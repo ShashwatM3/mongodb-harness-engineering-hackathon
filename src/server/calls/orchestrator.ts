@@ -7,6 +7,8 @@ import type { CallProvider } from './providers';
 
 export interface CallPolicy {
   ringTimeoutMs: number;
+  /** An answered call whose voice session has not connected after this long is ended. */
+  connectTimeoutMs: number;
   retryDelayMs: number;
   maxAttempts: number;
 }
@@ -30,6 +32,12 @@ export class CallOrchestrator {
     for (const d of due) await this.place(d._id).catch((err) => console.error('[calls] place failed', d._id, err));
     const expired = await this.db.c.calls.find({ status: 'RINGING', ring_deadline: { $lte: now } }).project({ _id: 1 }).toArray();
     for (const c of expired) await this.finishUnanswered(c._id, 'NO_ANSWER', 'ring timeout');
+    // Answered but the voice session never connected (mic denied, tab closed, provider error): don't leave it hanging.
+    const stuck = await this.db.c.calls
+      .find({ status: 'ANSWERED', conversation_id: null, updated_at: { $lte: new Date(now.getTime() - this.policy.connectTimeoutMs) } })
+      .project({ _id: 1 })
+      .toArray();
+    for (const c of stuck) await this.end(c._id, 'voice session never connected');
   }
 
   async place(incident_id: string): Promise<CallDoc | null> {
@@ -50,9 +58,7 @@ export class CallOrchestrator {
       active: true,
       ring_deadline: null,
       conversation_id: null,
-      identity_verified: false,
       answer_token: null,
-      pin_failures: 0,
       end_reason: null,
       transcript: [],
       post_call: null,
@@ -89,7 +95,7 @@ export class CallOrchestrator {
           supervisor: inc.incident.responsible_supervisor.name,
           severity: inc.incident.severity,
           robot_id: inc.incident.robot_id,
-          summary: inc.incident.failure_summary,
+          summary: inc.incident.plain_summary ?? inc.incident.failure_summary,
         });
       } else {
         await this.db.c.calls.updateOne({ _id: call._id }, { $set: { status: 'RINGING', updated_at: new Date() } });

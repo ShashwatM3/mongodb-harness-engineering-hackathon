@@ -16,7 +16,8 @@
     "provision:agent": "tsx --env-file-if-exists=.env scripts/provision-agent.ts",
     "simulate:agent": "tsx --env-file-if-exists=.env scripts/simulate-agent.ts",
     "check:setup": "tsx --env-file-if-exists=.env scripts/check-setup.ts",
-    "tunnel": "~/.local/bin/cloudflared tunnel --no-autoupdate --url http://localhost:8787"
+    "tunnel": "~/.local/bin/cloudflared tunnel --no-autoupdate --url http://localhost:8787",
+    "reset:db": "tsx --env-file-if-exists=.env scripts/reset-db.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

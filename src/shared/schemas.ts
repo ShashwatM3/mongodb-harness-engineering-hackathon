@@ -57,6 +57,8 @@ export const ProposalContent = z.object({
   revision: z.number().int().min(1),
   source_agent: z.string().min(1),
   summary: z.string().min(1).max(2000),
+  /** 1–2 plain-language sentences a non-specialist understands; spoken first on the call. Falls back to `summary`. */
+  plain_summary: z.string().max(400).optional(),
   changes: z.array(Change),
   editable_parameters: z.array(ParamSpec),
   affected_resources: z.array(z.string()).default([]),
@@ -80,6 +82,8 @@ export const IncidentInput = z.object({
   observed_behavior: z.string().min(1).max(4000),
   expected_behavior: z.string().min(1).max(4000),
   failure_summary: z.string().min(1).max(4000),
+  /** 1–2 plain-language sentences describing what happened; spoken first on the call. Falls back to `failure_summary`. */
+  plain_summary: z.string().max(400).optional(),
   root_cause_hypothesis: z.object({ text: z.string().min(1).max(4000), confidence: z.number().min(0).max(1).optional() }),
   evidence_refs: z.array(EvidenceRef).default([]),
   metrics_refs: z.array(z.string()).default([]),
@@ -94,20 +98,14 @@ export type IncidentInput = z.infer<typeof IncidentInput>;
 // ---------- Gateway-owned state ----------
 
 export const IncidentState = z.enum([
-  'RECEIVED',
   'CALL_PENDING',
   'CALLING',
   'IN_CALL',
   'AWAITING_DECISION',
-  'AWAITING_CONFIRMATION',
-  'DEFERRED',
   'UNREACHED',
-  'SUBMITTED',
-  'EXECUTING',
-  'RESOLVED',
-  'EXECUTION_FAILED',
-  'HARNESS_REJECTED',
-  'CLOSED_REJECTED',
+  'DEFERRED',
+  'APPROVED',
+  'REJECTED',
 ]);
 export type IncidentState = z.infer<typeof IncidentState>;
 
@@ -120,28 +118,14 @@ export type RevisionSource = z.infer<typeof RevisionSource>;
 export const HeadState = z.enum(['UNDER_REVIEW', 'RECONCILING', 'DECIDED']);
 export type HeadState = z.infer<typeof HeadState>;
 
-export const DecisionKind = z.enum(['APPROVE', 'REJECT', 'MODIFY', 'DEFER', 'REQUEST_MORE_INFORMATION']);
+export const DecisionKind = z.enum(['APPROVE', 'REJECT', 'DEFER', 'MODIFY']);
 export type DecisionKind = z.infer<typeof DecisionKind>;
 
 export const Channel = z.enum(['VOICE', 'DASHBOARD']);
 export type Channel = z.infer<typeof Channel>;
 
-export const SubmissionState = z.enum(['NOT_REQUIRED', 'HELD', 'PENDING', 'SENDING', 'ACKED', 'FAILED']);
+export const SubmissionState = z.enum(['NOT_REQUIRED', 'PENDING', 'SENDING', 'ACKED', 'FAILED']);
 export type SubmissionState = z.infer<typeof SubmissionState>;
-
-export const ExecutionStatus = z.enum([
-  'RECEIVED',
-  'VALIDATING',
-  'ACCEPTED',
-  'REJECTED_BY_HARNESS',
-  'QUEUED',
-  'EXECUTING',
-  'APPLIED',
-  'FAILED',
-  'CANCELLED',
-]);
-export type ExecutionStatus = z.infer<typeof ExecutionStatus>;
-export const TERMINAL_EXECUTION: ReadonlySet<ExecutionStatus> = new Set(['APPLIED', 'FAILED', 'CANCELLED', 'REJECTED_BY_HARNESS']);
 
 export const CallStatus = z.enum(['QUEUED', 'RINGING', 'ANSWERED', 'ENDED', 'NO_ANSWER', 'DECLINED', 'FAILED']);
 export type CallStatus = z.infer<typeof CallStatus>;
@@ -199,26 +183,9 @@ export const ReviseResult = z.discriminatedUnion('accepted', [
 ]);
 export type ReviseResult = z.infer<typeof ReviseResult>;
 
-export const SubmitDecisionResult = z.object({
-  accepted: z.boolean(),
-  execution_id: z.string().optional(),
-  status: ExecutionStatus.optional(),
-  reason: z.string().optional(),
-});
-export type SubmitDecisionResult = z.infer<typeof SubmitDecisionResult>;
-
-/** Execution event posted by the harness (or emitted by the mock). `seq` is monotonic per execution. */
-export const ExecutionEvent = z.object({
-  execution_id: Id,
-  decision_id: Id,
-  incident_id: Id,
-  seq: z.number().int().min(0),
-  status: ExecutionStatus,
-  detail: z.string().max(4000).optional(),
-  result_metrics: z.array(Metric).optional(),
-  timestamp: IsoTime,
-});
-export type ExecutionEvent = z.infer<typeof ExecutionEvent>;
+/** The harness acknowledges human feedback. It does not report execution back to the gateway. */
+export const FeedbackAck = z.object({ accepted: z.boolean(), reason: z.string().optional() });
+export type FeedbackAck = z.infer<typeof FeedbackAck>;
 
 // ---------- Dashboard request bodies ----------
 
@@ -231,8 +198,9 @@ export type ReviseRequest = z.infer<typeof ReviseRequest>;
 
 export const DecisionRequest = z.object({
   revision: z.number().int().min(1),
-  decision: z.enum(['APPROVE', 'REJECT', 'DEFER', 'REQUEST_MORE_INFORMATION']),
-  reason: z.string().max(2000).optional(),
+  decision: z.enum(['APPROVE', 'REJECT', 'DEFER']),
+  /** The human's feedback for the supervisor, in their own words. */
+  feedback: z.string().max(4000).optional(),
   idempotency_key: z.string().min(8).max(200),
 });
 export type DecisionRequest = z.infer<typeof DecisionRequest>;

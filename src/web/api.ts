@@ -10,6 +10,7 @@ export interface IncidentRow {
   robot_id: string;
   task_id: string;
   failure_summary: string;
+  plain_summary: string;
   synthetic: boolean;
   latest_revision: number | null;
   head_state: string | null;
@@ -33,22 +34,11 @@ export interface Revision {
 export interface Decision {
   _id: string;
   revision: number;
-  decision: string;
+  decision: 'APPROVE' | 'REJECT' | 'DEFER' | 'MODIFY';
   channel: string;
-  reason: string | null;
-  confirmation: { status: string; utterance: string | null };
-  submission: { state: string; attempts: number; last_error: string | null; execution_id: string | null; harness_reason: string | null };
+  feedback: string | null;
+  submission: { state: string; attempts: number; last_error: string | null; harness_reason: string | null };
   created_at: string;
-}
-
-export interface Execution {
-  _id: string;
-  decision_id: string;
-  status: string;
-  detail: string | null;
-  result_metrics: Metric[] | null;
-  events: Array<{ seq: number; status: string; detail?: string; timestamp: string }>;
-  updated_at: string;
 }
 
 export interface Call {
@@ -56,7 +46,6 @@ export interface Call {
   attempt: number;
   status: string;
   conversation_id: string | null;
-  identity_verified: boolean;
   end_reason: string | null;
   transcript: Array<{ role: string; text: string; at: string }>;
   post_call: Record<string, unknown> | null;
@@ -80,7 +69,6 @@ export interface Aggregate {
   head: { latest_revision: number; state: string; decided_revision: number | null; decision: string | null } | null;
   revisions: Revision[];
   decisions: Decision[];
-  executions: Execution[];
   calls: Call[];
   queries: Query[];
   audit: Array<{ id: string; type: string; actor: string; data: Record<string, unknown>; at: string }>;

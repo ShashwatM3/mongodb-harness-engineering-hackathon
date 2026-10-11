@@ -56,7 +56,8 @@
       "zone": "M",
       "shift": "s41",
       "simulator": "TwinForge warehouse twin (pre-existing, synthetic run)"
-    }
+    },
+    "plain_summary": "Robot AMR-07 cut a corner in the lift area and came within 62 centimetres of a worker, when it should keep at least a metre away."
   },
   "proposal": {
     "source_agent": "harness-supervisor",
@@ -101,7 +102,8 @@
       "The harness re-validates against envelope.min_human_distance_m = 1.0 m.",
       "Applies to the zone M lift lobby only."
     ],
-    "risk": "MEDIUM"
+    "risk": "MEDIUM",
+    "plain_summary": "Give the robot a wider safety margin in the lift area, 0.65 metres instead of 0.45, which adds about 2 seconds per trip."
   },
   "trajectory": {
     "task_id": "x",
@@ -794,22 +796,6 @@
         "op": "gt",
         "value": 0.8,
         "reason": "A radius above 0.8 m makes the lift doorway impassable for AMRs (door width 1.9 m)."
-      }
-    ]
-  },
-  "execution": {
-    "outcome": "APPLIED",
-    "detail": "Planner parameter updated for zone M; validation replay passed with minimum separation 1.03 m.",
-    "result_metrics": [
-      {
-        "key": "min_human_separation_m",
-        "label": "Minimum human separation (validation replay)",
-        "value": 1.03,
-        "unit": "m",
-        "kind": "MEASURED",
-        "expected": 1,
-        "timestamp": "2026-10-11T11:59:00-07:00",
-        "source": "harness.validation_replay (synthetic)"
       }
     ]
   }

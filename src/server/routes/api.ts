@@ -4,6 +4,7 @@ import { DecisionRequest, ReviseRequest } from '../../shared/schemas';
 import { GatewayError } from '../domain/errors';
 import type { Requester } from '../domain/proposals';
 import type { Gateway } from '../gateway';
+import { buildBriefing } from '../domain/briefing';
 import { bearer, safeEqual } from './common';
 
 /**
@@ -57,13 +58,6 @@ export function registerApiRoutes(app: FastifyInstance, gw: Gateway) {
   app.post<{ Params: { id: string } }>('/api/incidents/:id/decisions', async (req) => {
     const body = DecisionRequest.parse(req.body);
     return gw.decisions.decide(req.params.id, body, await dashboardRequester(req.params.id));
-  });
-  app.post<{ Params: { id: string } }>('/api/decisions/:id/confirm', async (req) => {
-    const d = await gw.db.c.decisions.findOne({ _id: req.params.id });
-    if (!d) throw new GatewayError('NOT_FOUND', 'Decision not found.', 404);
-    const who = await dashboardRequester(d.incident_id);
-    await gw.decisions.confirm(req.params.id, who.supervisor_id);
-    return { confirmed: true };
   });
   app.post<{ Params: { id: string } }>('/api/incidents/:id/call', async (req) => {
     await gw.calls.redial(req.params.id);
@@ -123,14 +117,20 @@ async function sessionFor(gw: Gateway, call_id: string) {
   const call = await gw.db.c.calls.findOne({ _id: call_id });
   if (!call) throw new GatewayError('NOT_FOUND', 'Call not found.', 404);
   const inc = await gw.incidents.get(call.incident_id);
+  const { head, revision } = await gw.proposals.current(inc._id);
+  const [metrics, trajectory] = await Promise.all([
+    gw.harness.getMetrics(inc.incident).catch(() => []),
+    gw.harness.getTrajectory(inc.incident).catch(() => null),
+  ]);
+  const brief = buildBriefing(inc.incident, revision.content, head.latest_revision, metrics, trajectory);
   const dynamic_variables = {
     incident_id: inc._id,
     call_id: call._id,
     supervisor_name: inc.incident.responsible_supervisor.name,
-    robot_id: inc.incident.robot_id,
-    severity: inc.incident.severity,
-    category: inc.incident.category,
-    one_line_summary: inc.incident.failure_summary.slice(0, 300),
+    current_revision: head.latest_revision,
+    incident_brief: brief.incident_brief,
+    proposal_brief: brief.proposal_brief,
+    incident_context: brief.incident_context,
   };
   const { ELEVENLABS_API_KEY: key, ELEVENLABS_AGENT_ID: agent } = gw.config;
   if (!key || !agent) return { mode: 'unconfigured' as const, call_id, dynamic_variables };

@@ -22,10 +22,9 @@ const Env = z.object({
   CALL_RING_TIMEOUT_MS: z.coerce.number().int().default(45_000),
   CALL_RETRY_DELAY_MS: z.coerce.number().int().default(120_000),
   CALL_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(2),
+  CALL_CONNECT_TIMEOUT_MS: z.coerce.number().int().default(90_000),
 
   SUPERVISOR_SYNC_BUDGET_MS: z.coerce.number().int().default(8_000),
-  /** `id:pin,id:pin` — demo identity factor for voice approvals. */
-  SUPERVISOR_PINS: z.string().default('sup-lead-01:2468'),
 
   ELEVENLABS_API_KEY: z.string().default(''),
   ELEVENLABS_AGENT_ID: z.string().default(''),
@@ -33,7 +32,6 @@ const Env = z.object({
 
   ANTHROPIC_API_KEY: z.string().default(''),
   MOCK_SUPERVISOR_MODEL: z.string().default('claude-opus-5-5'),
-  MOCK_EXEC_STEP_MS: z.coerce.number().int().default(1_500),
 });
 
 export type Config = z.infer<typeof Env>;

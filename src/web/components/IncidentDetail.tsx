@@ -1,173 +1,154 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError, fmtTime, type Aggregate, type Metric, type Trajectory } from '../api';
-import { KindBadge, MetricsTable, SeverityBadge, StateBadge } from './bits';
-import { ProposalPanel } from './ProposalPanel';
+import { KindBadge, MetricsTable, StatusPill } from './bits';
+import { DecisionPanel } from './DecisionPanel';
 import { TrajectoryView } from './TrajectoryView';
 
-const EXEC_CLASS: Record<string, string> = { APPLIED: 'b-ok', FAILED: 'b-bad', CANCELLED: 'b-bad', REJECTED_BY_HARNESS: 'b-bad' };
+const DECISION_TEXT = { APPROVE: 'Approved', REJECT: 'Rejected', DEFER: 'Not now', MODIFY: 'Changed' } as const;
 
-export function IncidentDetail(props: {
-  agg: Aggregate;
-  trajectory: Trajectory | null;
-  metrics: Metric[];
-  focusSegment: string | null;
-  notify: (m: string) => void;
-}) {
-  const { agg, trajectory, metrics, focusSegment, notify } = props;
+export function IncidentDetail(props: { agg: Aggregate; trajectory: Trajectory | null; metrics: Metric[]; focus: { segment: string | null; at: number } | null; notify: (m: string) => void }) {
+  const { agg, trajectory, metrics, focus, notify } = props;
+  const focusSegment = focus?.segment ?? null;
   const i = agg.incident;
-  const approval = agg.decisions.find((d) => d.decision === 'APPROVE');
-  const exec = approval?.submission.execution_id ? agg.executions.find((e) => e._id === approval.submission.execution_id) : undefined;
-  const activeCall = agg.calls.find((c) => ['QUEUED', 'RINGING', 'ANSWERED'].includes(c.status));
+  const [showPath, setShowPath] = useState(false);
+  // The voice agent asked to show the path: open it.
+  useEffect(() => {
+    if (focus) setShowPath(true);
+  }, [focus?.at]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sent = agg.decisions.filter((d) => d.decision !== 'MODIFY');
+  const call = agg.calls.at(-1);
+  const callActive = call && ['QUEUED', 'RINGING', 'ANSWERED'].includes(call.status);
 
   return (
-    <div>
-      <StatusBanner agg={agg} execStatus={exec?.status} />
-      <div className="row" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{i.failure_summary}</h2>
+    <div className="detail">
+      <div className="meta">
+        <StatusPill state={agg.state} />
+        <span>{i.robot_id}</span>
+        <span className="muted">{fmtTime(i.timestamp)}</span>
+        {i.synthetic && <span className="muted small">· simulated data</span>}
       </div>
-      <div className="grid">
-        <div className="card c7">
-          <h2>What happened</h2>
-          <dl className="kv">
-            <dt>Incident</dt><dd className="mono">{agg.incident_id}</dd>
-            <dt>State</dt><dd><StateBadge state={agg.state} /></dd>
-            <dt>Severity</dt><dd><SeverityBadge severity={i.severity} /> <span className="mono small">{i.category}</span> {i.synthetic && <span className="badge b-warn">SYNTHETIC DATA</span>}</dd>
-            <dt>Robot / task</dt><dd className="mono">{i.robot_id} · {i.task_id}</dd>
-            <dt>Observed</dt><dd>{i.observed_behavior}</dd>
-            <dt>Expected</dt><dd>{i.expected_behavior}</dd>
-            <dt>Diagnosis</dt><dd><KindBadge kind="HYPOTHESIS" /> {i.root_cause_hypothesis.text}{i.root_cause_hypothesis.confidence !== undefined && <b> ({Math.round(i.root_cause_hypothesis.confidence * 100)}% confidence)</b>}</dd>
-            <dt>Escalated because</dt><dd>{i.escalation.reason}</dd>
-            <dt>Supervisor</dt><dd>{i.responsible_supervisor.name} <span className="mono small muted">{i.responsible_supervisor.id}</span></dd>
-          </dl>
-        </div>
-        <div className="card c5">
-          <h2>Evidence</h2>
-          {i.evidence_refs.length === 0 && <div className="muted">No evidence attached.</div>}
-          {i.evidence_refs.map((e) => (
-            <div key={e.id} style={{ marginBottom: 8 }}>
-              <KindBadge kind={e.kind} /> {e.summary}
-              <div className="small muted mono">{e.id} · {e.source} · {fmtTime(e.timestamp)}</div>
+      <h2 className="headline">{i.plain_summary ?? i.failure_summary}</h2>
+
+      <DecisionPanel agg={agg} notify={notify} />
+
+      {sent.length > 0 && (
+        <section className="card">
+          <div className="card-head"><h3>Sent to the supervisor</h3></div>
+          {sent.map((d) => (
+            <div key={d._id} className="feedback">
+              <div className="row">
+                <b>{DECISION_TEXT[d.decision]}</b>
+                <span className="muted small">version {d.revision} · by {d.channel === 'VOICE' ? 'phone' : 'dashboard'} · {fmtTime(d.created_at)}</span>
+                <span className="spacer" />
+                <span className={`small ${d.submission.state === 'ACKED' ? 'good' : d.submission.state === 'FAILED' ? 'error' : 'muted'}`}>
+                  {d.submission.state === 'ACKED' ? '✓ delivered' : d.submission.state === 'FAILED' ? 'delivery failed' : 'sending…'}
+                </span>
+              </div>
+              {d.feedback && <p className="quote">“{d.feedback}”</p>}
             </div>
           ))}
-          <AskSupervisor agg={agg} notify={notify} />
-        </div>
+        </section>
+      )}
 
-        <div className="card c6">
-          <h2>Trajectory</h2>
-          <TrajectoryView trajectory={trajectory} focusSegment={focusSegment} />
-        </div>
-        <div className="card c6">
-          <h2>Proposed correction</h2>
-          <ProposalPanel agg={agg} notify={notify} />
-        </div>
-
-        <div className="card c12">
-          <h2>Metrics</h2>
-          <MetricsTable metrics={metrics} />
-        </div>
-
-        <div className="card c6">
-          <h2>Decision & execution</h2>
-          {agg.decisions.length === 0 && <div className="muted">No decision recorded. Nothing has been sent to the harness.</div>}
-          <table>
-            <tbody>
-              {agg.decisions.map((d) => (
-                <tr key={d._id}>
-                  <td className="mono small">{fmtTime(d.created_at)}</td>
-                  <td><b>{d.decision.replaceAll('_', ' ')}</b> rev {d.revision}<div className="small muted">{d.channel.toLowerCase()} · {d.confirmation.status.toLowerCase().replaceAll('_', ' ')}{d.confirmation.utterance ? ` · “${d.confirmation.utterance}”` : ''}</div></td>
-                  <td className="small">harness delivery: <b>{d.submission.state.toLowerCase()}</b>{d.submission.last_error && <div className="muted">{d.submission.last_error}</div>}{d.submission.harness_reason && <div className="muted">{d.submission.harness_reason}</div>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {exec && (
-            <>
-              <div className="row" style={{ marginTop: 10 }}>
-                <b>Harness execution</b> <span className={`badge ${EXEC_CLASS[exec.status] ?? 'b-accent'}`}>{exec.status}</span>
-                <span className="mono small muted">{exec._id}</span>
-              </div>
-              <ul className="timeline" style={{ marginTop: 6 }}>
-                {exec.events.map((e) => (
-                  <li key={e.seq}><span className="mono small">{fmtTime(e.timestamp)}</span><span><b>{e.status}</b> <span className="muted">{e.detail}</span></span></li>
-                ))}
-              </ul>
-              {exec.result_metrics && exec.result_metrics.length > 0 && <div style={{ marginTop: 8 }}><MetricsTable metrics={exec.result_metrics} title="Effect reported by the harness after the change" /></div>}
-            </>
+      <section className="card">
+        <div className="card-head">
+          <h3>Call</h3>
+          <span className="muted small">{call ? callLabel(call.status, call.end_reason) : 'not called yet'}</span>
+          <span className="spacer" />
+          {!callActive && ['AWAITING_DECISION', 'DEFERRED', 'UNREACHED', 'CALL_PENDING'].includes(agg.state) && (
+            <button className="ghost" onClick={() => api('POST', `/api/incidents/${agg.incident_id}/call`).then(() => notify('Calling you…'), (e: ApiError) => notify(e.message))}>
+              Call me
+            </button>
           )}
         </div>
-
-        <div className="card c6">
-          <div className="row" style={{ marginBottom: 6 }}>
-            <h2 style={{ margin: 0 }}>Calls</h2>
-            <span className="spacer" />
-            <button
-              disabled={!!activeCall || !['AWAITING_DECISION', 'DEFERRED', 'UNREACHED', 'CALL_PENDING'].includes(agg.state)}
-              onClick={() => api('POST', `/api/incidents/${agg.incident_id}/call`).then(() => notify('Calling supervisor'), (e: ApiError) => notify(e.message))}
-            >
-              Call supervisor again
-            </button>
-          </div>
-          {agg.calls.length === 0 && <div className="muted">No call yet.</div>}
-          {agg.calls.map((c) => (
-            <details key={c._id} open={c === agg.calls.at(-1)}>
-              <summary>
-                <span className="mono small">{fmtTime(c.created_at)}</span> attempt {c.attempt} · <b>{c.status.toLowerCase()}</b>
-                {c.identity_verified && <span className="badge b-ok" style={{ marginLeft: 6 }}>identity verified</span>}
-                {c.end_reason && <span className="small muted"> · {c.end_reason}</span>}
-              </summary>
-              <div className="transcript">
-                {c.transcript.map((l, idx) => (
-                  <div key={idx} className={`bubble ${l.role === 'user' ? 'user' : 'agent'}`}>{l.text}</div>
-                ))}
-              </div>
-              {c.post_call && <div className="small muted">Post-call summary (informational): {String((c.post_call as { transcript_summary?: string }).transcript_summary ?? '—')}</div>}
-            </details>
-          ))}
-        </div>
-
-        <div className="card c12">
-          <h2>Audit log</h2>
-          <ul className="timeline" style={{ maxHeight: 260, overflow: 'auto' }}>
-            {[...agg.audit].reverse().map((a) => (
-              <li key={a.id}>
-                <span className="mono small">{fmtTime(a.at)}</span>
-                <span><b>{a.type}</b> <span className="badge b-neutral">{a.actor}</span> <span className="mono small muted">{JSON.stringify(a.data).slice(0, 220)}</span></span>
-              </li>
+        {call && call.transcript.length > 0 ? (
+          <div className="transcript">
+            {call.transcript.map((l, idx) => (
+              <div key={idx} className={`bubble ${l.role === 'user' ? 'user' : 'agent'}`}>{l.text}</div>
             ))}
-          </ul>
-        </div>
-      </div>
+          </div>
+        ) : (
+          <p className="muted small">The conversation will appear here.</p>
+        )}
+      </section>
+
+      {trajectory && (
+        <section className="card">
+          <div className="card-head">
+            <h3>Robot path</h3>
+            <span className="spacer" />
+            <button className="link" onClick={() => setShowPath((v) => !v)}>{showPath ? 'Hide' : 'Show'}</button>
+          </div>
+          {showPath && <TrajectoryView trajectory={trajectory} focusSegment={focusSegment} />}
+        </section>
+      )}
+
+      <details className="card more">
+        <summary>Technical details</summary>
+        <dl className="kv">
+          <dt>What happened</dt><dd>{i.observed_behavior}</dd>
+          <dt>Expected</dt><dd>{i.expected_behavior}</dd>
+          <dt>Likely cause</dt><dd>{i.root_cause_hypothesis.text}{i.root_cause_hypothesis.confidence !== undefined && <span className="muted"> ({Math.round(i.root_cause_hypothesis.confidence * 100)}% confidence)</span>}</dd>
+          <dt>Why you</dt><dd>{i.escalation.reason}</dd>
+          <dt>Plan detail</dt><dd>{agg.revisions.at(-1)!.content.summary}<div className="muted small">{agg.revisions.at(-1)!.content.justification}</div></dd>
+          <dt>Ids</dt><dd className="mono small">{agg.incident_id} · {i.task_id} · {i.category}</dd>
+        </dl>
+        {i.evidence_refs.length > 0 && (
+          <>
+            <h4>Evidence</h4>
+            {i.evidence_refs.map((e) => (
+              <p key={e.id} className="small"><KindBadge kind={e.kind} /> {e.summary} <span className="muted">— {e.source}</span></p>
+            ))}
+          </>
+        )}
+        {metrics.length > 0 && (
+          <>
+            <h4>Metrics</h4>
+            <MetricsTable metrics={metrics} />
+          </>
+        )}
+        <AskSupervisor agg={agg} notify={notify} />
+        {agg.revisions.length > 1 && (
+          <>
+            <h4>Plan versions</h4>
+            {agg.revisions.map((r) => (
+              <p key={r.revision} className="small">
+                <b>v{r.revision}</b> {r.content.plain_summary ?? r.content.summary} <span className="muted">— {r.source === 'SUPERVISOR' ? 'supervisor' : r.source === 'HUMAN_VOICE' ? 'you, by phone' : 'you, on dashboard'}</span>
+              </p>
+            ))}
+          </>
+        )}
+        <h4>Activity</h4>
+        <ul className="log">
+          {[...agg.audit].reverse().slice(0, 60).map((a) => (
+            <li key={a.id}><span className="mono small muted">{fmtTime(a.at)}</span> {a.type.replaceAll('.', ' ').replaceAll('_', ' ')}</li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }
 
-function StatusBanner({ agg, execStatus }: { agg: Aggregate; execStatus?: string }) {
-  const s = agg.state;
-  if (s === 'RESOLVED') return <div className="banner ok">Change applied — confirmed by the harness ({execStatus}).</div>;
-  if (s === 'EXECUTION_FAILED') return <div className="banner bad">The harness tried to apply the approved change and it FAILED. See execution detail.</div>;
-  if (s === 'HARNESS_REJECTED') return <div className="banner bad">The harness refused the approved change during validation.</div>;
-  if (s === 'SUBMITTED' || s === 'EXECUTING') return <div className="banner info">Approved and sent to the harness — not applied until the harness confirms.</div>;
-  if (s === 'AWAITING_CONFIRMATION') return <div className="banner warn">High-risk approval waiting for dashboard confirmation.</div>;
-  if (s === 'UNREACHED') return <div className="banner bad">Supervisor could not be reached by phone. Decide here or call again.</div>;
-  if (s === 'CLOSED_REJECTED') return <div className="banner info">Proposal rejected. Nothing was executed.</div>;
-  if (s === 'AWAITING_DECISION') return <div className="banner warn">Awaiting a decision. No decision is inferred from a call ending.</div>;
-  return null;
+function callLabel(status: string, reason: string | null) {
+  if (status === 'RINGING') return 'ringing…';
+  if (status === 'ANSWERED') return 'on the call';
+  if (status === 'NO_ANSWER') return 'no answer';
+  if (status === 'DECLINED') return 'declined';
+  if (status === 'ENDED') return `ended${reason ? ` (${reason})` : ''}`;
+  return status.toLowerCase();
 }
 
 function AskSupervisor({ agg, notify }: { agg: Aggregate; notify: (m: string) => void }) {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   return (
-    <div style={{ marginTop: 12 }}>
-      <h2>Questions to the supervisor</h2>
+    <>
+      <h4>Questions to the supervisor</h4>
       {agg.queries.map((x) => (
-        <div key={x._id} style={{ marginBottom: 8 }}>
-          <div><span className="badge b-neutral">{x.channel.toLowerCase()}</span> <b>{x.question}</b></div>
-          <div className="small">
-            <span className={`badge ${x.status === 'ANSWERED' ? 'b-ok' : x.status === 'PENDING' ? 'b-accent' : 'b-warn'}`}>{x.status.toLowerCase().replaceAll('_', ' ')}</span>{' '}
-            {x.result?.answer ?? x.result?.limitations ?? '…'}
-            {x.result?.evidence_refs?.length ? <span className="mono muted"> [{x.result.evidence_refs.join(', ')}]</span> : null}
-          </div>
+        <div key={x._id} className="small qa">
+          <b>{x.question}</b>
+          <div>{x.result?.answer ?? x.result?.limitations ?? (x.status === 'PENDING' ? 'Thinking…' : '—')}</div>
         </div>
       ))}
       <form
@@ -180,9 +161,9 @@ function AskSupervisor({ agg, notify }: { agg: Aggregate; notify: (m: string) =>
             .finally(() => setBusy(false));
         }}
       >
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask the supervisor…" style={{ flex: 1 }} />
-        <button disabled={busy || q.length < 3}>Ask</button>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask something…" style={{ flex: 1 }} />
+        <button className="ghost" disabled={busy || q.length < 3}>Ask</button>
       </form>
-    </div>
+    </>
   );
 }

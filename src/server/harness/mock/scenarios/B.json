@@ -47,7 +47,8 @@
     "synthetic": true,
     "metadata": {
       "zone": "B"
-    }
+    },
+    "plain_summary": "Robot AMR-12 dropped a tote because its latch only gripped with about 18 newtons, and it needs 25."
   },
   "proposal": {
     "source_agent": "harness-supervisor",
@@ -91,7 +92,8 @@
       "Latch pad rated to 40 N.",
       "Applies to AMR-12 only until validated."
     ],
-    "risk": "MEDIUM"
+    "risk": "MEDIUM",
+    "plain_summary": "Make the latch grip harder, 30 newtons instead of 25, on this robot only."
   },
   "trajectory": null,
   "metrics": [
@@ -284,10 +286,5 @@
         "reason": "Above 34 N the latch motor exceeds its continuous current rating."
       }
     ]
-  },
-  "execution": {
-    "outcome": "FAILED",
-    "detail": "Setpoint 30 N applied, but the validation pick slipped again at 29.1 N; mechanical pad wear suspected. Change rolled back to 25 N.",
-    "result_metrics": []
   }
 }

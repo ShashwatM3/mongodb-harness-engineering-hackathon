@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import { GatewayError } from '../domain/errors';
 import type { Gateway } from '../gateway';
 import { buildIncident } from '../harness/mock/scenario';
@@ -20,12 +19,5 @@ export function registerDevRoutes(app: FastifyInstance, gw: Gateway) {
     const r = await gw.incidents.ingest(input);
     void gw.tick();
     return reply.code(201).send({ ...r, scenario: s.name });
-  });
-
-  app.post<{ Params: { id: string } }>('/dev/mock/outcome', async (req) => {
-    if (!gw.mock) throw new GatewayError('NOT_AVAILABLE', 'Needs HARNESS_MODE=mock.', 400);
-    const { incident_id, outcome } = z.object({ incident_id: z.string(), outcome: z.enum(['APPLIED', 'FAILED', 'REJECTED_BY_HARNESS']) }).parse(req.body);
-    gw.mock.setOutcome(incident_id, outcome);
-    return { ok: true };
   });
 }
