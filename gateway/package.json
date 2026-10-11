@@ -1,0 +1,49 @@
+{
+  "name": "intervention-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Human-intervention gateway: ElevenLabs voice approval loop between a robotics harness supervisor and a human Robotics Lead.",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "tsx watch --env-file-if-exists=.env src/server/main.ts",
+    "dev:web": "vite",
+    "build": "vite build && tsc -p tsconfig.json --noEmit",
+    "start": "NODE_ENV=production tsx --env-file-if-exists=.env src/server/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "trigger": "tsx --env-file-if-exists=.env scripts/trigger.ts",
+    "provision:agent": "tsx --env-file-if-exists=.env scripts/provision-agent.ts",
+    "simulate:agent": "tsx --env-file-if-exists=.env scripts/simulate-agent.ts",
+    "check:setup": "tsx --env-file-if-exists=.env scripts/check-setup.ts",
+    "tunnel": "~/.local/bin/cloudflared tunnel --no-autoupdate --url http://localhost:8787",
+    "reset:db": "tsx --env-file-if-exists=.env scripts/reset-db.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@elevenlabs/client": "^1.27.0",
+    "@elevenlabs/elevenlabs-js": "^2.71.0",
+    "@fastify/static": "^10.1.6",
+    "fastify": "^5.12.5",
+    "mongodb": "^7.7.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "mongodb-memory-server": "^11.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "mongodb-memory-server@11.3.0": true
+  }
+}

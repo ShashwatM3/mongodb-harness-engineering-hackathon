@@ -1,0 +1,143 @@
+{
+  "name": "E",
+  "title": "Improver wants to relax the human-distance envelope",
+  "description": "The improver found that a smaller human buffer clears lift jams. It touches the safety envelope, so it needs voice approval plus a dashboard second factor.",
+  "incident": {
+    "schema_version": "1",
+    "task_id": "task:M:PICK:gate-v3",
+    "robot_id": "fleet:zone-M",
+    "severity": "HIGH",
+    "category": "policy.envelope_change",
+    "observed_behavior": "Brain v3 candidate raises zone M held-out score from 0.31 to 0.58, but only if envelope.min_human_distance_m drops from 1.0 m to 0.8 m in the lift lobby.",
+    "expected_behavior": "Improvements stay inside the human-owned policy envelope.",
+    "failure_summary": "Gate passed a change that requires new authority: it relaxes a human-safety envelope limit.",
+    "root_cause_hypothesis": {
+      "text": "Lift jams come from robots queuing in the lobby; a 0.8 m buffer lets them queue beside the doorway instead of in the lane.",
+      "confidence": 0.55
+    },
+    "evidence_refs": [
+      {
+        "id": "ev:E:gate",
+        "kind": "ESTIMATE",
+        "summary": "Gate run gate:v3 held-out score 0.58 vs 0.31 (synthetic).",
+        "source": "gate (synthetic)",
+        "timestamp": "2026-10-11T11:05:00-07:00"
+      }
+    ],
+    "metrics_refs": [
+      "heldout_score",
+      "lift_jams_per_shift"
+    ],
+    "responsible_supervisor": {
+      "id": "sup-lead-01",
+      "name": "Robotics Lead"
+    },
+    "escalation": {
+      "reason": "The policy envelope is human-owned; the improver cannot change it.",
+      "requires_authority": true
+    },
+    "synthetic": true,
+    "metadata": {
+      "zone": "M",
+      "brain_version_candidate": 3
+    },
+    "plain_summary": "The improver found a change that cuts lift jams a lot, but only by letting robots get closer to people."
+  },
+  "proposal": {
+    "source_agent": "harness-improver",
+    "summary": "Lower the minimum human distance in the zone M lift lobby from 1.0 m to 0.8 m.",
+    "changes": [
+      {
+        "op": "set_param",
+        "key": "envelope.lift_lobby.min_human_distance_m",
+        "value": 0.8,
+        "unit": "m"
+      }
+    ],
+    "editable_parameters": [
+      {
+        "key": "envelope.lift_lobby.min_human_distance_m",
+        "label": "Lift lobby minimum human distance",
+        "unit": "m",
+        "type": "number",
+        "min": 0.8,
+        "max": 1.5,
+        "current_value": 1,
+        "proposed_value": 0.8
+      }
+    ],
+    "affected_resources": [
+      "envelope",
+      "zone:M"
+    ],
+    "justification": "Held-out score rises from 0.31 to 0.58 on locked seeds; lift jams fall from 7 to 2 per shift (ESTIMATE).",
+    "constraints": [
+      "Envelope changes require human authority.",
+      "Harness re-checks against site safety rules before promotion."
+    ],
+    "risk": "HIGH",
+    "plain_summary": "Lower the minimum distance to people in the lift lobby from 1 metre to 0.8 metres."
+  },
+  "trajectory": null,
+  "metrics": [
+    {
+      "key": "heldout_score",
+      "label": "Held-out zone M score (candidate v3)",
+      "value": 0.58,
+      "unit": "score",
+      "kind": "ESTIMATE",
+      "expected": 0.31,
+      "timestamp": "2026-10-11T11:05:00-07:00",
+      "source": "gate (synthetic)"
+    },
+    {
+      "key": "lift_jams_per_shift",
+      "label": "Lift jams per shift (current brain)",
+      "value": 7,
+      "unit": "jams",
+      "kind": "MEASURED",
+      "timestamp": "2026-10-11T10:41:00-07:00",
+      "source": "twin.shift_runner (synthetic)"
+    }
+  ],
+  "evidence": {
+    "overall_confidence": 0.55,
+    "facts": [
+      {
+        "id": "ev:E:gate",
+        "kind": "ESTIMATE",
+        "text": "Gate run v3 scored 0.58 on held-out seeds versus 0.31 for brain v1, with the model held fixed. Without the envelope change the best candidate scored 0.39.",
+        "tags": [
+          "gate",
+          "score",
+          "held",
+          "impact",
+          "improvement",
+          "compare",
+          "metrics",
+          "performance"
+        ]
+      },
+      {
+        "id": "ev:E:safety",
+        "kind": "MEASURED",
+        "text": "In replay, 0.8 metre separations occurred 14 times per shift, always with robots stationary or below 0.3 metres per second.",
+        "tags": [
+          "safety",
+          "risk",
+          "separation",
+          "distance",
+          "speed",
+          "human"
+        ]
+      }
+    ],
+    "unavailable": []
+  },
+  "supervisor": {
+    "delay_ms": 0
+  },
+  "reconcile": {
+    "refuse": []
+  }
+}
