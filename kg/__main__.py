@@ -68,7 +68,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("check-v1")
     p.add_argument("v1_json")
     p = sub.add_parser("demo")
-    p.add_argument("--raindrop", action="store_true", help="send events to Raindrop (needs RAINDROP_WRITE_KEY)")
+    p.add_argument("--raindrop", action="store_true", help="send events to Raindrop's dev project (needs RAINDROP_WRITE_KEY and RAINDROP_DEV_PROJECT_ID)")
     p.add_argument("--keep", action="store_true", help="don't empty the demo database first")
     args = ap.parse_args(argv)
     cfg = _cfg(args)
@@ -110,7 +110,9 @@ def main(argv=None) -> int:
         if args.raindrop:
             if not cfg.raindrop_write_key:
                 ap.error("--raindrop needs RAINDROP_WRITE_KEY")
-            real = RaindropSink(cfg.raindrop_write_key)
+            if not cfg.raindrop_dev_project_id:
+                ap.error("--raindrop needs RAINDROP_DEV_PROJECT_ID: demo events must stay out of the real cohorts")
+            real = RaindropSink(cfg.raindrop_write_key, project_id=cfg.raindrop_dev_project_id)
 
             class Tee(RecordingSink):
                 def event(self, e, props):

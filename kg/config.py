@@ -11,6 +11,9 @@
   KG_TICKS, KG_PROFILE     shift length and scenario profile (defaults 12000, "standard")
   RAINDROP_WRITE_KEY       enables Raindrop events and signals
   KG_RAINDROP              "0" disables Raindrop even when the key is set
+  RAINDROP_PROJECT_ID      project slug for real-runner events, the Experiment cohorts (unset: the key's default)
+  RAINDROP_DEV_PROJECT_ID  project slug for fake-runner, fixture and demo events; without it they aren't sent
+  KG_RAINDROP_DEV          "1"/"0" forces the dev/real project (default: dev unless KG_RUNNER_URL is set)
   TWINFORGE_DIR            the physical-ai checkout (for the fake runner and fixtures)
 """
 from __future__ import annotations
@@ -64,6 +67,10 @@ class Config:
     profile: str = field(default_factory=lambda: os.getenv("KG_PROFILE", DEFAULT_PROFILE))
     raindrop_write_key: Optional[str] = field(default_factory=lambda: os.getenv("RAINDROP_WRITE_KEY") or None)
     raindrop_enabled: bool = field(default_factory=lambda: os.getenv("KG_RAINDROP", "1") not in ("0", "false", "no"))
+    raindrop_project_id: Optional[str] = field(default_factory=lambda: os.getenv("RAINDROP_PROJECT_ID") or None)
+    raindrop_dev_project_id: Optional[str] = field(default_factory=lambda: os.getenv("RAINDROP_DEV_PROJECT_ID") or None)
+    raindrop_dev: Optional[bool] = field(
+        default_factory=lambda: {"1": True, "0": False}.get(os.getenv("KG_RAINDROP_DEV", "").strip()))
     twinforge_dir: Optional[str] = field(default_factory=lambda: os.getenv("TWINFORGE_DIR") or None)
 
     def uri_for(self, role: str) -> str:
@@ -72,6 +79,13 @@ class Config:
             var = "KG_MONGODB_URI_IMPROVER" if role == "improver" else "KG_MONGODB_URI_GATE"
             raise RuntimeError(f"no connection string for role {role!r}: set {var}")
         return uri
+
+    def raindrop_target(self, dev: Optional[bool] = None) -> tuple[bool, Optional[str]]:
+        """(dev, project slug). Fake-runner and demo events go to the dev project, never the real cohorts;
+        a dev run with no dev project returns slug None and sends nothing."""
+        if dev is None:
+            dev = self.raindrop_dev if self.raindrop_dev is not None else self.runner_url is None
+        return dev, (self.raindrop_dev_project_id if dev else self.raindrop_project_id)
 
     def seed_sets(self) -> dict[str, list[int]]:
         return {"train": self.train_seeds, "val": self.val_seeds}
