@@ -28,8 +28,8 @@ export function Launch() {
   // Initial values: whatever the URL already carries (deep link / reload), else defaults.
   const [agents, setAgents] = useState(() => Math.min(MAX_AGENTS, Math.max(1, launchConfig.agents ?? DEFAULT_AGENTS)));
   const [seed, setSeed] = useState(() => launchConfig.seed);
-  const [worker, setWorker] = useState(() => launchConfig.worker);
-  const [mix, setMix] = useState<number[]>(() => (launchConfig.mix && launchConfig.mix.length === typeIds.length ? launchConfig.mix : specMix));
+  const worker = true; // every worker consults the brain at exception points
+  const mix = specMix; // task generation follows the spec; what each agent takes is the allotment
   const [allot, setAllot] = useState<Record<string, string>>(() =>
     Object.fromEntries(spawns.map((sp) => [sp.id, launchConfig.allotment?.[sp.id]?.[0] ?? ANY])));
 
@@ -47,7 +47,6 @@ export function Launch() {
   const setOne = (id: string, t: string) => setAllot((a) => ({ ...a, [id]: t }));
   const preset = (fn: (sp: (typeof spawns)[number], i: number) => string) =>
     setAllot((a) => ({ ...a, ...Object.fromEntries(deployed.map((sp, i) => [sp.id, fn(sp, i)])) }));
-  const mixTotal = mix.reduce((a, b) => a + b, 0) || 1;
 
   const launch = () => {
     const url = new URL(window.location.href);
@@ -93,30 +92,14 @@ export function Launch() {
               <button className="btn" onClick={() => setAgents((n) => Math.min(MAX_AGENTS, n + 1))} aria-label="More agents">+</button>
               <span className="stepper-of">of {spawns.length} HUM-1</span>
             </div>
-            <input className="launch-range" type="range" min={1} max={MAX_AGENTS} value={agents} onChange={(e) => setAgents(Number(e.target.value))} />
             <div className="launch-hint">{deployed.filter((s) => (s.floor ?? 1) === 1).length} on the ground floor · {deployed.filter((s) => (s.floor ?? 1) === 2).length} on the mezzanine</div>
 
-            <h3>Task mix <span className="h-sub">generation weights</span></h3>
-            <div className="mix-rows">
-              {types.map((t, i) => (
-                <label key={t.id} className="mix-row">
-                  <span className="mix-l" style={{ color: TYPE_COLOR[t.id] }}>{t.id}</span>
-                  <input type="range" min={0} max={1} step={0.05} value={mix[i]} onChange={(e) => setMix((m) => m.map((v, j) => (j === i ? Number(e.target.value) : v)))} />
-                  <span className="mix-v">{Math.round((mix[i] / mixTotal) * 100)}%</span>
-                </label>
-              ))}
-              <button className="btn ghost mix-reset" onClick={() => setMix(specMix)}>Reset to spec</button>
-            </div>
 
             <h3>Run</h3>
             <div className="run-row">
               <label className="run-field">
                 <span>Seed</span>
                 <input type="number" value={seed} min={0} onChange={(e) => setSeed(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
-              </label>
-              <label className="run-toggle">
-                <input type="checkbox" checked={worker} onChange={(e) => setWorker(e.target.checked)} />
-                <span>Live worker agent</span>
               </label>
             </div>
             <button className="btn primary launch-go" onClick={launch}>Launch shift →</button>

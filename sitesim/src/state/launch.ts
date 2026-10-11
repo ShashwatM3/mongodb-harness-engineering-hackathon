@@ -40,7 +40,7 @@ const clampInt = (v: string | null, lo: number, hi: number): number | undefined 
 /** Parse the launch configuration from a query string. */
 export function parseLaunch(search: string): LaunchConfig {
   const q = new URLSearchParams(search);
-  const cfg: LaunchConfig = { seed: clampInt(q.get("seed"), 0, 2 ** 31 - 1) ?? 42, worker: q.get("worker") === "1" };
+  const cfg: LaunchConfig = { seed: clampInt(q.get("seed"), 0, 2 ** 31 - 1) ?? 42, worker: q.get("worker") !== "0" };
   const agents = clampInt(q.get("agents"), 1, 999);
   if (agents !== undefined) cfg.agents = agents;
   const allot = q.get("allot");
@@ -76,9 +76,9 @@ export function serializeLaunch(input: LaunchInput): string {
   q.set("seed", String(input.seed));
   q.set("allot", Object.entries(input.allot).map(([id, t]) => `${id}:${t}`).join(","));
   q.set("mix", input.mix.map((w) => String(Math.round(w * 100) / 100)).join(","));
-  if (input.worker) q.set("worker", "1");
+  if (!input.worker) q.set("worker", "0");
   return "?" + q.toString();
 }
 
 /** The configuration of the current page, parsed once at module load. */
-export const launchConfig: LaunchConfig = typeof window !== "undefined" ? parseLaunch(window.location.search) : { seed: 42, worker: false };
+export const launchConfig: LaunchConfig = typeof window !== "undefined" ? parseLaunch(window.location.search) : { seed: 42, worker: true };
