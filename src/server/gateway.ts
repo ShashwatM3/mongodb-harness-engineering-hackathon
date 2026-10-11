@@ -1,0 +1,127 @@
+import { CallOrchestrator } from './calls/orchestrator';
+import { ElevenLabsTwilioProvider, ScriptedCallProvider, SimulatedCallProvider, type CallProvider } from './calls/providers';
+import type { Config } from './config';
+import { connectDatabase, type Database } from './db';
+import { DecisionDispatcher, DecisionService } from './domain/decisions';
+import { EventLog } from './domain/events';
+import { ExecutionTracker } from './domain/executions';
+import { IdentityService } from './domain/identity';
+import { IncidentService } from './domain/incidents';
+import { ProposalEngine } from './domain/proposals';
+import { SupervisorQueries } from './domain/queries';
+import type { HarnessAdapter } from './harness/adapter';
+import { HttpHarnessAdapter } from './harness/http-adapter';
+import { MockHarness } from './harness/mock/mock-harness';
+import { FactLookupSupervisor, type SupervisorBrain } from './harness/mock/supervisor';
+
+export interface Gateway {
+  config: Config;
+  db: Database;
+  events: EventLog;
+  harness: HarnessAdapter;
+  mock: MockHarness | null;
+  incidents: IncidentService;
+  proposals: ProposalEngine;
+  decisions: DecisionService;
+  dispatcher: DecisionDispatcher;
+  executions: ExecutionTracker;
+  calls: CallOrchestrator;
+  identity: IdentityService;
+  queries: SupervisorQueries;
+  /** Run one pass of background work (calls, outbox). Tests call this directly instead of waiting for timers. */
+  tick(): Promise<void>;
+  startWorkers(intervalMs?: number): void;
+  stop(): Promise<void>;
+}
+
+export interface GatewayOverrides {
+  harness?: HarnessAdapter;
+  brain?: SupervisorBrain;
+  provider?: CallProvider;
+  db?: Database;
+}
+
+async function defaultBrain(config: Config): Promise<SupervisorBrain> {
+  if (!config.ANTHROPIC_API_KEY) {
+    console.warn('[gateway] ANTHROPIC_API_KEY not set: mock supervisor uses deterministic fact lookup (no reasoning).');
+    return new FactLookupSupervisor();
+  }
+  const { ClaudeGroundedSupervisor } = await import('./harness/mock/claude-supervisor');
+  return new ClaudeGroundedSupervisor(config.ANTHROPIC_API_KEY, config.MOCK_SUPERVISOR_MODEL, new FactLookupSupervisor());
+}
+
+export async function createGateway(config: Config, o: GatewayOverrides = {}): Promise<Gateway> {
+  const db = o.db ?? (await connectDatabase(config.MONGODB_URI, config.MONGODB_DB));
+  const events = new EventLog(db);
+
+  let mock: MockHarness | null = null;
+  let harness: HarnessAdapter;
+  if (o.harness) harness = o.harness;
+  else if (config.HARNESS_MODE === 'http') harness = new HttpHarnessAdapter(config.HARNESS_BASE_URL, config.HARNESS_OUTBOUND_TOKEN, config.HARNESS_TIMEOUT_MS);
+  else harness = mock = new MockHarness(o.brain ?? (await defaultBrain(config)), config.MOCK_EXEC_STEP_MS);
+  if (o.harness instanceof MockHarness) mock = o.harness;
+
+  const provider = o.provider ?? (config.CALL_MODE === 'scripted' ? new ScriptedCallProvider() : new SimulatedCallProvider());
+  void ElevenLabsTwilioProvider; // documented stub, intentionally not selectable
+
+  const incidents = new IncidentService(db, events);
+  const proposals = new ProposalEngine(db, events, incidents, harness, config.HARNESS_TIMEOUT_MS);
+  const dispatcher = new DecisionDispatcher(db, events, incidents, harness, config.HARNESS_TIMEOUT_MS);
+  let kick = () => {};
+  const decisions = new DecisionService(db, events, incidents, () => kick());
+  const executions = new ExecutionTracker(db, events, incidents);
+  const calls = new CallOrchestrator(db, events, incidents, provider, {
+    ringTimeoutMs: config.CALL_RING_TIMEOUT_MS,
+    retryDelayMs: config.CALL_RETRY_DELAY_MS,
+    maxAttempts: config.CALL_MAX_ATTEMPTS,
+  });
+  const identity = new IdentityService(db, events);
+  const queries = new SupervisorQueries(db, events, incidents, harness, config.SUPERVISOR_SYNC_BUDGET_MS, config.HARNESS_TIMEOUT_MS * 6);
+  await identity.seed(config.SUPERVISOR_PINS);
+
+  if (mock) mock.sink = (e) => executions.ingest(e).then(() => undefined);
+
+  let timer: NodeJS.Timeout | null = null;
+  let ticking: Promise<void> | null = null;
+  const tick = async () => {
+    if (ticking) return ticking;
+    ticking = (async () => {
+      try {
+        await proposals.releaseStaleLocks(2 * config.HARNESS_TIMEOUT_MS);
+        await calls.tick();
+        await dispatcher.tick();
+      } catch (err) {
+        console.error('[gateway] worker tick failed', err);
+      } finally {
+        ticking = null;
+      }
+    })();
+    return ticking;
+  };
+
+  return {
+    config,
+    db,
+    events,
+    harness,
+    mock,
+    incidents,
+    proposals,
+    decisions,
+    dispatcher,
+    executions,
+    calls,
+    identity,
+    queries,
+    tick,
+    startWorkers(intervalMs = 1000) {
+      kick = () => void dispatcher.tick().catch((err) => console.error('[gateway] dispatch failed', err));
+      timer = setInterval(() => void tick(), intervalMs);
+    },
+    async stop() {
+      if (timer) clearInterval(timer);
+      await ticking;
+      await db.close();
+    },
+  };
+}

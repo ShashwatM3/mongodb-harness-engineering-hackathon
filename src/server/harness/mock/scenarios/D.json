@@ -1,0 +1,520 @@
+{
+  "name": "D",
+  "title": "Deadlock at aisle D-4 with unclear cause",
+  "description": "Two robots deadlocked for 28 s. The supervisor cannot distinguish localization drift from a planner reservation conflict.",
+  "incident": {
+    "schema_version": "1",
+    "task_id": "task:D:TRANSPORT:1190",
+    "robot_id": "AMR-03",
+    "severity": "MEDIUM",
+    "category": "planning.deadlock",
+    "observed_behavior": "AMR-03 and AMR-09 blocked each other at the aisle D-4 intersection for 28 s until the engine back-off released AMR-09.",
+    "expected_behavior": "Intersection reservations prevent two robots from committing to the same cell.",
+    "failure_summary": "Deadlock of 28 s at aisle D-4; root cause uncertain.",
+    "root_cause_hypothesis": {
+      "text": "Either AMR-03 localization drifted 0.3 m so its reservation covered the wrong cell, or the 4 s reservation horizon was too short for the approach speed. The evidence does not separate the two.",
+      "confidence": 0.35
+    },
+    "evidence_refs": [
+      {
+        "id": "ev:D:block",
+        "kind": "MEASURED",
+        "summary": "Both robots stationary 18 s to 46 s, 1.1 m apart.",
+        "source": "twin.shift_runner (synthetic)",
+        "timestamp": "2026-10-11T10:20:00-07:00"
+      }
+    ],
+    "metrics_refs": [
+      "blocked_duration_s",
+      "pose_offset_m"
+    ],
+    "responsible_supervisor": {
+      "id": "sup-lead-01",
+      "name": "Robotics Lead"
+    },
+    "escalation": {
+      "reason": "Planner reservation changes affect all zone D traffic.",
+      "requires_authority": true
+    },
+    "synthetic": true,
+    "metadata": {
+      "zone": "D"
+    }
+  },
+  "proposal": {
+    "source_agent": "harness-supervisor",
+    "summary": "Extend the intersection reservation horizon in zone D from 4 s to 8 s.",
+    "changes": [
+      {
+        "op": "set_param",
+        "key": "planner.reservation_horizon_s",
+        "value": 8,
+        "unit": "s"
+      }
+    ],
+    "editable_parameters": [
+      {
+        "key": "planner.reservation_horizon_s",
+        "label": "Reservation horizon",
+        "unit": "s",
+        "type": "number",
+        "min": 2,
+        "max": 12,
+        "current_value": 4,
+        "proposed_value": 8
+      }
+    ],
+    "affected_resources": [
+      "zone:D",
+      "planner.reservations"
+    ],
+    "justification": "A longer horizon would prevent the conflict if the cause is the planner; it would not help if the cause is localization drift.",
+    "constraints": [
+      "Longer horizons reduce intersection throughput."
+    ],
+    "risk": "MEDIUM"
+  },
+  "trajectory": {
+    "task_id": "x",
+    "robot_id": "x",
+    "frame": "map_2d",
+    "units": "m",
+    "planned": [
+      {
+        "t": 0,
+        "x": 40,
+        "y": 30
+      },
+      {
+        "t": 2,
+        "x": 41.2,
+        "y": 30
+      },
+      {
+        "t": 4,
+        "x": 42.4,
+        "y": 30
+      },
+      {
+        "t": 6,
+        "x": 43.6,
+        "y": 30
+      },
+      {
+        "t": 8,
+        "x": 44.8,
+        "y": 30
+      },
+      {
+        "t": 10,
+        "x": 46,
+        "y": 30
+      },
+      {
+        "t": 12,
+        "x": 47.2,
+        "y": 30
+      },
+      {
+        "t": 14,
+        "x": 48.4,
+        "y": 30
+      },
+      {
+        "t": 16,
+        "x": 49.6,
+        "y": 30
+      },
+      {
+        "t": 18,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 20,
+        "x": 52,
+        "y": 30
+      },
+      {
+        "t": 22,
+        "x": 53.2,
+        "y": 30
+      },
+      {
+        "t": 24,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 26,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 28,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 30,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 32,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 34,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 36,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 38,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 40,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 42,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 44,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 46,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 48,
+        "x": 54.4,
+        "y": 30
+      },
+      {
+        "t": 50,
+        "x": 54.4,
+        "y": 30
+      }
+    ],
+    "actual": [
+      {
+        "t": 0,
+        "x": 40,
+        "y": 30
+      },
+      {
+        "t": 2,
+        "x": 41.2,
+        "y": 30
+      },
+      {
+        "t": 4,
+        "x": 42.4,
+        "y": 30
+      },
+      {
+        "t": 6,
+        "x": 43.6,
+        "y": 30
+      },
+      {
+        "t": 8,
+        "x": 44.8,
+        "y": 30
+      },
+      {
+        "t": 10,
+        "x": 46,
+        "y": 30
+      },
+      {
+        "t": 12,
+        "x": 47.2,
+        "y": 30
+      },
+      {
+        "t": 14,
+        "x": 48.4,
+        "y": 30.3
+      },
+      {
+        "t": 16,
+        "x": 49.6,
+        "y": 30.3
+      },
+      {
+        "t": 18,
+        "x": 50.8,
+        "y": 30.3
+      },
+      {
+        "t": 20,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 22,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 24,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 26,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 28,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 30,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 32,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 34,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 36,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 38,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 40,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 42,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 44,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 46,
+        "x": 50.8,
+        "y": 30
+      },
+      {
+        "t": 48,
+        "x": 52,
+        "y": 30
+      },
+      {
+        "t": 50,
+        "x": 53.2,
+        "y": 30
+      }
+    ],
+    "deviations": [
+      {
+        "t": 14,
+        "x": 48.4,
+        "y": 30.3,
+        "magnitude_m": 0.3,
+        "description": "Pose offset of 0.3 m before the intersection (cause unknown: drift or real offset).",
+        "kind": "HYPOTHESIS"
+      },
+      {
+        "t": 18,
+        "x": 50.8,
+        "y": 30,
+        "magnitude_m": 0,
+        "description": "AMR-03 stops; AMR-09 holds the reserved cell.",
+        "kind": "MEASURED"
+      }
+    ],
+    "segments": [
+      {
+        "id": "seg1",
+        "label": "Approach",
+        "t_start": 0,
+        "t_end": 18
+      },
+      {
+        "id": "seg2",
+        "label": "Deadlock",
+        "t_start": 18,
+        "t_end": 46
+      },
+      {
+        "id": "seg3",
+        "label": "Release",
+        "t_start": 46,
+        "t_end": 50
+      }
+    ],
+    "zones": [
+      {
+        "label": "Intersection D-4",
+        "x": 50,
+        "y": 28.5,
+        "w": 3,
+        "h": 3,
+        "kind": "area"
+      },
+      {
+        "label": "AMR-09",
+        "x": 52,
+        "y": 29.5,
+        "w": 1,
+        "h": 0.8,
+        "kind": "robot"
+      }
+    ],
+    "source": "twin.shift_runner (synthetic)",
+    "synthetic": true
+  },
+  "metrics": [
+    {
+      "key": "blocked_duration_s",
+      "label": "Blocked duration",
+      "value": 28,
+      "unit": "s",
+      "kind": "MEASURED",
+      "timestamp": "2026-10-11T10:20:00-07:00",
+      "source": "twin.shift_runner (synthetic)"
+    },
+    {
+      "key": "pose_offset_m",
+      "label": "Pose offset before intersection",
+      "value": 0.3,
+      "unit": "m",
+      "kind": "MEASURED",
+      "timestamp": "2026-10-11T10:19:40-07:00",
+      "source": "amr03.localization (synthetic)"
+    },
+    {
+      "key": "localization_covariance",
+      "label": "Localization covariance (before t = 14 s)",
+      "value": null,
+      "unit": "m²",
+      "kind": "MEASURED",
+      "timestamp": "2026-10-11T10:19:40-07:00",
+      "source": "amr03.localization (synthetic)",
+      "note": "Not recorded: logging was at summary level."
+    }
+  ],
+  "evidence": {
+    "overall_confidence": 0.35,
+    "facts": [
+      {
+        "id": "ev:D:block",
+        "kind": "MEASURED",
+        "text": "AMR-03 and AMR-09 were both stationary from 18 to 46 seconds, 1.1 metres apart, until the engine back-off released AMR-09.",
+        "tags": [
+          "deadlock",
+          "blocked",
+          "stuck",
+          "stationary",
+          "what",
+          "happened",
+          "wrong",
+          "duration"
+        ]
+      },
+      {
+        "id": "ev:D:offset",
+        "kind": "MEASURED",
+        "text": "AMR-03 reported a 0.3 metre lateral offset at 14 seconds. Whether this was real motion or localization drift cannot be determined from the stored data.",
+        "tags": [
+          "offset",
+          "pose",
+          "drift",
+          "deviation",
+          "trajectory"
+        ]
+      },
+      {
+        "id": "ev:D:cause",
+        "kind": "HYPOTHESIS",
+        "text": "The supervisor cannot distinguish localization drift from a planner reservation conflict. Both explain the observed stop. Confidence in either is about 35 percent.",
+        "tags": [
+          "cause",
+          "why",
+          "localization",
+          "planner",
+          "reservation",
+          "constraint",
+          "uncertain",
+          "root",
+          "reason"
+        ]
+      }
+    ],
+    "unavailable": [
+      {
+        "topic": "Lidar scans and localization covariance before the deadlock",
+        "tags": [
+          "lidar",
+          "scan",
+          "covariance",
+          "localization",
+          "logs",
+          "raw",
+          "sensor",
+          "uncertainty"
+        ],
+        "reason": "Raw lidar and covariance logs were not retained for this shift (summary-level logging only). Without them the localization hypothesis cannot be confirmed or ruled out."
+      },
+      {
+        "topic": "Reservation table snapshot",
+        "tags": [
+          "reservation",
+          "table",
+          "snapshot",
+          "cell"
+        ],
+        "reason": "The reservation table is not persisted between ticks."
+      }
+    ]
+  },
+  "supervisor": {
+    "delay_ms": 12000
+  },
+  "reconcile": {
+    "refuse": []
+  },
+  "execution": {
+    "outcome": "APPLIED",
+    "detail": "Reservation horizon set to 8 s in zone D.",
+    "result_metrics": []
+  }
+}

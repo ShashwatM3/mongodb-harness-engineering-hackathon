@@ -1,0 +1,816 @@
+{
+  "name": "A",
+  "title": "Trajectory deviation in the zone M lift lobby",
+  "description": "AMR-07 cut a corner around a queued robot and passed within 0.62 m of a worker. Supervisor proposes a larger planner inflation radius.",
+  "incident": {
+    "schema_version": "1",
+    "task_id": "task:M:PICK:0412",
+    "robot_id": "AMR-07",
+    "severity": "HIGH",
+    "category": "navigation.trajectory_deviation",
+    "observed_behavior": "AMR-07 left its planned lane by up to 0.48 m while passing a queued robot in the zone M lift lobby. Minimum separation from a worker fell to 0.62 m at t = 41.2 s.",
+    "expected_behavior": "Follow lane M-2 through the lift lobby and keep at least 1.0 m from any detected person.",
+    "failure_summary": "Safety-buffer violation: 0.62 m separation versus the 1.0 m minimum, caused by a planner corner-cut around a queued robot.",
+    "root_cause_hypothesis": {
+      "text": "The local planner inflation radius of 0.45 m is too small for the crowded lift lobby, so the planner treats the gap between the queued robot and the worker as passable.",
+      "confidence": 0.72
+    },
+    "evidence_refs": [
+      {
+        "id": "ev:A:trace",
+        "kind": "MEASURED",
+        "summary": "Pose trace of AMR-07 for task 0412, 0 to 60 s, 1.5 s sampling.",
+        "source": "twin.shift_runner (synthetic)",
+        "timestamp": "2026-10-11T10:41:12-07:00"
+      },
+      {
+        "id": "ev:A:sep",
+        "kind": "MEASURED",
+        "summary": "Minimum human separation 0.62 m at t = 41.2 s (lidar person track 17).",
+        "source": "twin.safety_monitor (synthetic)",
+        "timestamp": "2026-10-11T10:41:53-07:00"
+      },
+      {
+        "id": "ev:A:replay",
+        "kind": "ESTIMATE",
+        "summary": "Twin replay of shift s41 with inflation radius 0.65 m: minimum separation 1.14 m, cycle time +2.1 s.",
+        "source": "gate.replay (synthetic)",
+        "timestamp": "2026-10-11T10:55:00-07:00"
+      }
+    ],
+    "metrics_refs": [
+      "min_human_separation_m",
+      "max_lane_deviation_m",
+      "lift_lobby_passes_close"
+    ],
+    "responsible_supervisor": {
+      "id": "sup-lead-01",
+      "name": "Robotics Lead"
+    },
+    "escalation": {
+      "reason": "The change alters planner behaviour in an area shared with people and needs Robotics Lead authority.",
+      "requires_authority": true
+    },
+    "synthetic": true,
+    "metadata": {
+      "zone": "M",
+      "shift": "s41",
+      "simulator": "TwinForge warehouse twin (pre-existing, synthetic run)"
+    }
+  },
+  "proposal": {
+    "source_agent": "harness-supervisor",
+    "summary": "Increase the local planner inflation radius in the zone M lift lobby from 0.45 m to 0.65 m.",
+    "changes": [
+      {
+        "op": "set_param",
+        "key": "planner.lift_lobby.inflation_radius_m",
+        "value": 0.65,
+        "unit": "m"
+      }
+    ],
+    "editable_parameters": [
+      {
+        "key": "planner.lift_lobby.inflation_radius_m",
+        "label": "Lift lobby inflation radius",
+        "unit": "m",
+        "type": "number",
+        "min": 0.3,
+        "max": 0.9,
+        "current_value": 0.45,
+        "proposed_value": 0.65
+      },
+      {
+        "key": "planner.lift_lobby.speed_cap_mps",
+        "label": "Lift lobby speed cap",
+        "unit": "m/s",
+        "type": "number",
+        "min": 0.3,
+        "max": 0.8,
+        "current_value": 0.8,
+        "proposed_value": 0.8
+      }
+    ],
+    "affected_resources": [
+      "zone:M",
+      "task:M:PICK",
+      "planner.local"
+    ],
+    "justification": "In 3 of the last 3 lift-lobby passes with a queued robot present, the planner chose a path within 0.7 m of the doorway. A twin replay with 0.65 m keeps separation above 1.1 m at a cost of about 2 s per pass.",
+    "constraints": [
+      "The harness re-validates against envelope.min_human_distance_m = 1.0 m.",
+      "Applies to the zone M lift lobby only."
+    ],
+    "risk": "MEDIUM"
+  },
+  "trajectory": {
+    "task_id": "x",
+    "robot_id": "x",
+    "frame": "map_2d",
+    "units": "m",
+    "planned": [
+      {
+        "t": 0,
+        "x": 2,
+        "y": 10
+      },
+      {
+        "t": 1.5,
+        "x": 2.98,
+        "y": 10
+      },
+      {
+        "t": 3,
+        "x": 3.95,
+        "y": 10
+      },
+      {
+        "t": 4.5,
+        "x": 4.93,
+        "y": 10
+      },
+      {
+        "t": 6,
+        "x": 5.9,
+        "y": 10
+      },
+      {
+        "t": 7.5,
+        "x": 6.88,
+        "y": 10
+      },
+      {
+        "t": 9,
+        "x": 7.85,
+        "y": 10
+      },
+      {
+        "t": 10.5,
+        "x": 8.82,
+        "y": 10
+      },
+      {
+        "t": 12,
+        "x": 9.8,
+        "y": 10
+      },
+      {
+        "t": 13.5,
+        "x": 10.78,
+        "y": 10
+      },
+      {
+        "t": 15,
+        "x": 11.75,
+        "y": 10
+      },
+      {
+        "t": 16.5,
+        "x": 12.73,
+        "y": 10
+      },
+      {
+        "t": 18,
+        "x": 13.7,
+        "y": 10
+      },
+      {
+        "t": 19.5,
+        "x": 14.68,
+        "y": 10
+      },
+      {
+        "t": 21,
+        "x": 15.65,
+        "y": 10
+      },
+      {
+        "t": 22.5,
+        "x": 16.63,
+        "y": 10
+      },
+      {
+        "t": 24,
+        "x": 17.6,
+        "y": 10
+      },
+      {
+        "t": 25.5,
+        "x": 18.58,
+        "y": 10
+      },
+      {
+        "t": 27,
+        "x": 19.55,
+        "y": 10
+      },
+      {
+        "t": 28.5,
+        "x": 20.53,
+        "y": 10
+      },
+      {
+        "t": 30,
+        "x": 21.5,
+        "y": 10
+      },
+      {
+        "t": 31.5,
+        "x": 22.48,
+        "y": 10
+      },
+      {
+        "t": 33,
+        "x": 23.45,
+        "y": 10
+      },
+      {
+        "t": 34.5,
+        "x": 24.43,
+        "y": 10
+      },
+      {
+        "t": 36,
+        "x": 25.4,
+        "y": 10
+      },
+      {
+        "t": 37.5,
+        "x": 26.38,
+        "y": 10
+      },
+      {
+        "t": 39,
+        "x": 27.35,
+        "y": 10
+      },
+      {
+        "t": 40.5,
+        "x": 28,
+        "y": 10.33
+      },
+      {
+        "t": 42,
+        "x": 28,
+        "y": 11.3
+      },
+      {
+        "t": 43.5,
+        "x": 28,
+        "y": 12.28
+      },
+      {
+        "t": 45,
+        "x": 28,
+        "y": 13.25
+      },
+      {
+        "t": 46.5,
+        "x": 28,
+        "y": 14.23
+      },
+      {
+        "t": 48,
+        "x": 28,
+        "y": 15.2
+      },
+      {
+        "t": 49.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 51,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 52.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 54,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 55.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 57,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 58.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 60,
+        "x": 28,
+        "y": 16
+      }
+    ],
+    "actual": [
+      {
+        "t": 0,
+        "x": 2,
+        "y": 10
+      },
+      {
+        "t": 1.5,
+        "x": 2.98,
+        "y": 10
+      },
+      {
+        "t": 3,
+        "x": 3.95,
+        "y": 10
+      },
+      {
+        "t": 4.5,
+        "x": 4.93,
+        "y": 10
+      },
+      {
+        "t": 6,
+        "x": 5.9,
+        "y": 10
+      },
+      {
+        "t": 7.5,
+        "x": 6.88,
+        "y": 10
+      },
+      {
+        "t": 9,
+        "x": 7.85,
+        "y": 10
+      },
+      {
+        "t": 10.5,
+        "x": 8.82,
+        "y": 10
+      },
+      {
+        "t": 12,
+        "x": 9.8,
+        "y": 10
+      },
+      {
+        "t": 13.5,
+        "x": 10.78,
+        "y": 10
+      },
+      {
+        "t": 15,
+        "x": 11.75,
+        "y": 10
+      },
+      {
+        "t": 16.5,
+        "x": 12.73,
+        "y": 10
+      },
+      {
+        "t": 18,
+        "x": 13.7,
+        "y": 10.1
+      },
+      {
+        "t": 19.5,
+        "x": 14.68,
+        "y": 10.22
+      },
+      {
+        "t": 21,
+        "x": 15.65,
+        "y": 10.33
+      },
+      {
+        "t": 22.5,
+        "x": 16.63,
+        "y": 10.41
+      },
+      {
+        "t": 24,
+        "x": 17.6,
+        "y": 10.46
+      },
+      {
+        "t": 25.5,
+        "x": 18.58,
+        "y": 10.48
+      },
+      {
+        "t": 27,
+        "x": 19.55,
+        "y": 10.46
+      },
+      {
+        "t": 28.5,
+        "x": 20.53,
+        "y": 10.4
+      },
+      {
+        "t": 30,
+        "x": 21.5,
+        "y": 10.31
+      },
+      {
+        "t": 31.5,
+        "x": 22.48,
+        "y": 10.2
+      },
+      {
+        "t": 33,
+        "x": 23.45,
+        "y": 10.08
+      },
+      {
+        "t": 34.5,
+        "x": 24.43,
+        "y": 10
+      },
+      {
+        "t": 36,
+        "x": 25.4,
+        "y": 10
+      },
+      {
+        "t": 37.5,
+        "x": 26.38,
+        "y": 10
+      },
+      {
+        "t": 39,
+        "x": 27.35,
+        "y": 10
+      },
+      {
+        "t": 40.5,
+        "x": 28,
+        "y": 10.33
+      },
+      {
+        "t": 42,
+        "x": 28,
+        "y": 11.3
+      },
+      {
+        "t": 43.5,
+        "x": 28,
+        "y": 12.28
+      },
+      {
+        "t": 45,
+        "x": 28,
+        "y": 13.25
+      },
+      {
+        "t": 46.5,
+        "x": 28,
+        "y": 14.23
+      },
+      {
+        "t": 48,
+        "x": 28,
+        "y": 15.2
+      },
+      {
+        "t": 49.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 51,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 52.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 54,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 55.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 57,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 58.5,
+        "x": 28,
+        "y": 16
+      },
+      {
+        "t": 60,
+        "x": 28,
+        "y": 16
+      }
+    ],
+    "deviations": [
+      {
+        "t": 30,
+        "x": 15,
+        "y": 10.35,
+        "magnitude_m": 0.35,
+        "description": "Begins corner-cut around queued robot AMR-11.",
+        "kind": "MEASURED"
+      },
+      {
+        "t": 41.2,
+        "x": 18.5,
+        "y": 10.48,
+        "magnitude_m": 0.48,
+        "description": "Peak deviation; worker separation 0.62 m (minimum).",
+        "kind": "MEASURED"
+      }
+    ],
+    "segments": [
+      {
+        "id": "seg1",
+        "label": "Lane M-2 approach",
+        "t_start": 0,
+        "t_end": 16.9
+      },
+      {
+        "id": "seg2",
+        "label": "Lift lobby pass (deviation)",
+        "t_start": 16.9,
+        "t_end": 33.8
+      },
+      {
+        "id": "seg3",
+        "label": "Lift door approach",
+        "t_start": 33.8,
+        "t_end": 60
+      }
+    ],
+    "zones": [
+      {
+        "label": "Lift lobby",
+        "x": 12,
+        "y": 8,
+        "w": 14,
+        "h": 5,
+        "kind": "area"
+      },
+      {
+        "label": "Worker",
+        "x": 18.2,
+        "y": 11,
+        "w": 0.6,
+        "h": 0.6,
+        "kind": "person"
+      },
+      {
+        "label": "AMR-11 (queued)",
+        "x": 23.5,
+        "y": 10.6,
+        "w": 1,
+        "h": 0.8,
+        "kind": "robot"
+      },
+      {
+        "label": "Freight lift",
+        "x": 27,
+        "y": 16,
+        "w": 2,
+        "h": 2,
+        "kind": "fixture"
+      }
+    ],
+    "source": "twin.shift_runner (synthetic)",
+    "synthetic": true
+  },
+  "metrics": [
+    {
+      "key": "min_human_separation_m",
+      "label": "Minimum human separation",
+      "value": 0.62,
+      "unit": "m",
+      "kind": "MEASURED",
+      "expected": 1,
+      "timestamp": "2026-10-11T10:41:53-07:00",
+      "source": "twin.safety_monitor (synthetic)",
+      "history": [
+        {
+          "label": "s39",
+          "value": 1.21,
+          "timestamp": "2026-10-11T09:10:00-07:00"
+        },
+        {
+          "label": "s40",
+          "value": 0.94,
+          "timestamp": "2026-10-11T09:50:00-07:00"
+        },
+        {
+          "label": "s41",
+          "value": 0.62,
+          "timestamp": "2026-10-11T10:41:00-07:00"
+        }
+      ]
+    },
+    {
+      "key": "max_lane_deviation_m",
+      "label": "Maximum lane deviation",
+      "value": 0.48,
+      "unit": "m",
+      "kind": "MEASURED",
+      "expected": 0.15,
+      "timestamp": "2026-10-11T10:41:53-07:00",
+      "source": "twin.shift_runner (synthetic)"
+    },
+    {
+      "key": "lift_lobby_passes_close",
+      "label": "Lobby passes closer than 0.7 m to doorway",
+      "value": 3,
+      "unit": "passes",
+      "kind": "MEASURED",
+      "expected": 0,
+      "timestamp": "2026-10-11T10:42:00-07:00",
+      "source": "twin.shift_runner (synthetic)"
+    },
+    {
+      "key": "replay_min_separation_m",
+      "label": "Replay min separation with 0.65 m radius",
+      "value": 1.14,
+      "unit": "m",
+      "kind": "ESTIMATE",
+      "timestamp": "2026-10-11T10:55:00-07:00",
+      "source": "gate.replay (synthetic)"
+    },
+    {
+      "key": "replay_cycle_time_delta_s",
+      "label": "Replay cycle-time change per pass",
+      "value": 2.1,
+      "unit": "s",
+      "kind": "ESTIMATE",
+      "timestamp": "2026-10-11T10:55:00-07:00",
+      "source": "gate.replay (synthetic)"
+    }
+  ],
+  "evidence": {
+    "overall_confidence": 0.72,
+    "facts": [
+      {
+        "id": "ev:A:sep",
+        "kind": "MEASURED",
+        "text": "The minimum separation from the worker was 0.62 metres at t = 41.2 seconds, against a 1.0 metre minimum.",
+        "tags": [
+          "separation",
+          "distance",
+          "worker",
+          "person",
+          "human",
+          "minimum",
+          "close",
+          "buffer",
+          "wrong",
+          "happened",
+          "problem",
+          "went"
+        ]
+      },
+      {
+        "id": "ev:A:trace",
+        "kind": "MEASURED",
+        "text": "The deviation began at t = 30 seconds near x = 15 metres, peaked at 0.48 metres at t = 41.2 seconds, and the robot rejoined the lane before the lift door approach.",
+        "tags": [
+          "deviation",
+          "when",
+          "time",
+          "start",
+          "trajectory",
+          "path",
+          "lane",
+          "point",
+          "error",
+          "occur"
+        ]
+      },
+      {
+        "id": "ev:A:cause",
+        "kind": "HYPOTHESIS",
+        "text": "The planner treated the gap between queued robot AMR-11 and the worker as passable because the 0.45 metre inflation radius under-represents the robot footprint in a crowded space. Localization covariance stayed below 3 centimetres during the pass, so localization error is an unlikely cause.",
+        "tags": [
+          "cause",
+          "why",
+          "planner",
+          "inflation",
+          "radius",
+          "localization",
+          "constraint",
+          "reason",
+          "root",
+          "wrong",
+          "happened",
+          "problem",
+          "went"
+        ]
+      },
+      {
+        "id": "ev:A:slow",
+        "kind": "MEASURED",
+        "text": "The robot slowed from 0.65 to 0.41 metres per second at t = 38 seconds when the person track entered its 1.5 metre caution zone; it did not stop because the speed governor only stops below 0.5 metres.",
+        "tags": [
+          "slow",
+          "slowed",
+          "speed",
+          "velocity",
+          "stop",
+          "brake",
+          "decelerate"
+        ]
+      },
+      {
+        "id": "ev:A:replay",
+        "kind": "ESTIMATE",
+        "text": "A twin replay of shift s41 with a 0.65 metre radius kept separation at 1.14 metres and added about 2.1 seconds per lobby pass. With 0.60 metres the estimate is 1.03 metres separation and 1.4 seconds added.",
+        "tags": [
+          "replay",
+          "impact",
+          "effect",
+          "expected",
+          "estimate",
+          "apply",
+          "change",
+          "alternative",
+          "0.60",
+          "compare"
+        ]
+      },
+      {
+        "id": "ev:A:history",
+        "kind": "MEASURED",
+        "text": "Minimum separation over the last three shifts was 1.21 metres in s39, 0.94 metres in s40 and 0.62 metres in s41, as lift queue lengths grew from 1 to 3 robots.",
+        "tags": [
+          "history",
+          "previous",
+          "attempts",
+          "trend",
+          "shifts",
+          "compare",
+          "before",
+          "earlier"
+        ]
+      }
+    ],
+    "unavailable": [
+      {
+        "topic": "Camera footage of the lobby",
+        "tags": [
+          "camera",
+          "video",
+          "footage",
+          "cctv",
+          "image"
+        ],
+        "reason": "CCTV clips are not attached to this incident; the supervisor only has the pose and lidar person tracks."
+      }
+    ]
+  },
+  "supervisor": {
+    "delay_ms": 0
+  },
+  "reconcile": {
+    "refuse": [
+      {
+        "key": "planner.lift_lobby.inflation_radius_m",
+        "op": "gt",
+        "value": 0.8,
+        "reason": "A radius above 0.8 m makes the lift doorway impassable for AMRs (door width 1.9 m)."
+      }
+    ]
+  },
+  "execution": {
+    "outcome": "APPLIED",
+    "detail": "Planner parameter updated for zone M; validation replay passed with minimum separation 1.03 m.",
+    "result_metrics": [
+      {
+        "key": "min_human_separation_m",
+        "label": "Minimum human separation (validation replay)",
+        "value": 1.03,
+        "unit": "m",
+        "kind": "MEASURED",
+        "expected": 1,
+        "timestamp": "2026-10-11T11:59:00-07:00",
+        "source": "harness.validation_replay (synthetic)"
+      }
+    ]
+  }
+}

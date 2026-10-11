@@ -1,0 +1,293 @@
+{
+  "name": "B",
+  "title": "Tote latch failure on AMR-12",
+  "description": "AMR-12 failed to latch a tote; measured latch force below threshold. Supervisor proposes a higher force setpoint. Execution fails.",
+  "incident": {
+    "schema_version": "1",
+    "task_id": "task:B:REPLENISH:0877",
+    "robot_id": "AMR-12",
+    "severity": "MEDIUM",
+    "category": "manipulation.grasp_failure",
+    "observed_behavior": "The tote latch closed but slipped as the lift raised the tote; the tote dropped 4 cm back onto the shelf at t = 12.7 s.",
+    "expected_behavior": "Latch engages with at least 25 N and holds the tote through the lift and transport.",
+    "failure_summary": "Latch slip during lift: peak latch force 18.4 N versus a 25 N threshold.",
+    "root_cause_hypothesis": {
+      "text": "The latch force setpoint of 25 N is marginal for totes heavier than 12 kg; this tote weighed 14.2 kg.",
+      "confidence": 0.6
+    },
+    "evidence_refs": [
+      {
+        "id": "ev:B:force",
+        "kind": "MEASURED",
+        "summary": "Latch force trace, peak 18.4 N at 12.6 s.",
+        "source": "amr12.latch_sensor (synthetic)",
+        "timestamp": "2026-10-11T10:12:40-07:00"
+      },
+      {
+        "id": "ev:B:mass",
+        "kind": "MEASURED",
+        "summary": "Tote mass 14.2 kg from shelf load cell.",
+        "source": "wms.load_cell (synthetic)",
+        "timestamp": "2026-10-11T10:12:20-07:00"
+      }
+    ],
+    "metrics_refs": [
+      "latch_force_peak_n",
+      "tote_mass_kg",
+      "grip_success_rate"
+    ],
+    "responsible_supervisor": {
+      "id": "sup-lead-01",
+      "name": "Robotics Lead"
+    },
+    "escalation": {
+      "reason": "Force setpoint changes affect payload safety and need Robotics Lead approval.",
+      "requires_authority": true
+    },
+    "synthetic": true,
+    "metadata": {
+      "zone": "B"
+    }
+  },
+  "proposal": {
+    "source_agent": "harness-supervisor",
+    "summary": "Raise the tote latch force setpoint from 25 N to 30 N for AMR-12.",
+    "changes": [
+      {
+        "op": "set_param",
+        "key": "latch.force_setpoint_n",
+        "value": 30,
+        "unit": "N"
+      }
+    ],
+    "editable_parameters": [
+      {
+        "key": "latch.force_setpoint_n",
+        "label": "Latch force setpoint",
+        "unit": "N",
+        "type": "number",
+        "min": 20,
+        "max": 35,
+        "current_value": 25,
+        "proposed_value": 30
+      },
+      {
+        "key": "latch.retry_count",
+        "label": "Latch retries",
+        "unit": "count",
+        "type": "integer",
+        "min": 0,
+        "max": 3,
+        "current_value": 1,
+        "proposed_value": 1
+      }
+    ],
+    "affected_resources": [
+      "AMR-12",
+      "latch.controller"
+    ],
+    "justification": "Peak force fell 6.6 N short of the threshold with a 14.2 kg tote; 30 N gives margin for totes up to 16 kg according to the latch datasheet curve.",
+    "constraints": [
+      "Latch pad rated to 40 N.",
+      "Applies to AMR-12 only until validated."
+    ],
+    "risk": "MEDIUM"
+  },
+  "trajectory": null,
+  "metrics": [
+    {
+      "key": "latch_force_peak_n",
+      "label": "Peak latch force",
+      "value": 18.4,
+      "unit": "N",
+      "kind": "MEASURED",
+      "expected": 25,
+      "timestamp": "2026-10-11T10:12:40-07:00",
+      "source": "amr12.latch_sensor (synthetic)",
+      "note": "Sensor noise about \u00b12 N."
+    },
+    {
+      "key": "latch_force_threshold_n",
+      "label": "Latch force threshold",
+      "value": 25,
+      "unit": "N",
+      "kind": "EXPECTED",
+      "timestamp": "2026-10-11T10:00:00-07:00",
+      "source": "latch.config (synthetic)"
+    },
+    {
+      "key": "tote_mass_kg",
+      "label": "Tote mass",
+      "value": 14.2,
+      "unit": "kg",
+      "kind": "MEASURED",
+      "expected": 12,
+      "timestamp": "2026-10-11T10:12:20-07:00",
+      "source": "wms.load_cell (synthetic)"
+    },
+    {
+      "key": "failure_time_s",
+      "label": "Time of slip after task start",
+      "value": 12.7,
+      "unit": "s",
+      "kind": "MEASURED",
+      "timestamp": "2026-10-11T10:12:41-07:00",
+      "source": "amr12.event_log (synthetic)"
+    },
+    {
+      "key": "grip_success_rate",
+      "label": "Latch success rate, last 24 h",
+      "value": 91,
+      "unit": "%",
+      "kind": "MEASURED",
+      "expected": 99,
+      "timestamp": "2026-10-11T10:30:00-07:00",
+      "source": "fleet.stats (synthetic)",
+      "history": [
+        {
+          "label": "Oct 8",
+          "value": 99,
+          "timestamp": "2026-10-11T00:00:00-07:00"
+        },
+        {
+          "label": "Oct 9",
+          "value": 97,
+          "timestamp": "2026-10-11T00:00:00-07:00"
+        },
+        {
+          "label": "Oct 10",
+          "value": 94,
+          "timestamp": "2026-10-11T00:00:00-07:00"
+        },
+        {
+          "label": "Oct 11",
+          "value": 91,
+          "timestamp": "2026-10-11T10:30:00-07:00"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "overall_confidence": 0.6,
+    "facts": [
+      {
+        "id": "ev:B:force",
+        "kind": "MEASURED",
+        "text": "Peak latch force was 18.4 newtons at 12.6 seconds, against a 25 newton threshold. The force sensor has about plus or minus 2 newtons of noise.",
+        "tags": [
+          "force",
+          "grip",
+          "latch",
+          "measured",
+          "newton",
+          "peak",
+          "grasp",
+          "measurement",
+          "wrong",
+          "happened",
+          "problem",
+          "went"
+        ]
+      },
+      {
+        "id": "ev:B:threshold",
+        "kind": "EXPECTED",
+        "text": "The configured latch force threshold and setpoint are both 25 newtons; the latch pad is rated to 40 newtons.",
+        "tags": [
+          "threshold",
+          "setpoint",
+          "limit",
+          "rating",
+          "configured",
+          "force"
+        ]
+      },
+      {
+        "id": "ev:B:timing",
+        "kind": "MEASURED",
+        "text": "The latch closed at 11.9 seconds, the lift started at 12.3 seconds and the slip was detected at 12.7 seconds, 0.4 seconds into the lift.",
+        "tags": [
+          "timing",
+          "when",
+          "time",
+          "failure",
+          "slip",
+          "occur",
+          "happen",
+          "sequence"
+        ]
+      },
+      {
+        "id": "ev:B:mass",
+        "kind": "MEASURED",
+        "text": "The tote weighed 14.2 kilograms, above the 12 kilogram design load assumed when the 25 newton setpoint was chosen.",
+        "tags": [
+          "mass",
+          "weight",
+          "heavy",
+          "tote",
+          "load",
+          "kilogram"
+        ]
+      },
+      {
+        "id": "ev:B:alt",
+        "kind": "HYPOTHESIS",
+        "text": "An alternative explanation is latch pad wear: success rate has fallen from 99 percent to 91 percent over four days, which is consistent with wear as well as heavier totes. The supervisor cannot separate the two without a pad inspection.",
+        "tags": [
+          "alternative",
+          "wear",
+          "pad",
+          "uncertain",
+          "uncertainty",
+          "other",
+          "cause",
+          "why"
+        ]
+      },
+      {
+        "id": "ev:B:history",
+        "kind": "MEASURED",
+        "text": "Latch success rate was 99 percent on October 8, 97 on October 9, 94 on October 10 and 91 percent today.",
+        "tags": [
+          "history",
+          "trend",
+          "previous",
+          "success",
+          "rate",
+          "compare"
+        ]
+      }
+    ],
+    "unavailable": [
+      {
+        "topic": "Latch pad inspection results",
+        "tags": [
+          "inspection",
+          "inspect",
+          "photo",
+          "maintenance"
+        ],
+        "reason": "No inspection has been performed since October 2."
+      }
+    ]
+  },
+  "supervisor": {
+    "delay_ms": 0
+  },
+  "reconcile": {
+    "refuse": [
+      {
+        "key": "latch.force_setpoint_n",
+        "op": "gt",
+        "value": 34,
+        "reason": "Above 34 N the latch motor exceeds its continuous current rating."
+      }
+    ]
+  },
+  "execution": {
+    "outcome": "FAILED",
+    "detail": "Setpoint 30 N applied, but the validation pick slipped again at 29.1 N; mechanical pad wear suspected. Change rolled back to 25 N.",
+    "result_metrics": []
+  }
+}

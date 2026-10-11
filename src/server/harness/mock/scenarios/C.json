@@ -1,0 +1,280 @@
+{
+  "name": "C",
+  "title": "Zone M pick cycle time 2.3x expected",
+  "description": "Tasks complete but take far longer than expected due to lift waits. Supervisor proposes batching lift trips.",
+  "incident": {
+    "schema_version": "1",
+    "task_id": "task:M:PICK:batch-s41",
+    "robot_id": "fleet:zone-M",
+    "severity": "LOW",
+    "category": "performance.degradation",
+    "observed_behavior": "Zone M PICK tasks averaged 312 s per cycle in shift s41, with 58 % of the time spent waiting for the freight lift.",
+    "expected_behavior": "Zone M PICK cycle time around 135 s with lift waiting below 20 % of cycle time.",
+    "failure_summary": "Cycle time 2.3x expected; on-time completion fell to 61 %.",
+    "root_cause_hypothesis": {
+      "text": "Robots ride the lift one at a time, so lift trips scale with task count and queues build up during peak picking.",
+      "confidence": 0.8
+    },
+    "evidence_refs": [
+      {
+        "id": "ev:C:cycle",
+        "kind": "MEASURED",
+        "summary": "Cycle time distribution for 184 zone M PICK tasks in s41.",
+        "source": "twin.shift_runner (synthetic)",
+        "timestamp": "2026-10-11T10:45:00-07:00"
+      }
+    ],
+    "metrics_refs": [
+      "mean_cycle_time_s",
+      "lift_wait_share",
+      "on_time_rate"
+    ],
+    "responsible_supervisor": {
+      "id": "sup-lead-01",
+      "name": "Robotics Lead"
+    },
+    "escalation": {
+      "reason": "Sequencing changes alter fleet-wide task order and need Robotics Lead sign-off.",
+      "requires_authority": false
+    },
+    "synthetic": true,
+    "metadata": {
+      "zone": "M"
+    }
+  },
+  "proposal": {
+    "source_agent": "harness-supervisor",
+    "summary": "Batch zone M lift trips two robots at a time, waiting at most 20 s for a second robot.",
+    "changes": [
+      {
+        "op": "set_param",
+        "key": "sequencing.lift_batch_size",
+        "value": 2,
+        "unit": "robots"
+      },
+      {
+        "op": "set_param",
+        "key": "sequencing.max_batch_wait_s",
+        "value": 20,
+        "unit": "s"
+      }
+    ],
+    "editable_parameters": [
+      {
+        "key": "sequencing.lift_batch_size",
+        "label": "Lift batch size",
+        "unit": "robots",
+        "type": "integer",
+        "min": 1,
+        "max": 4,
+        "current_value": 1,
+        "proposed_value": 2
+      },
+      {
+        "key": "sequencing.max_batch_wait_s",
+        "label": "Max wait to fill a batch",
+        "unit": "s",
+        "type": "number",
+        "min": 0,
+        "max": 60,
+        "current_value": 0,
+        "proposed_value": 20
+      }
+    ],
+    "affected_resources": [
+      "zone:M",
+      "fleet.sequencer"
+    ],
+    "justification": "Twin replay of s41 with batch size 2 and a 20 s cap cut mean cycle time to 198 s (ESTIMATE) without new safety events.",
+    "constraints": [
+      "Lift payload limit 2 AMRs."
+    ],
+    "risk": "LOW"
+  },
+  "trajectory": null,
+  "metrics": [
+    {
+      "key": "mean_cycle_time_s",
+      "label": "Mean PICK cycle time",
+      "value": 312,
+      "unit": "s",
+      "kind": "MEASURED",
+      "expected": 135,
+      "timestamp": "2026-10-11T10:45:00-07:00",
+      "source": "twin.shift_runner (synthetic)",
+      "history": [
+        {
+          "label": "s37",
+          "value": 140,
+          "timestamp": "2026-10-11T08:00:00-07:00"
+        },
+        {
+          "label": "s38",
+          "value": 152,
+          "timestamp": "2026-10-11T08:40:00-07:00"
+        },
+        {
+          "label": "s39",
+          "value": 188,
+          "timestamp": "2026-10-11T09:10:00-07:00"
+        },
+        {
+          "label": "s40",
+          "value": 240,
+          "timestamp": "2026-10-11T09:50:00-07:00"
+        },
+        {
+          "label": "s41",
+          "value": 312,
+          "timestamp": "2026-10-11T10:41:00-07:00"
+        }
+      ]
+    },
+    {
+      "key": "lift_wait_share",
+      "label": "Share of cycle spent waiting for lift",
+      "value": 58,
+      "unit": "%",
+      "kind": "MEASURED",
+      "expected": 20,
+      "timestamp": "2026-10-11T10:45:00-07:00",
+      "source": "twin.shift_runner (synthetic)"
+    },
+    {
+      "key": "on_time_rate",
+      "label": "On-time completion",
+      "value": 61,
+      "unit": "%",
+      "kind": "MEASURED",
+      "expected": 95,
+      "timestamp": "2026-10-11T10:45:00-07:00",
+      "source": "twin.shift_runner (synthetic)"
+    },
+    {
+      "key": "lift_trips_per_hour",
+      "label": "Lift trips per hour",
+      "value": 22,
+      "unit": "trips/h",
+      "kind": "MEASURED",
+      "timestamp": "2026-10-11T10:45:00-07:00",
+      "source": "twin.lift_controller (synthetic)"
+    },
+    {
+      "key": "replay_cycle_time_s",
+      "label": "Replay mean cycle time with batching",
+      "value": 198,
+      "unit": "s",
+      "kind": "ESTIMATE",
+      "timestamp": "2026-10-11T10:58:00-07:00",
+      "source": "gate.replay (synthetic)"
+    }
+  ],
+  "evidence": {
+    "overall_confidence": 0.8,
+    "facts": [
+      {
+        "id": "ev:C:cycle",
+        "kind": "MEASURED",
+        "text": "Mean zone M PICK cycle time was 312 seconds in shift s41 against an expected 135 seconds; 58 percent of each cycle was spent waiting for the lift.",
+        "tags": [
+          "cycle",
+          "time",
+          "slow",
+          "duration",
+          "metrics",
+          "performance",
+          "wait",
+          "lift",
+          "wrong",
+          "happened",
+          "problem",
+          "went"
+        ]
+      },
+      {
+        "id": "ev:C:history",
+        "kind": "MEASURED",
+        "text": "Over the last five shifts mean cycle time rose from 140 to 152, 188, 240 and 312 seconds as order volume in zone M doubled.",
+        "tags": [
+          "history",
+          "historical",
+          "previous",
+          "trend",
+          "shifts",
+          "compare",
+          "before",
+          "performance"
+        ]
+      },
+      {
+        "id": "ev:C:seq",
+        "kind": "ESTIMATE",
+        "text": "With lift batch size 2 and a 20 second cap on waiting for a second robot, the twin replay estimates a mean cycle time of 198 seconds and on-time completion of 83 percent. Batch size 3 gave 201 seconds because robots waited longer to fill batches.",
+        "tags": [
+          "sequencing",
+          "batch",
+          "batching",
+          "impact",
+          "expected",
+          "estimate",
+          "proposal",
+          "change",
+          "alternative",
+          "effect"
+        ]
+      },
+      {
+        "id": "ev:C:safety",
+        "kind": "MEASURED",
+        "text": "The batching replay produced no new safety events; minimum human separation stayed above 1.1 metres.",
+        "tags": [
+          "safety",
+          "risk",
+          "events",
+          "separation"
+        ]
+      }
+    ],
+    "unavailable": [
+      {
+        "topic": "Real warehouse cycle times",
+        "tags": [
+          "real",
+          "production",
+          "physical",
+          "actual"
+        ],
+        "reason": "Only twin (simulated) shifts exist for zone M so far."
+      }
+    ]
+  },
+  "supervisor": {
+    "delay_ms": 0
+  },
+  "reconcile": {
+    "refuse": [
+      {
+        "key": "sequencing.lift_batch_size",
+        "op": "gt",
+        "value": 2,
+        "reason": "The freight lift is rated for at most two AMRs per trip."
+      }
+    ]
+  },
+  "execution": {
+    "outcome": "APPLIED",
+    "detail": "Sequencer updated; first 20 minutes after the change measured on the twin.",
+    "result_metrics": [
+      {
+        "key": "mean_cycle_time_s",
+        "label": "Mean PICK cycle time (after change)",
+        "value": 204,
+        "unit": "s",
+        "kind": "MEASURED",
+        "expected": 135,
+        "timestamp": "2026-10-11T12:20:00-07:00",
+        "source": "twin.shift_runner (synthetic)"
+      }
+    ]
+  }
+}
