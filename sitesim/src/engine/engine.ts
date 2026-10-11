@@ -74,7 +74,41 @@ export const SIM = {
   SERIES_EVERY: 600,
   EVENT_RING: THRESHOLDS.EVENT_RING_SIZE,
   ZONE_CAPACITY: 6,
+  // ── Brain levers (the harness edits these through the EnvSpec.sim overlay) ──
+  STAIR_MIN_LIFT_QUEUE: 0,   // take the stairs when the best lift's queue holds at least this many robots (0 = always stairs)
+  STAIR_MAX_LOAD: 99,        // ...and only when carrying at most this many load units (99 = no limit)
+  STAIR_CAPACITY: 99,        // robots allowed on one flight at once
+  STAIR_LOAD_TICKS: 0,       // extra climb ticks when loaded
+  BATTERY_STAIR: 0,          // %/tick while on the stairs
+  CHARGE_AT_PCT: 35,         // an idle robot below this battery % goes to charge
+  HUMAN_CLEARANCE_M: 2.0,    // scoring only: a robot inside this distance of a person is a safety event
+  LIFT_JAM_TICKS: 300,       // a robot queued at a lift for longer than this is a LIFT_QUEUE_JAM failure
+  W_DISTANCE: 0.35, W_BATTERY: 0.25, W_WORKLOAD: 0.15, W_CONGESTION: 0.15, W_HEALTH: 0.10,
 };
+
+/** One countable failure the harness scores against. */
+export interface FailureEntry { type: string; zone: string | null; tick: number; robots: string[]; detail: string; task_id?: string | null }
+export type TimeState = "travel" | "lift_wait" | "lift_ride" | "stairs" | "blocked" | "pick_drop";
+
+/**
+ * Harness-facing accounting: failures, where task time goes per zone, and safety counters.
+ * Engine-private data the headless runner reads after a shift; never enters TwinState.
+ */
+export interface HarnessStats {
+  failures: FailureEntry[];
+  failure_counts: Record<string, number>;
+  /** zone → time state → ticks (robots with a task, attributed to the task's zone) */
+  time: Record<string, Record<TimeState, number>>;
+  stair_trips: number;
+  separation_pushes: number;
+  human_proximity: number;
+  near_misses: number;
+  battery_strandings: number;
+  /** tasks that were generated but dropped because the waiting queue was full, per zone */
+  dropped: Record<string, number>;
+  /** closed tasks pruned from TwinState, kept so a shift can be scored after the fact */
+  closed: Array<Pick<TaskState, "id" | "type" | "status" | "source" | "destination" | "parent_task_id" | "created_tick" | "completed_tick" | "deadline_tick">>;
+}
 export type SimParams = typeof SIM;
 
 /** Engine-private per-robot runtime (never enters TwinState) */
@@ -143,6 +177,13 @@ export class SimEngine {
   private taskTimes: number[] = [];
   private onTime = 0; private completedCount = 0;
   private lastSeriesTick = 0;
+  /** Harness accounting (see HarnessStats). Public and read-only for the headless runner. */
+  readonly harness: HarnessStats = { failures: [], failure_counts: {}, time: {}, stair_trips: 0, separation_pushes: 0, human_proximity: 0, near_misses: 0, battery_strandings: 0, dropped: {}, closed: [] };
+  private jamReported = new Set<string>();
+  private proximityUntil: Record<string, number> = {};
+  private nearMissUntil: Record<string, number> = {};
+  /** Optional worker hook: called at an exception point with the robot; may return an action to apply. */
+  onException: ((r: RobotState, kind: "OBSTACLE_DETECTED" | "FLOOR_CHOICE", ctx: Record<string, unknown>) => void) | null = null;
 
   constructor(site: CompiledSite, opts: EngineOptions = {}) {
     this.site = site;
@@ -303,11 +344,11 @@ export class SimEngine {
     }
   }
 
-  createTask(t: { type: string; priority: TaskPriority; source: string; destination: string; load_units?: number }): TaskState {
+  createTask(t: { type: string; priority: TaskPriority; source: string; destination: string; load_units?: number; level?: number }): TaskState {
     const err = taskError(this.loc, this.site.spec.tasks.types, t.type, t.source, t.destination);
     if (err) throw new Error(err);
     const id = `A${this.taskSeq++}`;
-    const task: TaskState = { id, type: t.type, priority: t.priority, status: "WAITING", source: t.source, destination: t.destination, assigned_robot: null, parent_task_id: null, created_tick: this.state.sim.tick, assigned_tick: null, started_tick: null, completed_tick: null, deadline_tick: this.state.sim.tick + this.site.spec.tasks.on_time_limit_ticks, eta_s: null, load_units: t.load_units ?? 1 };
+    const task: TaskState = { id, type: t.type, priority: t.priority, status: "WAITING", source: t.source, destination: t.destination, assigned_robot: null, parent_task_id: null, created_tick: this.state.sim.tick, assigned_tick: null, started_tick: null, completed_tick: null, deadline_tick: this.state.sim.tick + this.site.spec.tasks.on_time_limit_ticks, eta_s: null, load_units: t.load_units ?? 1, ...(t.level !== undefined ? { level: t.level } : {}) };
     this.state.tasks[id] = task;
     this.emit("TASK_CREATED", "SIMULATION", "INFO", `Task #${id} created (${t.type} ${this.pretty(t.source)} → ${this.pretty(t.destination)})`, { task_id: id });
     return task;
@@ -324,6 +365,7 @@ export class SimEngine {
     for (const id of Object.keys(S.robots)) this.updatePerception(S.robots[id], this.rt[id]);
     for (const id of Object.keys(S.robots)) this.stepRobot(S.robots[id], this.rt[id]);
     this.enforceRobotSeparation();
+    this.accountHarness();
     this.updateZones();
     this.decayTraffic();
     if (tick % this.P.KPI_EVERY === 0) { this.updateKpi(); this.updateDevices(); }
@@ -344,6 +386,75 @@ export class SimEngine {
       a.position[0] += nx * push; a.position[2] += nz * push;
       b.position[0] -= nx * push; b.position[2] -= nz * push;
       a.velocity = 0; b.velocity = 0;
+      this.harness.separation_pushes++;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Harness accounting: failures, time split, safety
+  // ─────────────────────────────────────────────────────────
+  /** The zone a task is scored under: the shelf end if there is one, else the destination. */
+  taskZone(t: TaskState): string | null {
+    const s = this.loc[t.source], d = this.loc[t.destination];
+    if (s?.kind === "SHELF") return s.zone;
+    if (d?.kind === "SHELF") return d.zone;
+    return d?.zone ?? s?.zone ?? null;
+  }
+
+  /** Where this tick went for a robot that holds a task. */
+  private timeStateOf(r: RobotState, rt: RobotRt): TimeState | null {
+    if (!r.current_task_id || r.fsm === "IDLE" || r.fsm === "CHARGING" || r.fsm === "OFFLINE") return null;
+    if (rt.stairId && rt.target === null && rt.pending) return "stairs";
+    if (rt.liftStage === "RIDING" || rt.liftStage === "ALIGHTING") return "lift_ride";
+    if (rt.liftStage === "QUEUED" || rt.liftStage === "BOARDING" || (rt.liftStage === "TO_LIFT" && rt.target === null)) return "lift_wait";
+    if (r.fsm === "PICKING" || r.fsm === "DELIVERING") return "pick_drop";
+    if (r.velocity < 0.05 && (rt.waitTicks > 0 || r.perception.state === "STOPPED")) return "blocked";
+    return "travel";
+  }
+
+  recordFailure(type: string, zone: string | null, robots: string[], detail: string, task_id: string | null = null) {
+    this.harness.failures.push({ type, zone, tick: this.state.sim.tick, robots, detail, task_id });
+    this.harness.failure_counts[type] = (this.harness.failure_counts[type] ?? 0) + 1;
+  }
+
+  private accountHarness() {
+    const S = this.state, tick = S.sim.tick, H = this.harness;
+    const people = Object.values(S.people);
+    for (const id in S.robots) {
+      const r = S.robots[id], rt = this.rt[id];
+      // time split, attributed to the task's zone
+      const st = this.timeStateOf(r, rt);
+      if (st) {
+        const t = S.tasks[r.current_task_id!];
+        const z = t ? this.taskZone(t) : null;
+        if (z) { const row = (H.time[z] ??= { travel: 0, lift_wait: 0, lift_ride: 0, stairs: 0, blocked: 0, pick_drop: 0 }); row[st]++; }
+      }
+      // lift queue jam: queued longer than LIFT_JAM_TICKS, reported once per enqueue
+      if ((rt.liftStage === "QUEUED" || rt.liftStage === "BOARDING") && rt.liftId) {
+        const key = `${id}:${rt.liftEnqueuedTick}`;
+        const waited = tick - rt.liftEnqueuedTick;
+        if (waited > this.P.LIFT_JAM_TICKS && !this.jamReported.has(key)) {
+          this.jamReported.add(key);
+          const L = S.lifts[rt.liftId];
+          const q = Object.values(L.queue).reduce((a, x) => a + x.length, 0);
+          const t = r.current_task_id ? S.tasks[r.current_task_id] : undefined;
+          this.recordFailure("LIFT_QUEUE_JAM", (t ? this.taskZone(t) : null) ?? r.zone, [id], `${q} robots queued at ${rt.liftId} for up to ${(waited / 10).toFixed(0)} s`, r.current_task_id);
+        }
+      }
+      // safety: a robot inside HUMAN_CLEARANCE_M of a person (debounced 10 s per robot)
+      if (r.status !== "OFFLINE" && (this.proximityUntil[id] ?? -1) < tick) {
+        for (const p of people) {
+          if ((p.floor ?? 1) !== r.floor) continue;
+          if (Math.hypot(r.position[0] - p.position[0], r.position[2] - p.position[2]) < this.P.HUMAN_CLEARANCE_M) {
+            H.human_proximity++; this.proximityUntil[id] = tick + 100;
+            break;
+          }
+        }
+      }
+      // near miss: perception STOPPED with a robot dead ahead within half of PERC_STOP (debounced 5 s)
+      if (r.perception.state === "STOPPED" && rt.frontId && rt.frontDist < this.P.PERC_STOP * 0.5 && (this.nearMissUntil[id] ?? -1) < tick) {
+        H.near_misses++; this.nearMissUntil[id] = tick + 50;
+      }
     }
   }
 
@@ -363,7 +474,7 @@ export class SimEngine {
     if (S.sim.tick < this.nextTaskTick) return;
     this.nextTaskTick = S.sim.tick + Math.round(T.interval_ticks * (0.5 + this.rng()));
     const waiting = Object.values(S.tasks).filter((t) => t.status === "WAITING").length;
-    if (waiting >= T.max_waiting) return;
+    const full = waiting >= T.max_waiting;
     const rPr = this.rng();
     let pr: TaskPriority = "NORMAL", acc = 0;
     for (const [band, prio] of T.priority_bands) { acc += band; if (rPr < acc) { pr = prio; break; } }
@@ -378,7 +489,17 @@ export class SimEngine {
     };
     const src = pick(chosen.gen_source_kinds), dst = pick(chosen.gen_dest_kinds);
     if (!src || !dst || src.id === dst.id) return;
-    this.createTask({ type: chosen.id, priority: pr, source: src.id, destination: dst.id });
+    // Shelf level: drawn from the shelf endpoint's level_range so the arm has something to reach for
+    const shelf = src.kind === "SHELF" ? src : dst.kind === "SHELF" ? dst : null;
+    const lr = shelf?.level_range;
+    const level = lr ? lr[0] + Math.floor(this.rng() * (lr[1] - lr[0] + 1)) : undefined;
+    if (full) {
+      const z = shelf?.zone ?? dst.zone;
+      this.harness.dropped[z] = (this.harness.dropped[z] ?? 0) + 1;
+      this.recordFailure("DROPPED_DEMAND", z, [], `${chosen.id} ${src.id} → ${dst.id} dropped: ${waiting} tasks already waiting`);
+      return;
+    }
+    this.createTask({ type: chosen.id, priority: pr, source: src.id, destination: dst.id, level });
   }
 
   /** Fleet Manager: weighted distance + battery + workload + congestion + health, with an explainable candidate list */
@@ -425,7 +546,9 @@ export class SimEngine {
       } else if (!this.pickLift(r)) return "terrain unreachable: stairs require a legged robot";
     }
     const cls = this.robotClass(r);
-    const constrained = r.locomotion !== "wheeled" || cls?.crawler === true || cls?.min_clearance_cells !== undefined || cls?.terrain_tolerance !== undefined || cls?.ex_certified_zones !== undefined;
+    // Only classes whose footprint or terrain rules differ from a plain ground robot need the per-task reachability probe
+    // (two A* searches per candidate per tick). A legged class with unit clearance and full terrain tolerance does not.
+    const constrained = cls?.crawler === true || (cls?.min_clearance_cells ?? 1) > 1 || (cls?.terrain_tolerance ?? 1) < 1 || cls?.ex_certified_zones !== undefined;
     if (constrained && !this.isAerial(r) && dst && (this.loc[task.source]?.floor ?? 1) === r.floor && (dst.floor ?? 1) === r.floor) {
       const source = this.loc[task.source]!;
       const start = toCell(r.position[0], r.position[2]);
@@ -472,7 +595,7 @@ export class SimEngine {
     if (!waiting.length) return;
     const idle = Object.values(S.robots).filter((r) => r.fsm === "IDLE" && r.status !== "OFFLINE" && r.status !== "ERROR" && r.battery > THRESHOLDS.BATTERY_WARNING);
     const candidatesPool = Object.values(S.robots).filter((r) => r.fsm === "IDLE" && r.status !== "OFFLINE" && r.status !== "ERROR");
-    const weights = { distance: 0.35, battery: 0.25, workload: 0.15, congestion: 0.15, health: 0.10 };
+    const weights = { distance: this.P.W_DISTANCE, battery: this.P.W_BATTERY, workload: this.P.W_WORKLOAD, congestion: this.P.W_CONGESTION, health: this.P.W_HEALTH };
     for (const task of waiting) {
       if (!candidatesPool.length) return;
       const src = this.loc[task.source]; if (!src) { task.status = "FAILED"; continue; }
@@ -525,7 +648,13 @@ export class SimEngine {
 
   private pruneTasks() {
     const S = this.state; const tick = S.sim.tick;
-    for (const id in S.tasks) { const t = S.tasks[id]; if ((t.status === "COMPLETED" || t.status === "FAILED" || t.status === "TRANSFERRED" || t.status === "CANCELLED") && t.completed_tick !== null && tick - t.completed_tick > 3000) delete S.tasks[id]; }
+    for (const id in S.tasks) {
+      const t = S.tasks[id];
+      if ((t.status === "COMPLETED" || t.status === "FAILED" || t.status === "TRANSFERRED" || t.status === "CANCELLED") && t.completed_tick !== null && tick - t.completed_tick > 3000) {
+        this.harness.closed.push({ id: t.id, type: t.type, status: t.status, source: t.source, destination: t.destination, parent_task_id: t.parent_task_id, created_tick: t.created_tick, completed_tick: t.completed_tick, deadline_tick: t.deadline_tick });
+        delete S.tasks[id];
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -880,7 +1009,7 @@ export class SimEngine {
       case "IDLE": {
         r.velocity = 0; rt.idleTicks++;
         if (this.isAerial(r) && r.flight?.mode === "RETURNING_HOME") { this.stepDrone(r, rt); break; }
-        if (r.battery < THRESHOLDS.BATTERY_WARNING + 15 && this.freeCharger()) { this.goCharge(r, rt); break; }
+        if (r.battery < this.P.CHARGE_AT_PCT && this.freeCharger()) { this.goCharge(r, rt); break; }
         if (rt.idleTicks > this.P.IDLE_TO_PARK_TICKS && !rt.phase && r.floor === 1) { const p = this.parkSpot(r); if (p) { this.planTo(r, rt, p, "TO_PARK"); } }
         if (rt.phase === "TO_PARK") { this.moveAlongPath(r, rt); if (rt.target === null && !rt.pending) rt.phase = null; }
         break;
@@ -974,7 +1103,10 @@ export class SimEngine {
         }
         break;
       }
-      case "OBSTACLE_DETECTED": { this.setFsm(r, "REPLANNING"); break; }
+      case "OBSTACLE_DETECTED": {
+        if (this.onException) this.onException(r, "OBSTACLE_DETECTED", { blocked_by: rt.frontId, wait_ticks: rt.waitTicks, phase: rt.phase, zone: r.zone, task: task ? { id: task.id, type: task.type, level: task.level } : null });
+        this.setFsm(r, "REPLANNING"); break;
+      }
       case "REPLANNING": {
         if (rt.target) {
           const p = astar(this.grids[r.floor], toCell(r.position[0], r.position[2]), rt.target, this.astarOptions(r, r.floor, this.blockedCells(r.id, r.floor)));
@@ -996,7 +1128,9 @@ export class SimEngine {
       task.status = "COMPLETED"; task.completed_tick = S.sim.tick;
       const dur = S.sim.tick - (task.created_tick);
       this.taskTimes.push(dur); if (this.taskTimes.length > 200) this.taskTimes.shift();
-      this.completedCount++; if (task.deadline_tick === null || S.sim.tick <= task.deadline_tick) this.onTime++;
+      this.completedCount++;
+      if (task.deadline_tick === null || S.sim.tick <= task.deadline_tick) this.onTime++;
+      else this.recordFailure("LATE_TASK", this.taskZone(task), [r.id], `task ${task.id} (${task.type}) finished ${((S.sim.tick - task.deadline_tick) / 10).toFixed(0)} s after its deadline`, task.id);
       r.stats.tasks_completed++;
       this.emit("TASK_COMPLETED", "ROBOT", "INFO", `${r.id} completed task #${task.id} at ${this.pretty(task.destination)}`, { robot_id: r.id, task_id: task.id });
     }
@@ -1062,7 +1196,16 @@ export class SimEngine {
     }
     if (tf !== r.floor) {
       const stair = this.allowsStairs(r) ? this.findStair(r.floor, tf) : null;
+      // The stairs-versus-lift lever: a legged robot takes the stairs when the best lift's queue is at least
+      // STAIR_MIN_LIFT_QUEUE long (or no lift works) and it carries at most STAIR_MAX_LOAD. Otherwise it lifts.
+      let useStairs = false;
       if (stair) {
+        const best = this.pickLift(r);
+        const queueLen = best ? Object.values(this.state.lifts[best.id].queue).reduce((a, q) => a + q.length, 0) + (this.state.lifts[best.id].reserved_by ? 1 : 0) : Infinity;
+        useStairs = (best === null || queueLen >= this.P.STAIR_MIN_LIFT_QUEUE) && r.load.current <= this.P.STAIR_MAX_LOAD;
+        if (this.onException) this.onException(r, "FLOOR_CHOICE", { stairs: useStairs, lift: best?.id ?? null, lift_queue: queueLen === Infinity ? null : queueLen, loaded: r.load.current > 0, from: r.floor, to: tf });
+      }
+      if (stair && useStairs) {
         const stairTarget = this.stairPoint(stair);
         const start = toCell(r.position[0], r.position[2]);
         const goal = nearestWalkable(this.grids[r.floor], stairTarget[0], stairTarget[1]);
@@ -1191,16 +1334,32 @@ export class SimEngine {
     return true;
   }
 
+  /** Robots currently on a flight (climbing), excluding `self` */
+  private stairOccupancy(stairId: string, self: string): number {
+    let n = 0;
+    for (const id in this.rt) { const o = this.rt[id]; if (id !== self && o.stairId === stairId && o.target === null && o.stairUntilTick > 0) n++; }
+    return n;
+  }
+
   private handleStair(r: RobotState, rt: RobotRt): boolean {
     if (!rt.stairId || !rt.pending) return false;
     if (rt.target !== null) return false;
     if (rt.stairUntilTick === 0) {
-      rt.stairUntilTick = this.state.sim.tick + this.P.STAIR_CLIMB_TICKS;
       r.velocity = 0;
+      // Stairwell full: wait at the foot (STAIR_QUEUE, reported once per 10 s of waiting)
+      if (this.stairOccupancy(rt.stairId, r.id) >= this.P.STAIR_CAPACITY) {
+        if (rt.waitTicks % 100 === 0) this.recordFailure("STAIR_QUEUE", r.zone, [r.id], `${r.id} waiting: ${rt.stairId} already carries ${this.P.STAIR_CAPACITY} robots`, r.current_task_id);
+        rt.waitTicks++;
+        return true;
+      }
+      rt.waitTicks = 0;
+      rt.stairUntilTick = this.state.sim.tick + this.P.STAIR_CLIMB_TICKS + (r.load.current > 0 ? this.P.STAIR_LOAD_TICKS : 0);
+      this.harness.stair_trips++;
       this.emit("ROUTE_PLANNED", "PLANNER", "INFO", `${r.id} climbing stairs ${rt.stairId} → Floor ${rt.pending.floor}`, { robot_id: r.id });
       return true;
     }
     r.velocity = 0;
+    if (this.P.BATTERY_STAIR > 0) { r.battery = Math.max(0, r.battery - this.P.BATTERY_STAIR); r.stats.energy_wh += this.P.BATTERY_STAIR * 0.5; }
     if (this.state.sim.tick < rt.stairUntilTick) return true;
     const p = rt.pending;
     r.floor = p.floor;
@@ -1343,6 +1502,7 @@ export class SimEngine {
     rt.resumePoint = [gx, gz]; rt.backingOff = true; rt.target = best;
     r.path = p; r.path_index = 0;
     this.emit("ROBOT_COLLISION_AVOIDED", "PLANNER", "LOW", `${r.id} yields (back-off ${p.length} cells)`, { robot_id: r.id });
+    this.recordFailure("DEADLOCK_BACKOFF", r.zone, [r.id, ...(rt.frontId ? [rt.frontId] : [])], `${r.id} backed off ${p.length} cells to break a deadlock`, r.current_task_id);
   }
 
   private remainingPathLength(r: RobotState): number {
@@ -1457,6 +1617,7 @@ export class SimEngine {
     r.stats.energy_wh += drain * 0.5;
     if (r.battery < THRESHOLDS.BATTERY_CRITICAL && rt.lastBatteryAlert !== "CRIT") {
       rt.lastBatteryAlert = "CRIT";
+      if (r.load.current > 0) { this.harness.battery_strandings++; this.recordFailure("BATTERY_STRANDING", r.zone, [r.id], `${r.id} hit critical battery (${r.battery.toFixed(0)}%) while carrying a load`, r.current_task_id); }
       this.emit("ROBOT_BATTERY_CRITICAL", "ROBOT", "CRITICAL", `${r.id} Battery Critical (${r.battery.toFixed(0)}%)`, { robot_id: r.id, zone_id: r.zone ?? undefined });
       this.raiseAlert(`bat-${r.id}`, "CRITICAL", `${r.id}  Battery Critical`, `${r.battery.toFixed(0)}% remaining`, { robot_id: r.id, zone_id: r.zone ?? undefined });
     } else if (r.battery < THRESHOLDS.BATTERY_WARNING && rt.lastBatteryAlert === "NONE") {
@@ -1761,7 +1922,7 @@ export class SimEngine {
           this.emit("HUMAN_DETECTED", "VLM", "HIGH", `Human detected — Zone ${inj.zone_id}`, { zone_id: inj.zone_id });
           this.emit("ZONE_BLOCKED", "SIMULATION", "HIGH", `Zone ${inj.zone_id} marked BLOCKED`, { zone_id: inj.zone_id });
           this.raiseAlert(`zone-${inj.zone_id}`, "HIGH", `Zone ${inj.zone_id}  Human Detected`, "Route blocked", { zone_id: inj.zone_id });
-          for (const id in S.robots) { const r = S.robots[id]; if (r.path.length && r.path.slice(r.path_index).some(([c, rr]) => c >= Math.min(...xs) && c < Math.max(...xs) && rr >= Math.min(...zs) && rr < Math.max(...zs))) this.setFsm(r, "OBSTACLE_DETECTED"); }
+          for (const id in S.robots) { const r = S.robots[id]; if (r.path.length && r.path.slice(r.path_index).some(([c, rr]) => c >= Math.min(...xs) && c < Math.max(...xs) && rr >= Math.min(...zs) && rr < Math.max(...zs))) { this.setFsm(r, "OBSTACLE_DETECTED"); this.recordFailure("HUMAN_REPLAN", inj.zone_id, [r.id], `${r.id} rerouting around a person in zone ${inj.zone_id}`, r.current_task_id); } }
           break;
         }
         case "TRAFFIC_CONGESTION": {

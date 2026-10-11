@@ -148,6 +148,8 @@ export interface TaskState {
   deadline_tick: number | null;
   eta_s: number | null;
   load_units: number;
+  /** Shelf level (1 = floor level) the arm must reach when a shelf is involved */
+  level?: number;
 }
 
 // ─────────────────────────────────────────────────────────────

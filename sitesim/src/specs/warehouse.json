@@ -1,10 +1,10 @@
 {
   "schema_version": "2.0",
   "meta": {
-    "id": "warehouse-main-v1",
-    "name": "Main Warehouse (100×70m)",
+    "id": "warehouse-humanoid",
+    "name": "Main Warehouse (100×70m) · HUM-1 fleet",
     "vertical": "warehouse",
-    "description": "Two-floor autonomous warehouse: 20 AMRs, 4 ground zones + mezzanine, 2 freight lifts, conveyors, packing/sorting stations, chargers, CCTV."
+    "description": "Two-floor warehouse run by 20 HUM-1 legged robots (quadruped + arm): 4 ground zones + mezzanine, 2 freight lifts, west stairs, conveyors, packing/sorting, chargers, CCTV."
   },
   "site": {
     "units": "m",
@@ -4533,6 +4533,48 @@
         46,
         51
       ]
+    },
+    {
+      "id": "STAIR-W-F1",
+      "kind": "stairs",
+      "zone": "C",
+      "floor": 1,
+      "position": [
+        9,
+        0,
+        49
+      ],
+      "rotation": 0,
+      "from_floor": 1,
+      "to_floor": 2,
+      "rect": [
+        8,
+        48,
+        10,
+        50
+      ],
+      "blocks_grid": true
+    },
+    {
+      "id": "STAIR-W-F2",
+      "kind": "stairs",
+      "zone": "M",
+      "floor": 2,
+      "position": [
+        9,
+        0,
+        49
+      ],
+      "rotation": 0,
+      "from_floor": 2,
+      "to_floor": 1,
+      "rect": [
+        8,
+        48,
+        10,
+        50
+      ],
+      "blocks_grid": true
     }
   ],
   "lifts": [
@@ -10242,19 +10284,23 @@
   "fleet": {
     "classes": [
       {
-        "id": "AMR-L",
+        "id": "HUM-1",
         "max_speed": 1.5,
-        "capacity": 4,
+        "capacity": 1,
         "lidar": {
           "range_m": 4,
           "fov_deg": 270
-        }
+        },
+        "locomotion": "legged",
+        "can_climb_stairs": true,
+        "terrain_tolerance": 1,
+        "min_clearance_cells": 1
       }
     ],
     "spawns": [
       {
         "id": "R01",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           40,
           0,
@@ -10266,7 +10312,7 @@
       },
       {
         "id": "R02",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           42,
           0,
@@ -10278,7 +10324,7 @@
       },
       {
         "id": "R03",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           44,
           0,
@@ -10290,7 +10336,7 @@
       },
       {
         "id": "R04",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           46,
           0,
@@ -10302,7 +10348,7 @@
       },
       {
         "id": "R05",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           48,
           0,
@@ -10314,7 +10360,7 @@
       },
       {
         "id": "R06",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           50,
           0,
@@ -10326,7 +10372,7 @@
       },
       {
         "id": "R07",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           52,
           0,
@@ -10338,7 +10384,7 @@
       },
       {
         "id": "R08",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           54,
           0,
@@ -10350,7 +10396,7 @@
       },
       {
         "id": "R09",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           56,
           0,
@@ -10362,7 +10408,7 @@
       },
       {
         "id": "R10",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           58,
           0,
@@ -10374,7 +10420,7 @@
       },
       {
         "id": "R11",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           40,
           0,
@@ -10386,7 +10432,7 @@
       },
       {
         "id": "R12",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           42,
           0,
@@ -10398,7 +10444,7 @@
       },
       {
         "id": "R13",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           44,
           0,
@@ -10410,7 +10456,7 @@
       },
       {
         "id": "R14",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           46,
           0,
@@ -10422,7 +10468,7 @@
       },
       {
         "id": "R15",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           48,
           0,
@@ -10434,7 +10480,7 @@
       },
       {
         "id": "R16",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           50,
           0,
@@ -10446,7 +10492,7 @@
       },
       {
         "id": "R17",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           14,
           0,
@@ -10458,7 +10504,7 @@
       },
       {
         "id": "R18",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           20,
           0,
@@ -10470,7 +10516,7 @@
       },
       {
         "id": "R19",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           26,
           0,
@@ -10482,7 +10528,7 @@
       },
       {
         "id": "R20",
-        "class": "AMR-L",
+        "class": "HUM-1",
         "position": [
           32,
           0,
@@ -10545,7 +10591,7 @@
     "types": [
       {
         "id": "PICK",
-        "weight": 0.55,
+        "weight": 0.5,
         "gen_source_kinds": [
           "SHELF"
         ],
@@ -10603,7 +10649,7 @@
       },
       {
         "id": "RETURN",
-        "weight": 0,
+        "weight": 0.1,
         "gen_source_kinds": [
           "PACKING"
         ],
@@ -11104,6 +11150,27 @@
       "src": "reference",
       "ref": "WareTwin task rules (PICK/REPLENISH/TRANSPORT/RETURN)",
       "conf": 1
+    },
+    "fleet.classes[HUM-1]": {
+      "src": "interview",
+      "ref": "team decision 2026-10-11: legged quadruped with one arm and torso lift; can_climb_stairs",
+      "conf": 0.9
+    },
+    "fixtures[STAIR-W-*]": {
+      "src": "blueprint",
+      "ref": "west stairwell in zone C to the mezzanine, added for the stairs-versus-lift lever",
+      "conf": 0.8
+    },
+    "sim.STAIR_*": {
+      "src": "research",
+      "ref": "stair costs frozen as spec settings; the brain never edits them",
+      "conf": 0.7
     }
+  },
+  "sim": {
+    "STAIR_CLIMB_TICKS": 240,
+    "STAIR_CAPACITY": 2,
+    "STAIR_LOAD_TICKS": 40,
+    "BATTERY_STAIR": 0.01
   }
 }
