@@ -52,7 +52,9 @@ export async function refreshBrain() {
 
 let bootstrapped = false;
 export function useBrainSnapshot(): Snap {
-  useEffect(() => { if (!bootstrapped) { bootstrapped = true; refreshBrain(); } }, []);
+  useEffect(() => {
+    if (!bootstrapped) { bootstrapped = true; refreshBrain(); window.setInterval(() => { refreshBrain(); }, 15000); }
+  }, []);
   return useSyncExternalStore((cb) => { snapSubs.add(cb); return () => { snapSubs.delete(cb); }; }, () => snap);
 }
 
@@ -86,7 +88,7 @@ const setLiveState = (l: boolean) => { if (isLive !== l) { isLive = l; liveSubs.
 function openSource() {
   if (es || refs === 0) return;
   es = new EventSource(API + "/api/events");
-  es.onopen = () => { retryDelay = 1000; setLiveState(true); };
+  es.onopen = () => { invalidateGraphs(); refreshBrain(); retryDelay = 1000; setLiveState(true); };
   es.onmessage = (m) => {
     let e: Ev; try { e = JSON.parse(m.data) as Ev; } catch { return; }
     // Keep the shared cache honest before fan-out, so every consumer sees fresh data on its refresh.

@@ -1248,7 +1248,7 @@ export class SimEngine {
         const queueLen = best ? Object.values(this.state.lifts[best.id].queue).reduce((a, q) => a + q.length, 0) + (this.state.lifts[best.id].reserved_by ? 1 : 0) : Infinity;
         useStairs = (best === null || queueLen >= this.P.STAIR_MIN_LIFT_QUEUE) && r.load.current <= this.P.STAIR_MAX_LOAD;
         if (rt.floorPref) { useStairs = rt.floorPref === "stairs"; rt.floorPref = null; }
-        if (this.onException) this.onException(r, "FLOOR_CHOICE", { stairs: useStairs, lift: best?.id ?? null, lift_queue: queueLen === Infinity ? null : queueLen, loaded: r.load.current > 0, from: r.floor, to: tf });
+        if (this.onException) { const t = r.current_task_id ? this.state.tasks[r.current_task_id] : undefined; this.onException(r, "FLOOR_CHOICE", { stairs: useStairs, lift: best?.id ?? null, lift_queue: queueLen === Infinity ? null : queueLen, loaded: r.load.current > 0, from: r.floor, to: tf, zone: t ? this.taskZone(t) : r.zone, task: t ? { id: t.id, type: t.type, level: t.level } : null }); }
       }
       if (stair && useStairs) {
         const stairTarget = this.stairPoint(stair);
