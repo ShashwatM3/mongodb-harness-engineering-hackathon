@@ -23,7 +23,12 @@ sandboxes:
             - approval_context
             - human_review
             - record_decision
+        # Only the linked Atlas cluster (base policy). Add api.raindrop.ai here if KG_RAINDROP is turned on.
+        network:
+            egress_mode: deny_all
     tool:
         secrets: []
         tools: []
+        network:
+            egress_mode: deny_all
 version: 0.1.0

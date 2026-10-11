@@ -4,7 +4,9 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 src="$here/../../../kg"
-rm -rf "$here/src/kg" && mkdir -p "$here/src/kg/tools"
+# Refresh only the .py files: the dev container writes root-owned __pycache__ here.
+mkdir -p "$here/src/kg/tools"
+find "$here/src/kg" -name "*.py" -user "$(id -u)" -delete
 cp "$src"/*.py "$here/src/kg/"
 cp "$src"/tools/*.py "$here/src/kg/tools/"
 echo "copied kg/ ($(git -C "$src" rev-parse --short HEAD)) into src/kg"
