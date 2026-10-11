@@ -6,7 +6,7 @@
   GATEWAY_WEB_URL           its dashboard (default http://localhost:5173)
   HARNESS_TOKEN             bearer the gateway expects on POST /v1/incidents (its HARNESS_TOKEN)
   HARNESS_OUTBOUND_TOKEN    bearer the gateway sends us on routes B-F (its HARNESS_OUTBOUND_TOKEN)
-  HELDOUT_SEEDS             comma list, default 301-306 (gate-only; never given to the improver)
+  HELDOUT_SEEDS             comma list, default 301-310 (gate-only; never given to the improver)
   FINAL_SEEDS               comma list, default 401-410
   SUPERVISOR_MODEL          Claude model id for the supervisor (default: the CLI's default)
   SUPERVISOR_MAX_TURNS      default 40
@@ -33,7 +33,7 @@ class Settings:
     gateway_web_url: str = field(default_factory=lambda: os.getenv("GATEWAY_WEB_URL", "http://localhost:5173"))
     harness_token: str = field(default_factory=lambda: os.getenv("HARNESS_TOKEN", "dev-harness-token-change-me"))
     outbound_token: str = field(default_factory=lambda: os.getenv("HARNESS_OUTBOUND_TOKEN", ""))
-    heldout_seeds: list[int] = field(default_factory=lambda: _seeds("HELDOUT_SEEDS", list(range(301, 307))))
+    heldout_seeds: list[int] = field(default_factory=lambda: _seeds("HELDOUT_SEEDS", list(range(301, 311))))
     final_seeds: list[int] = field(default_factory=lambda: _seeds("FINAL_SEEDS", list(range(401, 411))))
     model: str | None = field(default_factory=lambda: os.getenv("SUPERVISOR_MODEL") or None)
     max_turns: int = field(default_factory=lambda: int(os.getenv("SUPERVISOR_MAX_TURNS", "40")))

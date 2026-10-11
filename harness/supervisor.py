@@ -106,7 +106,20 @@ def make_server(st: State):
 
 
 async def run_round(st: State, round_no: int, prompt: str | None = None) -> dict:
-    """One supervisor round. Streams transcript events; returns {text, tool_calls, promoted_to, pending_approval}."""
+    """One supervisor round. Streams transcript events; returns {text, tool_calls, promoted_to, pending_approval}.
+    SUPERVISOR_BACKEND=rules (or a Claude session/rate-limit error) runs the same default order without a model."""
+    from .supervisor_rules import run_round_rules
+    if os.getenv("SUPERVISOR_BACKEND", "claude") == "rules":
+        return await asyncio.to_thread(run_round_rules, st, round_no)
+    try:
+        return await _run_round_claude(st, round_no, prompt)
+    except Exception as e:  # ProcessError / ResultError: session limit, missing login, CLI failure
+        log.warning("claude supervisor unavailable (%s); running the rules supervisor", str(e)[:200])
+        st.bus.emit("supervisor_fallback", round=round_no, error=str(e)[:300])
+        return await asyncio.to_thread(run_round_rules, st, round_no)
+
+
+async def _run_round_claude(st: State, round_no: int, prompt: str | None = None) -> dict:
     server, allowed = make_server(st)
     env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
     opts = ClaudeAgentOptions(
