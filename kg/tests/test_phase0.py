@@ -15,7 +15,7 @@ V1_SETTINGS = [s for s in SETTINGS if s.gets_v1_component]
 
 def test_seed_writes_skeleton_concepts_envelope_and_v1(gate):
     db = gate.db
-    assert db.brain_nodes.count_documents({"kind": {"$in": ["site", "zone", "task"]}}) == 1 + 4 + 16 == 21
+    assert db.brain_nodes.count_documents({"kind": {"$in": ["site", "zone", "task"]}}) == 1 + 5 + 20 == 26
     assert {d["zone"] for d in db.brain_nodes.find({"kind": "zone"})} == set(SKELETON_ZONES)
     assert db.brain_nodes.count_documents({"kind": "task"}) == len(SKELETON_ZONES) * len(TASK_TYPES)
     assert 40 <= db.concepts.count_documents({}) <= 60
@@ -64,7 +64,7 @@ def test_load_brain_deeper_node_wins(gate):
 def test_export_brain_v1_is_a_valid_contract_brain(gate):
     b = gate.export_brain(1)
     Brain.model_validate(b.model_dump(mode="json"))
-    assert len(b.nodes) == 21 + len(V1_SETTINGS)
+    assert len(b.nodes) == 26 + len(V1_SETTINGS)
     eff = effective_edits(b)
     assert eff["sim.STAIR_MIN_LIFT_QUEUE"]["value"] == 99
     assert eff["class.HUM-1.max_speed"]["value"] == 1.2

@@ -483,7 +483,9 @@ class KG:
     # ── Phase 1: proposals, shifts, verdicts, promotion ──────
 
     def _apply_edits(self, base: Brain, edits: dict[str, float], origin: dict) -> Brain:
-        """The candidate: base export with each edited target's site-level component replaced in place."""
+        """The candidate: base export with every component that sets an edited target (at any node) replaced
+        by one site-level component. The compiled patch is flat, so a deeper rule for the same setting would
+        otherwise shadow the candidate and turn it into a no-op."""
         env = self._envelope()
 
         def cand_node(t, v):
@@ -495,7 +497,7 @@ class KG:
         nodes, placed = [], set()
         for n in base.nodes:
             e = edit_of(n)
-            if e is not None and e.target in edits and n.parent_id == SITE_ID:
+            if e is not None and e.target in edits:
                 if e.target not in placed:
                     nodes.append(cand_node(e.target, edits[e.target]))
                     placed.add(e.target)
@@ -803,6 +805,12 @@ class KG:
             raise KGError(f"gate run is {run['verdict']}: {run.get('reason')}")
         if run.get("zones") is None:
             raise KGError("not evaluated yet")
+        if run["verdict"] not in ("passed", "needs_approval"):
+            raise KGError(f"gate run {run['_id']} is {run['verdict']!r}: the gate has not decided yet, "
+                          "record_verdict(passed | needs_approval) first")
+        if self._env is not None and run.get("env_key") != self._env.key:
+            raise EnvMismatch(f"gate run {run['_id']} was measured in env {run.get('env_key')}, but the runner now "
+                              f"reports {self._env.key} (engine or spec changed): re-evaluate it before promoting")
         if run["base_version"] != latest and run["base_patch_hash"] != self._patch_hash_like(run, latest):
             raise StalePromotion(f"evaluated against v{run['base_version']}, but the latest brain is v{latest} and "
                                  "runs differently: re-evaluate the candidate on the latest brain")
@@ -814,6 +822,26 @@ class KG:
         if run.get("hash_source") == "runner" and self.runner is not None:
             return self.validate(brain).patch_hash
         return self._local_validation(brain).patch_hash
+
+    #: a pending brain_versions row older than this is an abandoned commit, not one in flight
+    ABANDONED_COMMIT_S = 300
+
+    def _recover_abandoned(self, N: int) -> bool:
+        """The pending brain_versions row is the commit lock. A gate process that dies between taking it and
+        committing leaves the lock, and maybe half its components, so every later commit would fail with
+        "being created by another commit". Once the row is old enough, roll it back: drop the components it
+        inserted (since == N) and un-retire the ones it retired (until == N)."""
+        cutoff = now() - dt.timedelta(seconds=self.ABANDONED_COMMIT_S)
+        stale = self.c("brain_versions").find_one_and_delete(
+            {"_id": f"v{N}", "status": "pending", "created_at": {"$lt": cutoff}})
+        if stale is None:
+            return False
+        dropped = self.c("brain_nodes").delete_many({"kind": {"$in": COMPONENT_KINDS}, "since": N}).deleted_count
+        revived = self.c("brain_nodes").update_many({"kind": {"$in": COMPONENT_KINDS}, "until": N},
+                                                    {"$set": {"until": None}}).modified_count
+        log.warning("rolled back abandoned commit v%s from %s: %d components dropped, %d un-retired",
+                    N, stale.get("created_at"), dropped, revived)
+        return True
 
     def commit_brain_version(self, add: list[dict], retire: Iterable[str] = (), evidence: Optional[dict] = None, *,
                              hypothesis: Optional[str] = None, force: bool = False, _run: Optional[dict] = None) -> dict:
@@ -841,7 +869,9 @@ class KG:
         if not add and not retire:
             raise ValueError("nothing to commit: add or retire at least one component")
 
-        nodes = {d["_id"] for d in self.c("brain_nodes").find({"kind": {"$in": SKELETON_KINDS}}, {"_id": 1})}
+        parents = {d["_id"]: d.get("parent_id") for d in
+                   self.c("brain_nodes").find({"kind": {"$in": SKELETON_KINDS}}, {"_id": 1, "parent_id": 1})}
+        nodes = set(parents)
         env, by_t = self._envelope(), registry.by_target(self.settings)
         current = {t: e["value"] for t, e in effective_edits(self._build_brain(latest)).items()}
         docs, approvals, changes = [], [], {}
@@ -892,15 +922,41 @@ class KG:
                     raise KGError(f"{t}={v} is not the edit gate run {run['_id']} measured")
 
         active = {c["_id"]: c for c in self.c("brain_nodes").find(self._active_filter(latest),
-                                                                  {"parent_id": 1, "key": 1})}
+                                                                  {"parent_id": 1, "key": 1, "compiles_to": 1})}
         retire = list(dict.fromkeys(retire))
         for r in retire:
             if r not in active:
                 raise KGError(f"{r} is not active in v{latest}")
+
+        def under(node: Optional[str], ancestor: str) -> bool:
+            while node is not None:
+                if node == ancestor:
+                    return True
+                node = parents.get(node)
+            return False
+
         for d in docs:
             for cid, c in active.items():
-                if c["parent_id"] == d["parent_id"] and c.get("key") == d["key"] and cid not in retire:
+                if c.get("key") != d["key"] or cid in retire:
+                    continue
+                # one component per key per node; and a compiled setting is flat for the engine, so a deeper
+                # component for the same setting would shadow the new one: retire it too
+                if c["parent_id"] == d["parent_id"] or (d.get("compiles_to") and c.get("compiles_to")
+                                                        and under(c["parent_id"], d["parent_id"])):
                     retire.append(cid)
+        compiled = [d for d in docs if d.get("compiles_to")]
+        if compiled:
+            preview = self._build_brain(latest, exclude=retire)
+            preview.nodes += [BrainNode(node_id=d["_id"], parent_id=d["parent_id"], level=d["kind"],
+                                        body=d["compiles_to"], key=d["key"]) for d in compiled]
+            eff = effective_edits(preview)
+            for d in compiled:
+                t, v = d["compiles_to"]["target"], d["compiles_to"]["value"]
+                won = eff.get(t)
+                if won is None or won["node_id"] != d["_id"]:
+                    raise KGError(f"{d['_id']} would not take effect: {t} is set by {won['node_id'] if won else '?'} "
+                                  f"at a node that is not above {d['parent_id']}; retire it or add there instead")
+        self._recover_abandoned(N)
         try:
             self.c("brain_versions").insert_one({
                 "_id": f"v{N}", "version": N, "parent": f"v{latest}", "status": "pending", "added": [],
@@ -998,17 +1054,24 @@ class KG:
     def _evidence_for(self, run: dict) -> dict:
         """Team doc 03's evidence: the habit, the base brain's failures of the type the edit reduced most,
         that failure type as the signal, the gate run, and where the problem was seen."""
-        reduced = sorted(((v["base"] - v["cand"], t) for t, v in (run.get("failures") or {}).items()
-                          if v["base"] > v["cand"]), reverse=True)
+        reduced = [(v["base"] - v["cand"], t) for t, v in (run.get("failures") or {}).items() if v["base"] > v["cand"]]
+        # late and dropped tasks are the symptom of nearly every fix; name the cause when one also fell
+        reduced.sort(key=lambda x: (failure_group_of(x[1]) == "throughput", -x[0], x[1]))
         signal = reduced[0][1] if reduced else None
         ep_ids, observed = [], None
         if signal:
             eps = list(self.c("episodes").find({"shift_id": {"$in": run["shift_ids"]["base"]}, "type": signal},
                                                {"zone": 1, "seed": 1, "tick": 1}).sort([("seed", 1), ("tick", 1)]))
-            ep_ids = [e["_id"] for e in eps[:10]]
             zc = Counter(e.get("zone") for e in eps if e.get("zone"))
-            if zc:
+            # the zone where the candidate removed the most of them (the per-entry lists are capped at 25 per
+            # type and seed, so this is where the fix was seen, not an exact count)
+            zc.subtract(e.get("zone") for e in self.c("episodes").find(
+                {"shift_id": {"$in": run["shift_ids"]["cand"]}, "type": signal}, {"zone": 1}) if e.get("zone"))
+            if zc and max(zc.values()) > 0:
                 observed = zc.most_common(1)[0][0]
+            # the examples come from that zone, so explain() shows what was fixed where
+            eps.sort(key=lambda e: e.get("zone") != observed)
+            ep_ids = [e["_id"] for e in eps[:10]]
         if observed is None and run.get("zones"):
             observed = max(run["zones"], key=lambda z: run["zones"][z]["delta"])
         ev = {"gate_run_id": run["_id"], "signal": signal, "episode_ids": ep_ids,
@@ -1181,6 +1244,11 @@ class KG:
     def graph_snapshot(self, V: int, compare_to: Optional[int] = None) -> dict:
         from .views import graph_snapshot
         return graph_snapshot(self, V, compare_to)
+
+    def history(self, target: str) -> dict:
+        """One setting across every version, with the evidence behind each change."""
+        from .views import history
+        return history(self, target)
 
     def get_signals(self, shift_id: str, client=None, dev: Optional[bool] = None) -> dict:
         """Raindrop's signals for one shift, by category. Needs RAINDROP_QUERY_API_KEY unless `client`

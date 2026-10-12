@@ -5,6 +5,7 @@ suggest(V)         top untested candidates, plus "passed but not promoted"
 explain(id)        rule → habit + clip → episodes → gate run, plus heldout_passed
 lineage(V)         $graphLookup over brain_versions.parent, joined to promoting runs and habits
 graph_snapshot(V)  nodes and links for one version, added/retired components marked
+history(target)    one setting across every version, with the evidence behind each change
 get_signals(shift) Raindrop's signals for one shift, grouped by category (reads the Query API)
 
 Nothing here reads heldout_* collections, so every view works with the improver client
@@ -115,20 +116,46 @@ def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None
     runs = list(kg.c("gate_runs").find({"env_key": env.key, "base_patch_hash": H}).sort("created_at", 1))
     B: dict[str, list] = {}
     tested: dict[str, list] = defaultdict(list)
+    no_effect: dict[str, list] = defaultdict(list)   # values whose run changed no zone on any seed
+    improved: set[str] = set()                        # targets with at least one run that helped somewhere
     for r in runs:
         row = run_row(r)
         groups = sorted({e.get("lever_group") or "unknown" for e in r["edits"]}) or ["(no edits)"]
         for g in groups:
             B.setdefault(g, []).append(row)
+        zones = r.get("zones") or {}
+        inert = bool(zones) and all(v["delta"] == 0 and not v["seeds_better"] and not v["seeds_worse"]
+                                    for v in zones.values())
+        helped = any(v["delta"] > 0 for v in zones.values())
         for e in r["edits"]:
             if not any(same_value(e["value"], t) for t in tested[e["target"]]):
                 tested[e["target"]].append(e["value"])
+            if inert and len(r["edits"]) == 1:
+                no_effect[e["target"]].append(e["value"])
+            if helped:
+                improved.add(e["target"])
 
     # C. untested settings, ordered by the ontology
     order = lever_group_order(kg, A, learned)
     rank = {g: i for i, (g, _) in enumerate(order)}
     envelope = kg._envelope()
     current = {t: e["value"] for t, e in val.effective.items()}
+    # values the gate rejected on an earlier brain in this env, and values a promotion in this env moved away
+    # from: still allowed, but never among the first to try again
+    rejected_before: dict[str, list] = defaultdict(list)
+    superseded: dict[str, list] = defaultdict(list)
+    for r in kg.c("gate_runs").find({"env_key": env.key, "verdict": {"$in": ["rejected", "promoted"]}},
+                                    {"verdict": 1, "base_patch_hash": 1, "edits.target": 1, "edits.value": 1,
+                                     "edits.base_value": 1}):
+        for e in r["edits"]:
+            if r["verdict"] == "promoted":
+                bucket, v = superseded[e["target"]], e.get("base_value")
+            elif r["base_patch_hash"] != H:
+                bucket, v = rejected_before[e["target"]], e["value"]
+            else:
+                continue
+            if v is not None and not any(same_value(v, t) for t in bucket):
+                bucket.append(v)
     rows = []
     for i, s in enumerate(kg.settings):
         if not s.is_lever:
@@ -136,12 +163,22 @@ def get_context(kg, V: int, split: str = "train", learned: Optional[dict] = None
         d = envelope.get(s.target, {})
         cur = current.get(s.target, d.get("engine_default", s.engine_default))  # absent: the engine default runs
         tried = sorted(tested.get(s.target, []))
+        rej = sorted(v for v in rejected_before.get(s.target, []) if not same_value(v, cur))
+        old = sorted(v for v in superseded.get(s.target, []) if not same_value(v, cur)
+                     and not any(same_value(v, x) for x in rej))
+        last = rej + old
         nxt = [v for v in s.candidates() if not same_value(v, cur) and not any(same_value(v, t) for t in tried)]
+        nxt.sort(key=lambda v: any(same_value(v, x) for x in last))  # stable: keeps the grid order within each half
+        inert = bool(tried) and s.target not in improved and \
+            all(any(same_value(t, x) for x in no_effect.get(s.target, [])) for t in tried)
         rows.append({"target": s.target, "lever_group": s.group, "status": d.get("status", s.status),
                      "min": d.get("min", s.min), "max": d.get("max", s.max), "v1": d.get("v1", s.v1), "current": cur,
-                     "tested": tried, "untested": nxt[:5], "needs_call": d.get("status", s.status) == "locked",
-                     "_i": i})
-    rows.sort(key=lambda r: (r["needs_call"], rank.get(r["lever_group"], 99), r["_i"]))
+                     "tested": tried, "no_effect": sorted(no_effect.get(s.target, [])), "inert": inert,
+                     "rejected_before": rej, "superseded": old, "untested": nxt[:5],
+                     "stale_only": bool(nxt) and all(any(same_value(v, x) for x in last) for v in nxt),
+                     "needs_call": d.get("status", s.status) == "locked", "_i": i})
+    # a setting whose every tried value changed nothing on this brain goes after the ones still worth probing
+    rows.sort(key=lambda r: (r["needs_call"], r["inert"], rank.get(r["lever_group"], 99), r["_i"]))
     for r in rows:
         r.pop("_i")
 
@@ -199,24 +236,38 @@ def render_context(d: dict) -> str:
     C = d["C"]
     out.append("### C. Untested settings, in the order to try them")
     out.append("Lever groups: " + "; ".join(f"{o['group']} ({o['why']})" for o in C["lever_group_order"]))
-    out.append("| setting | group | status | min | max | v1 | current | tried | try next |")
-    out.append("|---|---|---|---|---|---|---|---|---|")
+    out.append("| setting | group | status | min | max | v1 | current | tried | try next | tried before, no good |")
+    out.append("|---|---|---|---|---|---|---|---|---|---|")
     for r in C["settings"]:
         status = "locked: needs a call" if r["needs_call"] else r["status"]
+        if r.get("inert"):
+            status += "; no effect so far"
+        before = [f"{_num(v)} (rejected)" for v in r.get("rejected_before") or []] + \
+                 [f"{_num(v)} (superseded)" for v in r.get("superseded") or []]
         out.append(f"| {r['target']} | {r['lever_group']} | {status} | {_num(r['min'])} | {_num(r['max'])} | "
                    f"{_num(r['v1'])} | {_num(r['current'])} | {', '.join(map(_num, r['tested'])) or '-'} | "
-                   f"{', '.join(map(_num, r['untested'])) or '-'} |")
+                   f"{', '.join(map(_num, r['untested'])) or '-'} | {', '.join(before) or '-'} |")
     return "\n".join(out)
 
 
 def suggest(kg, V: int, k: int = 3, split: str = "train") -> dict:
+    """The k candidates to try next: section C's first untested setting of each lever group in turn, so one
+    round never spends every proposal on a single group (a group that has stopped paying off would
+    otherwise be probed value after value, as the simulation showed), then the groups' second settings."""
     ctx = get_context(kg, V, split)
     why = {o["group"]: o["why"] for o in ctx["data"]["C"]["lever_group_order"]}
-    cands = []
+    by_group: dict[str, list] = {}
     for r in ctx["data"]["C"]["settings"]:
-        if len(cands) >= k:
-            break
         if r["untested"]:
+            by_group.setdefault(r["lever_group"], []).append(r)
+    for rows in by_group.values():  # within a group, a setting with fresh values before one with only old ones
+        rows.sort(key=lambda r: r["stale_only"])
+    cands = []
+    while len(cands) < k and any(by_group.values()):
+        for g in list(by_group):
+            if not by_group[g] or len(cands) >= k:
+                continue
+            r = by_group[g].pop(0)
             cands.append({"target": r["target"], "value": r["untested"][0], "lever_group": r["lever_group"],
                           "status": r["status"], "needs_call": r["needs_call"], "why": why.get(r["lever_group"])})
     H = ctx["data"]["patch_hash"]
@@ -369,6 +420,55 @@ def graph_snapshot(kg, V: int, compare_to: Optional[int] = None) -> dict:
                           "status": "evidence"})
     counts = Counter(n["status"] for n in nodes)
     return {"version": V, "compare_to": prev, "nodes": nodes, "links": links, "counts": dict(counts)}
+
+
+def history(kg, target: str) -> dict:
+    """One setting across every committed version: its effective value at each, and for each change the
+    component, gate run, hypothesis and origin behind it. "What has the stair threshold been, and why did
+    it move?" in one call, instead of export_brain over every version."""
+    from .hashing import effective_edits
+
+    env = kg.c("envelope").find_one({"_id": target}) or {}
+    if not env and not kg.c("brain_nodes").find_one({"key": target}, {"_id": 1}):
+        raise KeyError(f"no setting or component key {target!r}")
+    versions = list(kg.c("brain_versions").find({"status": {"$ne": "pending"}}).sort("version", 1))
+    rows = []
+    for v in versions:
+        e = effective_edits(kg._build_brain(v["version"])).get(target)
+        rows.append({"version": v["version"], "value": e["value"] if e else env.get("engine_default"),
+                     "component_id": e["node_id"] if e else None, "hypothesis": v.get("hypothesis"),
+                     "promoted_by": v.get("promoted_by"), "heldout_passed": v.get("heldout_passed")})
+    changes = []
+    for prev, cur in zip(rows, rows[1:]):
+        if same_value(prev["value"], cur["value"]):
+            continue
+        comp = kg.c("brain_nodes").find_one({"_id": cur["component_id"]}) if cur["component_id"] else None
+        ev = (comp or {}).get("evidence") or {}
+        gid = ev.get("gate_run_id") or cur["promoted_by"]
+        run = kg.c("gate_runs").find_one({"_id": gid}, {"zones": 1, "verdict": 1, "origin": 1, "split": 1}) if gid else None
+        m = ((run or {}).get("zones") or {}).get("M") or {}
+        changes.append({"version": cur["version"], "from": prev["value"], "to": cur["value"],
+                        "component_id": cur["component_id"], "gate_run_id": gid, "hypothesis": cur["hypothesis"],
+                        "origin": (comp or {}).get("origin") or (run or {}).get("origin"),
+                        "signal": ev.get("signal"), "habit_id": ev.get("habit_id"),
+                        "zone_M_delta": m.get("delta"), "heldout_passed": cur["heldout_passed"]})
+    md = [f"**{target}**" + (f" ({env['status']}, [{_num(env.get('min'))}, {_num(env.get('max'))}], v1 {_num(env.get('v1'))})"
+                             if env else "") + ": " + " → ".join(f"v{r['version']} {_num(r['value'])}" for r in rows)]
+    for c in changes:
+        src = (c["origin"] or {}).get("source") if isinstance(c["origin"], dict) else None
+        bits = [f"v{c['version']}: {_num(c['from'])}→{_num(c['to'])}"]
+        if c["hypothesis"]:
+            bits.append(f'"{c["hypothesis"]}"')
+        if src:
+            bits.append(f"from {c['habit_id'] or src}")
+        if c["signal"]:
+            bits.append(f"fixed {c['signal']}")
+        if c["zone_M_delta"] is not None:
+            bits.append(f"zone M {c['zone_M_delta']:+.3f}")
+        bits.append({True: "held-out passed", False: "held-out failed"}.get(c["heldout_passed"], "held-out not recorded"))
+        md.append("- " + ", ".join(bits))
+    return {"target": target, "envelope": {k: env.get(k) for k in ("status", "min", "max", "v1", "engine_default")},
+            "versions": rows, "changes": changes, "markdown": "\n".join(md)}
 
 
 # Signal names by category. Gate signals come from the KG itself; hard metrics are the runner's

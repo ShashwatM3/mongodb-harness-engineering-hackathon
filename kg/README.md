@@ -78,6 +78,8 @@ side_info = imp.get_context(V)["markdown"]    # sections A-C for GEPA's reflecti
 
 **GEPA:** `kg/gepa_adapter.py` has `make_evaluator` (single-task mode) and `make_batch_evaluator` (generalization mode). Each measures a candidate once per split.
 
+**What `suggest(V)` returns:** one untested setting per lever group, in section C's order, then the groups' second settings, so a round never spends every proposal on one group. Section C marks a setting as inert when every value tried on this brain changed no zone on any seed, and lists values rejected on earlier brains or superseded by a promotion in a "tried before, no good" column; those are offered last.
+
 **Repeats:** each call is its own Raindrop event, so when GEPA re-proposes a candidate it counts as `re_proposed`. If you call `record_proposal` directly, pass `attempt=` to separate several proposals in one round. Without it, the same `(round, policy)` counts as a retry.
 
 **The gate:**
@@ -85,7 +87,7 @@ side_info = imp.get_context(V)["markdown"]    # sections A-C for GEPA's reflecti
 ```python
 gate.record_verdict(gid, "passed" | "rejected" | "needs_approval", reason)   # sends gate_passed / gate_failed once
 gate.record_heldout(gid, "heldout-a", passed, {"M": 0.21})                   # numbers stay in heldout_results
-gate.promote(gid, hypothesis)        # v(N+1); refuses stale bases and unapproved locked edits
+gate.promote(gid, hypothesis)        # v(N+1); needs a passed/needs_approval verdict; refuses stale bases, other envs, unapproved locked edits
 gate.record_final(N, passed, zone_delta)   # after the freeze: the final seed set, v1 against vN
 ```
 
@@ -103,12 +105,18 @@ gate.commit_brain_version(add=[{kind, parent_id, key, ...}], retire=[ids], evide
 ```
 
 `commit_brain_version` writes with insert-many and update-many, never `$merge`/`$out`. It enforces the following:
-- A component that changes a setting needs `evidence.gate_run_id` naming an evaluated, non-rejected run on the latest brain with that same edit. `force=True` is the human override.
+- A component that changes a setting needs `evidence.gate_run_id` naming a run the gate has passed (or marked `needs_approval`) on the latest brain, in the current runner env, with that same edit. `force=True` is the human override.
 - A locked setting needs an approval.
-- An active component with the same key at the same node is retired automatically.
+- An active component with the same key at the same node is retired automatically. A compiled setting is flat for the engine, so a component that sets one also retires same-key components at deeper nodes under it (they would shadow it), and the commit is refused if the new component still would not take effect.
 - Components that change no setting (context policies, tool grants, notes) commit freely.
+- A pending `brain_versions` row older than five minutes is an abandoned commit (a gate process died mid-write): it is rolled back and the commit proceeds.
 
 `promote()` is `commit_brain_version` built from a gate run.
+
+```python
+imp.history("sim.STAIR_MIN_LIFT_QUEUE")     # also: python -m kg history TARGET
+# -> {versions: [{version, value, component_id, ...}], changes: [{version, from, to, gate_run_id, hypothesis, signal, ...}], markdown}
+```
 
 ```python
 imp.get_signals("sh-...")     # also: python -m kg signals SHIFT_ID [--json]
@@ -172,6 +180,7 @@ python -m kg demo --uri <local or demo cluster>    # the whole story on the fake
 python -m kg brain-context task:M:PICK
 python -m kg explain rule:sim.STAIR_MIN_LIFT_QUEUE@site:main:v2   # rule → clip → episodes → gate run
 python -m kg lineage 4
+python -m kg history sim.STAIR_MIN_LIFT_QUEUE   # one setting across every version, with the evidence behind each change
 python -m kg snapshot 4 --compare-to 1     # nodes/links JSON for React Flow or the diff viewer
 python -m kg export 1 --out /tmp/v1.json   # the exact brain the runner gets
 ```
@@ -239,12 +248,14 @@ atlas customDbRoles update kgImprover --append --privilege 'FIND@kg.scenarios,FI
 
 ```bash
 kg/tools/test_mongo.sh                       # MongoDB 7.0 in Docker on 127.0.0.1:27027
-kg/.venv/bin/python -m pytest kg/tests -q    # ~8 s
+kg/.venv/bin/python -m pytest kg/tests -q    # ~20 s
 ```
 
 To test against Atlas instead, set `KG_TEST_GATE_URI` and `KG_TEST_IMPROVER_URI` (use database `kg_test`); `test_mongo.sh` isn't needed then. On this team's laptops, MongoDB 8.x won't run under Linux kernels 6.19 and newer (SERVER-121912), hence 7.0 locally.
 
 `kg/tools/make_fixtures.sh` regenerates `tests/fixtures/` from TwinForge's `fakeRunShift`. The fake only reads `sim.STAIR_MIN_LIFT_QUEUE`, so one fixture per threshold serves any brain.
+
+`kg/tools/sim_runner.py` is a synthetic twin with a known ground truth (several settings matter, a retune changes the spec_hash, unapproved locked edits get a 422). `kg/tests/test_simulation.py` drives the whole loop on it: promotions with evidence, rejections, stale and abandoned work, a world change and the revert, held-out failure, racing promotions, and eight rounds driven only by `suggest()` that must converge on the known optimum. What it found, what was fixed and what is left is in `kg/tests/simulation-findings.md`.
 
 ## Where the code differs from the plan, on purpose
 

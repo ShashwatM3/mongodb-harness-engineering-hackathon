@@ -7,6 +7,7 @@
   context V | suggest V       what the improver sees for brain V
   brain-context NODE [-v V]   the supervisor's get_brain_context
   explain ID | lineage V      the demo's click path and version chain
+  history TARGET              one setting across every version, with the evidence behind each change
   signals SHIFT_ID [--json]   Raindrop's signals for one shift, by category (needs RAINDROP_QUERY_API_KEY)
   snapshot V [--compare-to N] nodes and links for the stage view (JSON)
   export V [--out FILE]       the contract Brain the runner receives
@@ -69,6 +70,8 @@ def main(argv=None) -> int:
     p.add_argument("--compare-to", type=int)
     p = sub.add_parser("explain")
     p.add_argument("component_id")
+    p = sub.add_parser("history")
+    p.add_argument("target")
     p = sub.add_parser("signals")
     p.add_argument("shift_id")
     p.add_argument("--dev", action="store_true", default=None, help="read the dev project (default: as the sink)")
@@ -226,6 +229,8 @@ def main(argv=None) -> int:
         _print(g.lineage(args.version)["markdown"])
     elif args.cmd == "explain":
         _print(g.explain(args.component_id)["markdown"])
+    elif args.cmd == "history":
+        _print(g.history(args.target)["markdown"])
     elif args.cmd == "signals":
         res = g.get_signals(args.shift_id, dev=args.dev)
         _print(res if args.json else res["markdown"])
