@@ -544,10 +544,6 @@ flowchart TB
 
 <br/>
 
-## 📂 Where everything lives
-
-Everything is on `main`, in one tree. The simulator under `sitesim/` is derived from **TwinForge**, a project a team member built before the event; it was copied in one labelled commit (`c2b5054`, from TwinForge `main@60048f3`) and every commit after it is hackathon work. TwinForge contained no brain, rule graph, gate, runner contract, ElevenLabs or Atlas; all of that was built here.
-
 ```text
 mongodb-harness-engineering-hackathon/
 ├── README.md                     ← you are here
