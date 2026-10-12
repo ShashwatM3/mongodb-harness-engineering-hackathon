@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "node_id": "site:main",
+      "parent_id": null,
+      "level": "site",
+      "label": "Main warehouse"
+    },
+    {
+      "node_id": "rule:sim.STAIR_MIN_LIFT_QUEUE@site:main:v1",
+      "parent_id": "site:main",
+      "level": "rule",
+      "key": "sim.STAIR_MIN_LIFT_QUEUE",
+      "label": "Take the stairs only when 99+ wait for the lift (never)",
+      "body": {
+        "op": "set",
+        "target": "sim.STAIR_MIN_LIFT_QUEUE",
+        "value": 99
+      },
+      "origin": {
+        "source": "baseline"
+      },
+      "since": 1
+    },
+    {
+      "node_id": "guardrail:class.HUM-1.max_speed@site:main:v1",
+      "parent_id": "site:main",
+      "level": "guardrail",
+      "key": "class.HUM-1.max_speed",
+      "label": "Top walking speed of HUM-1 robots (m/s): 1.2",
+      "body": {
+        "op": "set",
+        "target": "class.HUM-1.max_speed",
+        "value": 1.2
+      },
+      "origin": {
+        "source": "baseline"
+      },
+      "since": 1
+    }
+  ],
+  "approvals": []
+}

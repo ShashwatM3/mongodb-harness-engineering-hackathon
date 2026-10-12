@@ -26,7 +26,9 @@ Everything that is new, and everything that is the actual subject of this hackat
 | --- | --- | --- |
 | [`iteration-01-warehouse-idea-evaluation.md`](../SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md) (+ `.txt`) | Iteration 1 of the warehouse robot onboarding idea. | First fact-based verdict, the correction that Harness the company is not a sponsor, who owns which layer among the sponsor tools, the first brain-graph proposal, and open questions. |
 | [`iteration-02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md) (+ `.txt`) | Iteration 2, built on partner documentation, the New York edition's finalists, and a benchmark of TwinForge. | Chooses TwinForge as the simulator, explains how the improvement will be proven, and gives the end-to-end workflow, sponsor roles, demo script, and team split. |
-| [`iteration-03-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md) (+ `.txt`) | Iteration 3, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. **The latest iteration.** | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
+| [`iteration-03-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md) (+ `.txt`) | Iteration 3, written after the team's own workflow notes on a supervisor agent, a launch screen, and a 3D/worker-view dashboard. | Scores that workflow against the criteria, designs the supervisor as a tool-calling harness, researches Raindrop's and MongoDB's newest tools in depth (including Raindrop's own MCP server and MongoDB's new Atlas Managed MCP Server), confirms the judge panel from the team's own photos, and closes with five open decisions. |
+| [`iteration-04-robot-form-clips-and-team-sync.md`](../SCRATCHPADS/iteration-04-robot-form-clips-and-team-sync.md) (+ `.txt`) | Iteration 4, written after Prithviraj's knowledge-graph packet landed and the robot-form, clips, and agent-architecture questions came up. Carries the team's own inline feedback written directly into the file. | Finds that the settings registry's robot class, HUM-1, doesn't exist in TwinForge yet; covers the clips, a review of Aseel's ElevenLabs branch (flags the softphone-vs-real-call decision), answers to Prithviraj's open decisions, and an honest flag on the separate expanded-implementation-plan draft. |
+| [`iteration-05-robot-form-and-build-decisions.md`](../SCRATCHPADS/iteration-05-robot-form-and-build-decisions.md) (+ `.txt`) | Iteration 5, written directly in response to the team's inline feedback on iteration 4. **The latest iteration.** | A real brainstorm on robot form (three concrete options, a recommendation, and why), a faster concrete plan for the clips, and the answer on whether the supervisor should run on Devin/Claude Code/Codex versus the Agent SDK (they're the same engine; the real question is subscription billing). |
 
 ## Other working documents, also in `../SCRATCHPADS/`
 
@@ -35,8 +37,11 @@ These are not iteration rounds; each is a focused artifact on one piece of the s
 | File | What it is | What it is for |
 | --- | --- | --- |
 | [`brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/brain-hierarchical-knowledge-graph.md) (+ `.txt`) | The detailed design of the robot's brain, written after iteration 2. | Describes the brain as a hierarchical knowledge graph, its MongoDB collections, the aggregation pipeline that loads it, versioning, permissions, a worked example, and four open decisions. |
-| [`interface-contracts.md`](../SCRATCHPADS/interface-contracts.md) (+ `.txt`) | A short, urgent document written while two teammates were already building the ElevenLabs call and the MongoDB brain structure in parallel. | Pins down the exact function contract for `place_approval_call` and for `get_brain_context` / `commit_brain_version`, so both pieces plug into the supervisor later with no rework. |
+| [`interface-contracts.md`](../SCRATCHPADS/interface-contracts.md) (+ `.txt`) | A short, urgent document written while two teammates were already building the ElevenLabs call and the MongoDB brain structure in parallel. | Pins down the exact function contract for `place_approval_call` and for `get_brain_context` / `commit_brain_version`, so both pieces plug into the supervisor later with no rework; iteration 4 notes that Aseel's branch has since outgrown this into its own richer contract. |
 | [`knowledge-graph-info-packet.md`](../SCRATCHPADS/knowledge-graph-info-packet.md) | A reference packet on the structure of the knowledge graph as built in [`kg/`](../kg/), written by Prithviraj, who owns it. | Gives every teammate the same picture of the graph's levels, component kinds, versioning, collections, permissions and Python API, maps it onto the brain graph document and the interface contracts, and lists the decisions the team still has to make. |
+| [`expanded-implementation-plan.md`](../SCRATCHPADS/expanded-implementation-plan.md) | Prithviraj's own second, larger planning draft, explicitly marked as not agreed by the team. | Proposes an adversary agent, a Harness release pipeline, a second Raindrop project, and vector search. Left untouched per the team's instruction; being iterated on separately. |
+| [`prompt-for-aseel-real-phone-call.md`](../SCRATCHPADS/prompt-for-aseel-real-phone-call.md) | A ready-to-send prompt for Aseel's coding agent. | Swaps the branch's browser softphone for a real ElevenLabs/Twilio outbound call, grounded in the exact current API endpoints and a dashboard-first test path, since there's no spare budget for a wrong guess. |
+| [`prompt-for-prithviraj-small-additions.md`](../SCRATCHPADS/prompt-for-prithviraj-small-additions.md) | A ready-to-send prompt for Prithviraj's coding agent. | Two small, optional additions to `kg/`: a `get_signals(shift_id)` wrapper, and the two-minute Atlas check on collection-scoped MCP roles. |
 
 ## The background material, in this folder
 
@@ -48,13 +53,17 @@ These are not iteration rounds; each is a focused artifact on one piece of the s
 
 ## Suggested reading order
 
-1. [`SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md), the latest iteration.
-2. [`SCRATCHPADS/interface-contracts.md`](../SCRATCHPADS/interface-contracts.md), for the exact shape two teammates are building to right now.
-3. [`SCRATCHPADS/brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/brain-hierarchical-knowledge-graph.md), for the brain's design in full.
-4. [`SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md), for the research, workflow, and team split behind it.
-5. [`SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md`](../SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md), for the first verdict and the reasoning that led here.
-6. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
-7. `chat-export.txt`, for the full working process behind all of the above.
+1. [`SCRATCHPADS/iteration-05-robot-form-and-build-decisions.md`](../SCRATCHPADS/iteration-05-robot-form-and-build-decisions.md), the latest iteration.
+2. [`SCRATCHPADS/iteration-04-robot-form-clips-and-team-sync.md`](../SCRATCHPADS/iteration-04-robot-form-clips-and-team-sync.md), including the team's own inline feedback.
+3. [`SCRATCHPADS/knowledge-graph-info-packet.md`](../SCRATCHPADS/knowledge-graph-info-packet.md), for what's actually built in `kg/` today.
+4. [`SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md`](../SCRATCHPADS/iteration-03-supervisor-dashboard-and-sponsor-depth.md), for the supervisor and dashboard design.
+5. [`SCRATCHPADS/interface-contracts.md`](../SCRATCHPADS/interface-contracts.md), for the exact shape two teammates started building to.
+6. [`SCRATCHPADS/brain-hierarchical-knowledge-graph.md`](../SCRATCHPADS/brain-hierarchical-knowledge-graph.md), for the brain's design in full.
+7. [`SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md`](../SCRATCHPADS/iteration-02-warehouse-idea-research-and-workflow.md), for the research, workflow, and team split behind it.
+8. [`SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md`](../SCRATCHPADS/iteration-01-warehouse-idea-evaluation.md), for the first verdict and the reasoning that led here.
+9. [`SCRATCHPADS/expanded-implementation-plan.md`](../SCRATCHPADS/expanded-implementation-plan.md), only once the team has explicitly decided which, if any, of it to build.
+10. `notebooklm-transcript-formatted.md` and `hackathon_deep_dive.md`, for how the idea got here, with the corrections below in mind.
+11. `chat-export.txt`, for the full working process behind all of the above.
 
 ## Where new documents go from here
 
