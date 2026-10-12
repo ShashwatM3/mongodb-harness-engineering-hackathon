@@ -76,10 +76,14 @@ def run_demo(gate: KG, improver: KG, say=print, sink: Optional[RecordingSink] = 
     p = propose(V, {"class.HUM-1.max_speed": 1.35}, 3)
     say(f"  locked edits: {[e['target'] for e in p.locked_edits]} → simulated with allow_locked, not refused")
     say(f"  gate: {toy_gate(gate, p.gate_run_id)}")
-    r = gate.record_approval("class.HUM-1.max_speed", 1.35, "approve", by="Robotics Lead", ref="call:demo")
-    say(f"  phone call: approved → ready to promote {r['ready_to_promote']}")
-    v = gate.promote(p.gate_run_id, "walk at 90% of top speed")
-    say(f"  promote → v{v['version']} with approvals {[(a['target'], a['value']) for a in v['approvals']]}")
+    if gate.phone.enabled:
+        call = gate.c("phone_calls").find_one({"gate_run_id": p.gate_run_id, "kind": "approval"}) or {}
+        say(f"  phone call placed ({call.get('_id')}, {call.get('status')}): the Robotics Lead decides on the call")
+    else:
+        r = gate.record_approval("class.HUM-1.max_speed", 1.35, "approve", by="Robotics Lead", ref="call:demo")
+        say(f"  phone call: approved → ready to promote {r['ready_to_promote']}")
+        v = gate.promote(p.gate_run_id, "walk at 90% of top speed")
+        say(f"  promote → v{v['version']} with approvals {[(a['target'], a['value']) for a in v['approvals']]}")
 
     V = gate.latest_version()
     say("\nLineage: " + improver.lineage(V)["markdown"])

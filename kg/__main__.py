@@ -16,6 +16,8 @@
                               the adversary agent (document 07, idea 6): see `python -m kg adversary -h`
   epoch [--epochs N] [--improver suggest|claude]
                               improver and adversary in turn (document 07, section 3.4)
+  phone-harness [--port 8799] the KG side of the approval call, for the gateway in HARNESS_MODE=http (kg/phone.py)
+  phone-call GATE_RUN_ID      call the Robotics Lead about one gate run (needs_approval or promoted)
 
 Connection: KG_MONGODB_URI_GATE / KG_MONGODB_URI_IMPROVER (see kg/config.py), or --uri for both (local only).
 """
@@ -116,6 +118,14 @@ def main(argv=None) -> int:
     p = sub.add_parser("demo")
     p.add_argument("--raindrop", action="store_true", help="send events to Raindrop's dev project (needs RAINDROP_WRITE_KEY and RAINDROP_DEV_PROJECT_ID)")
     p.add_argument("--keep", action="store_true", help="don't empty the demo database first")
+    p.add_argument("--phone", action="store_true", help="call the Robotics Lead through the gateway (KG_GATEWAY_URL); "
+                                                         "the locked edit then waits for the real call")
+    p = sub.add_parser("phone-harness", help="the KG side of the approval call (contract B-F of HARNESS_CONTRACT.md)")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8799)
+    p = sub.add_parser("phone-call", help="call the Robotics Lead about one gate run")
+    p.add_argument("gate_run_id")
+    p.add_argument("--kind", choices=("approval", "update"), help="default: from the run's verdict")
     args = ap.parse_args(argv)
     cfg = _cfg(args)
 
@@ -177,7 +187,13 @@ def main(argv=None) -> int:
         if not args.keep:
             for name in gdb.list_collection_names():
                 gdb[name].delete_many({})
-        gate = KG(gdb, "gate", sink=sink, config=cfg)
+        phone = None
+        if args.phone:
+            from .phone import phone_from_config
+            phone = phone_from_config(cfg)
+            if not phone.enabled:
+                ap.error("--phone needs KG_GATEWAY_URL (and KG_GATEWAY_TOKEN, the gateway's HARNESS_TOKEN)")
+        gate = KG(gdb, "gate", sink=sink, config=cfg, phone=phone)
         gate.use_runner(runner)
         imp = KG(db_connect(cfg.uri_for("improver"), cfg.db_name, app="kg-demo-improver"), "improver", sink=sink,
                  config=cfg)
@@ -187,6 +203,8 @@ def main(argv=None) -> int:
         sink.flush()
         return 0
 
+    if args.cmd in ("phone-harness", "phone-call"):
+        return _phone(args, cfg, ap)
     if args.cmd == "adversary":
         return _adversary(args, cfg, ap)
     if args.cmd == "epoch":
@@ -230,6 +248,34 @@ def main(argv=None) -> int:
             from .runner import HttpRunner
             runner = HttpRunner(cfg.runner_url)
         _print(check_v1(g, runner, args.v1_json))
+    return 0
+
+
+def _phone(args, cfg, ap) -> int:
+    from . import phone as P
+    from .raindrop_sink import NullSink
+    if args.cmd == "phone-call":
+        ph = P.phone_from_config(cfg)
+        if not ph.enabled:
+            ap.error("set KG_GATEWAY_URL and KG_GATEWAY_TOKEN (the gateway's HARNESS_TOKEN)")
+        g = connect("gate", cfg, sink=NullSink(), with_runner=False, phone=ph)
+        run = g.c("gate_runs").find_one({"_id": args.gate_run_id})
+        if run is None:
+            ap.error(f"no gate run {args.gate_run_id} in {cfg.db_name}")
+        kind = args.kind or {"needs_approval": "approval", "promoted": "update"}.get(run["verdict"])
+        if kind is None or not P.is_significant(kind, run):
+            ap.error(f"gate run is {run['verdict']}: only needs_approval and promoted runs ring the phone")
+        _print(ph.place(g, run, kind, version=run.get("promoted_to")))
+        return 0
+    g = connect("gate", cfg, sink=NullSink(), with_runner=bool(cfg.runner_url))
+    srv = P.make_server(P.PhoneHarness(g, lead=cfg.phone_lead), args.host, args.port, token=cfg.phone_harness_token)
+    print(f"phone harness on http://{args.host}:{args.port} (database {cfg.db_name}); start the gateway with "
+          f"HARNESS_MODE=http HARNESS_BASE_URL=http://{args.host}:{args.port}"
+          + ("" if cfg.phone_harness_token else "  [no KG_PHONE_HARNESS_TOKEN: requests are not authenticated]"))
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
     return 0
 
 

@@ -18,16 +18,20 @@ __all__ = ["KG", "Config", "connect", "load_dotenv", "KGError", "PermissionDenie
 
 
 def connect(role: str, config: Optional[Config] = None, *, sink=None, runner=None, env_epoch: Optional[str] = None,
-            with_runner: bool = True) -> KG:
+            with_runner: bool = True, phone=None) -> KG:
     """A KG bound to one database user. `role` is "improver" or "gate"; each gets its own MongoClient.
-    With no runner given: KG_RUNNER_URL if set, else TwinForge's fake runner, else the saved fixtures."""
+    With no runner given: KG_RUNNER_URL if set, else TwinForge's fake runner, else the saved fixtures.
+    The gate client calls the Robotics Lead after significant decisions when KG_GATEWAY_URL is set (kg/phone.py)."""
     from .db import connect as db_connect
+    from .phone import NullPhone, phone_from_config
     from .raindrop_sink import sink_from_config
     from .runner import runner_from_config
 
     cfg = config or Config()
     db = db_connect(cfg.uri_for(role), cfg.db_name, app=f"kg-{role}")
-    g = KG(db, role, sink=sink if sink is not None else sink_from_config(cfg), config=cfg)
+    if phone is None:
+        phone = phone_from_config(cfg) if role == "gate" else NullPhone()
+    g = KG(db, role, sink=sink if sink is not None else sink_from_config(cfg), config=cfg, phone=phone)
     if with_runner:
         g.use_runner(runner or runner_from_config(cfg), env_epoch)
     return g
