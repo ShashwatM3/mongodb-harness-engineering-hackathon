@@ -131,6 +131,40 @@ gate.get_playbook("task:M:PICK")              # habits for a node, best evidence
 
 The playbook's `helpful`/`harmful` counters belong to the KG. Every verdict on a run whose `origin.ref` is a habit updates them.
 
+### The phone bridge to the Intervention Gateway (`kg/phone.py`)
+
+The calls themselves come from the Intervention Gateway on branch `aseel-eleven-lab`. The KG decides when to call, right after the gate decides:
+- **TwinForge flags the failure.** Each shift's failure list becomes one `episodes` document per failure.
+- **The improver proposes the fix, and the gate decides it.**
+- **Significant decisions ring the Robotics Lead:**
+  - `needs_approval`: a locked setting. The call asks for the decision.
+  - a promotion: the harness changed. The call says what failed and what changed.
+
+  Rejected runs, and runs that passed but were not promoted, stay quiet. A promotion that the Lead just approved on a call doesn't ring again.
+
+The Lead's decision comes back to `python -m kg phone-harness`, which is contract B to F of the gateway's `docs/HARNESS_CONTRACT.md`:
+- **APPROVE** on a locked fix runs `record_approval`, then `promote`.
+- **REJECT** blocks that value.
+- **The Lead's words on REJECT or DEFER** become a preference (`save_preference`).
+- **Questions and metrics** are answered from the gate run and its episodes.
+- **A different value** asked for on the call is refused, because only the tested value can be approved.
+
+`phone_calls` keeps every incident and decision. Like Raindrop, the phone is never on the critical path: if the gateway is down, the gate still decides and the call is marked `unreachable`.
+
+```bash
+# 1. the KG side the gateway talks to
+KG_PHONE_HARNESS_TOKEN=<t2> python -m kg phone-harness --port 8799
+# 2. the gateway (aseel-eleven-lab checkout); 8787 is the TwinForge runner, so use 8797
+PORT=8797 HARNESS_MODE=http HARNESS_BASE_URL=http://127.0.0.1:8799 HARNESS_OUTBOUND_TOKEN=<t2> \
+  HARNESS_TOKEN=<t1> MONGODB_URI=<a replica set> npm run dev
+# 3. any gate client with these set calls the Lead: the demo, epochs, GEPA
+export KG_GATEWAY_URL=http://127.0.0.1:8797 KG_GATEWAY_TOKEN=<t1> KG_PHONE_LEAD="Robotics Lead"
+python -m kg demo --phone                       # the locked edit then waits for the call instead of auto-approving
+python -m kg phone-call <gate_run_id>           # call about one existing needs_approval or promoted run
+```
+
+Without ElevenLabs, `npm run simulate:agent -- <incident_id> approve|reject|defer` on the gateway plays the voice agent over the same tool endpoints. `KG_PHONE=0` turns the calls off.
+
 ## For the demo
 
 ```bash
@@ -150,6 +184,56 @@ python -m kg export 1 --out /tmp/v1.json   # the exact brain the runner gets
 2. Run `python -m kg check-v1 ../physical-ai/brains/v1.json`. It uses the runner's `/validate_brain`, or TwinForge's own compiler through tsx when no runner is set. If `ok` is false, the output lists every differing setting; fix them with `python -m kg seed --v1-brain ...` on a fresh database before any real round. At 2253f36 (plus the uncommitted WP-B files) it passes: both brains compile to `59d237854b19a5d2`.
 3. Run `python -m kg sync-settings` to pull the runner's `GET /settings` into the envelope.
 4. After the first real shifts, `kg.tools.checks.capped_report(kg)` lists failure types that hit 25 per seed. Show those flagged on screen.
+
+## The adversary and epochs (document 07, idea 6)
+
+A second agent writes disruption scripts (lift faults, people blocking zones, task bursts) on which the current brain does much worse than some other known brain. Accepted scripts form a curriculum, and a scenario graduates once a promoted brain handles it. `kg/adversary.py` is the adversary, and `kg/epoch.py` alternates it with an improver step and the gate.
+
+It needs a runner with WP-C2 (TwinForge branch `hackathon/wp-c2`), which takes `scenario_script` and serves `/validate_scenario` and `/scenario_envelope`. Scripted runs get their own env (`scenario_profile` is `script:<hash>`), so they never mix with standard-profile results.
+
+```bash
+export KG_RUNNER_URL=http://localhost:8788                     # a TwinForge runner with WP-C2
+python -m kg adversary context                                 # what the proposer sees for the latest brain
+python -m kg adversary turn                                    # Claude proposes 4 scripts; each is scored and judged
+python -m kg adversary turn --proposer random                  # the no-LLM baseline
+python -m kg adversary turn --proposer hand --script s.json    # [{"script": [...], "rationale": "..."}]
+python -m kg adversary show | curriculum | trace               # scenarios, the active ones, the chart's numbers
+python -m kg adversary graduate 2                              # after promote(): re-score the active scenarios
+python -m kg adversary replay sc-<hash>                        # TwinForge's compare.html URL: v1 and v2 on that script
+python -m kg epoch --epochs 3 --improver claude                # improver step, gate, graduation, adversary turn
+                                                               # (on the real `kg` database it needs --real: it promotes)
+python -m kg adversary stress                                  # at go/no-go: the stress set, against v1
+python -m kg adversary stress-report 1 5                       # once, at the end: v1 and v5 on the stress set
+```
+
+**How a scenario is judged.** Every brain runs the same script on the same 12 training seeds. Regret is the best alternative brain's score minus the current brain's, where a score is the mean of the pooled zone scores. The alternatives are v1, the previous version and the WP-T sweep's best variants: at most 3, deduplicated by patch hash. The thresholds come from TwinForge's `npm run -s scenarios` (physical-ai README, WP-C2 section). With no disruption at all, "regret" is already about +0.012 on 12 seeds.
+
+| Status | Rule |
+|---|---|
+| `invalid` | the runner's envelope refuses it (`kg.adversary.check_script_local` is the same check, for runners without the endpoint) |
+| `cached` | this script was already measured against this brain (a `re_proposed` signal) |
+| `impossible` | no brain scores 0.35 on it |
+| `too_easy` | regret below 0.02, or the best alternative ahead on fewer than 8 of 12 seeds, or the current brain scores *no lower* than on a quiet shift. That last rule exists because a person blocking a zone raises scores in this twin: robots with no path work where they stand. |
+| `accepted` | otherwise. It joins the curriculum, which holds at most 6; the lowest regret is `displaced`. |
+| `graduated` | an active scenario whose regret against a newly promoted brain is below 0.01 |
+
+**The epoch gate** promotes a candidate only if it improves the curriculum on the validation seeds and doesn't drop the standard profile there by more than 0.01. Candidates come from `SuggestImprover` (the KG's section C) or `ClaudeImprover` (`get_context` plus the curriculum's scripts, never the alternative brains). GEPA can replace both: anything with `candidates(kg, V, curriculum, k)` works.
+
+**The proposers** call Claude through `claude -p` on the logged-in subscription: no tools, `--safe-mode`, structured output, and a temporary working directory, so no project files are read. The model is `KG_ADVERSARY_MODEL` or `KG_IMPROVER_MODEL`, default `claude-opus-5-5`, with effort `high`. The proposer only sees `get_adversary_context()`: the current brain on a quiet shift and on the standard profile, the alternatives' settings, the curriculum, its last 10 scenarios with their outcomes, and the runner's rules. Tune the judge with `KG_ADV_SEEDS`, `KG_ADV_ACCEPT_REGRET`, `KG_ADV_AGREE_FRAC`, `KG_ADV_FLOOR`, `KG_ADV_GRADUATE_REGRET`, `KG_ADV_CAP`, `KG_ADV_M` and `KG_ADV_REQUIRE_HARM=0`.
+
+**Collections.**
+- `scenarios`: one document per distinct script, with every evaluation, the regret history and each proposal.
+- `adversary_turns`: one per turn or graduation, with the proposer's raw output and the prompt.
+- `epochs`: one per epoch.
+- `heldout_stress`: the stress set and its reports. It is gate-only and never cached by the runner. Its own seeds are in `heldout_seeds` under the id `stress`.
+
+The improver role gets `find` on the first three. On Atlas that is one role update per database, run by a Project Owner (`IMPROVER_PRIVILEGES` in `db.py` only drives self-managed MongoDB and `atlas-commands`):
+
+```bash
+atlas customDbRoles update kgImprover --append --privilege 'FIND@kg.scenarios,FIND@kg.adversary_turns,FIND@kg.epochs' --projectId <PROJECT_ID>
+```
+
+**Raindrop.** Each proposed or re-scored scenario is one `adversary_scenario` event, from user `kg-adversary`. It carries `against_version`, never `brain_version`, so it can't fall into the v1-vs-vN Experiment's cohorts. Its signals are `scenario_accepted` and `scenario_graduated` (POSITIVE), and `scenario_too_easy`, `scenario_impossible`, `scenario_invalid` and `re_proposed` (NEGATIVE). Gate runs measured on a script send their evaluation events to the dev project only.
 
 ## Tests
 

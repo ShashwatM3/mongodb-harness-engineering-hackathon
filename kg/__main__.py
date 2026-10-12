@@ -12,6 +12,12 @@
   export V [--out FILE]       the contract Brain the runner receives
   check-v1 FILE               go/no-go: export_brain(1) vs brains/v1.json through /validate_brain
   demo [--db kg_demo]         the presentable story on the fake runner
+  adversary turn|graduate|curriculum|show|trace|context|stress|stress-report
+                              the adversary agent (document 07, idea 6): see `python -m kg adversary -h`
+  epoch [--epochs N] [--improver suggest|claude]
+                              improver and adversary in turn (document 07, section 3.4)
+  phone-harness [--port 8799] the KG side of the approval call, for the gateway in HARNESS_MODE=http (kg/phone.py)
+  phone-call GATE_RUN_ID      call the Robotics Lead about one gate run (needs_approval or promoted)
 
 Connection: KG_MONGODB_URI_GATE / KG_MONGODB_URI_IMPROVER (see kg/config.py), or --uri for both (local only).
 """
@@ -72,9 +78,54 @@ def main(argv=None) -> int:
     p.add_argument("-v", "--version", type=int)
     p = sub.add_parser("check-v1")
     p.add_argument("v1_json")
+    p = sub.add_parser("adversary", help="the adversary agent: scenarios that break the current brain")
+    asub = p.add_subparsers(dest="acmd", required=True)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--seeds", help="scoring seeds, e.g. 101-112 (default: the KG's training seeds)")
+    common.add_argument("--no-raindrop", action="store_true", help="send no Raindrop events")
+    common.add_argument("--dev-events", action="store_true", help="send Raindrop events to the dev project")
+    common.add_argument("--json", action="store_true", help="full JSON output")
+    for name, hlp in (("turn", "one turn: propose scripts against vN, score them, accept or reject"),
+                      ("stress", "the stress set (gate-only), generated against v1 with a fresh prompt"),
+                      ("context", "print what the proposer would see for vN")):
+        q = asub.add_parser(name, help=hlp, parents=[common])
+        q.add_argument("--against", type=int, help="brain version (default: the latest; stress: 1)")
+        if name != "context":
+            q.add_argument("--proposer", choices=("claude", "random", "hand"), default="claude")
+            q.add_argument("--script", help="hand: a JSON file of [{script, rationale}] or of scripts")
+            q.add_argument("-m", type=int, help="scripts per turn (default 4)")
+        if name == "turn":
+            q.add_argument("--epoch", type=int, default=0)
+    q = asub.add_parser("graduate", help="after a promotion: re-score the active scenarios against vN", parents=[common])
+    q.add_argument("version", type=int, nargs="?")
+    q = asub.add_parser("stress-report", help="score versions once on the stress set (held-out seeds)", parents=[common])
+    q.add_argument("versions", type=int, nargs="+")
+    asub.add_parser("curriculum", help="the active scenarios, hardest first", parents=[common])
+    q = asub.add_parser("show", help="the latest scenarios with their status and regret", parents=[common])
+    q.add_argument("--limit", type=int, default=20)
+    asub.add_parser("trace", help="the curriculum chart's numbers, one row per turn", parents=[common])
+    q = asub.add_parser("replay", help="the compare.html URL that replays a scenario under v1 and v2", parents=[common])
+    q.add_argument("scenario_id")
+    q.add_argument("--seed", type=int, help="default: the seed where the best alternative gains most")
+    q.add_argument("--base-url", default="http://localhost:5174", help="TwinForge's dev server (npm run dev)")
+    p = sub.add_parser("epoch", help="epochs: improver step, gate, graduation, adversary turn", parents=[common])
+    p.add_argument("--epochs", type=int, default=1)
+    p.add_argument("--improver", choices=("suggest", "claude"), default="suggest")
+    p.add_argument("--proposer", choices=("claude", "random"), default="claude", help="the adversary's proposer")
+    p.add_argument("--k", type=int, default=3, help="improver candidates per epoch")
+    p.add_argument("--no-adversary", action="store_true", help="skip the adversary turn")
+    p.add_argument("--real", action="store_true", help="allow epochs on the real `kg` database (they promote new versions)")
     p = sub.add_parser("demo")
     p.add_argument("--raindrop", action="store_true", help="send events to Raindrop's dev project (needs RAINDROP_WRITE_KEY and RAINDROP_DEV_PROJECT_ID)")
     p.add_argument("--keep", action="store_true", help="don't empty the demo database first")
+    p.add_argument("--phone", action="store_true", help="call the Robotics Lead through the gateway (KG_GATEWAY_URL); "
+                                                         "the locked edit then waits for the real call")
+    p = sub.add_parser("phone-harness", help="the KG side of the approval call (contract B-F of HARNESS_CONTRACT.md)")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8799)
+    p = sub.add_parser("phone-call", help="call the Robotics Lead about one gate run")
+    p.add_argument("gate_run_id")
+    p.add_argument("--kind", choices=("approval", "update"), help="default: from the run's verdict")
     args = ap.parse_args(argv)
     cfg = _cfg(args)
 
@@ -105,7 +156,7 @@ def main(argv=None) -> int:
     if args.cmd == "demo":
         from .core import KG
         from .db import connect as db_connect
-        from .raindrop_sink import RaindropSink, RecordingSink
+        from .raindrop_sink import EVENT_NAME, RaindropSink, RecordingSink
         from .runner import runner_from_config
         from .tools.demo import run_demo
         cfg.db_name = args.db or "kg_demo"
@@ -120,9 +171,9 @@ def main(argv=None) -> int:
             real = RaindropSink(cfg.raindrop_write_key, project_id=cfg.raindrop_dev_project_id)
 
             class Tee(RecordingSink):
-                def event(self, e, props):
-                    super().event(e, props)
-                    real.event(e, props)
+                def event(self, e, props, name=EVENT_NAME):
+                    super().event(e, props, name)
+                    real.event(e, props, name)
 
                 def signal(self, e, name):
                     super().signal(e, name)
@@ -136,7 +187,13 @@ def main(argv=None) -> int:
         if not args.keep:
             for name in gdb.list_collection_names():
                 gdb[name].delete_many({})
-        gate = KG(gdb, "gate", sink=sink, config=cfg)
+        phone = None
+        if args.phone:
+            from .phone import phone_from_config
+            phone = phone_from_config(cfg)
+            if not phone.enabled:
+                ap.error("--phone needs KG_GATEWAY_URL (and KG_GATEWAY_TOKEN, the gateway's HARNESS_TOKEN)")
+        gate = KG(gdb, "gate", sink=sink, config=cfg, phone=phone)
         gate.use_runner(runner)
         imp = KG(db_connect(cfg.uri_for("improver"), cfg.db_name, app="kg-demo-improver"), "improver", sink=sink,
                  config=cfg)
@@ -145,6 +202,13 @@ def main(argv=None) -> int:
         run_demo(gate, imp, sink=sink)
         sink.flush()
         return 0
+
+    if args.cmd in ("phone-harness", "phone-call"):
+        return _phone(args, cfg, ap)
+    if args.cmd == "adversary":
+        return _adversary(args, cfg, ap)
+    if args.cmd == "epoch":
+        return _epoch(args, cfg, ap)
 
     role = "gate" if args.cmd in ("seed", "sync-settings") else "improver"
     needs_runner = args.cmd in ("context", "suggest", "sync-settings")
@@ -184,6 +248,153 @@ def main(argv=None) -> int:
             from .runner import HttpRunner
             runner = HttpRunner(cfg.runner_url)
         _print(check_v1(g, runner, args.v1_json))
+    return 0
+
+
+def _phone(args, cfg, ap) -> int:
+    from . import phone as P
+    from .raindrop_sink import NullSink
+    if args.cmd == "phone-call":
+        ph = P.phone_from_config(cfg)
+        if not ph.enabled:
+            ap.error("set KG_GATEWAY_URL and KG_GATEWAY_TOKEN (the gateway's HARNESS_TOKEN)")
+        g = connect("gate", cfg, sink=NullSink(), with_runner=False, phone=ph)
+        run = g.c("gate_runs").find_one({"_id": args.gate_run_id})
+        if run is None:
+            ap.error(f"no gate run {args.gate_run_id} in {cfg.db_name}")
+        kind = args.kind or {"needs_approval": "approval", "promoted": "update"}.get(run["verdict"])
+        if kind is None or not P.is_significant(kind, run):
+            ap.error(f"gate run is {run['verdict']}: only needs_approval and promoted runs ring the phone")
+        _print(ph.place(g, run, kind, version=run.get("promoted_to")))
+        return 0
+    g = connect("gate", cfg, sink=NullSink(), with_runner=bool(cfg.runner_url))
+    srv = P.make_server(P.PhoneHarness(g, lead=cfg.phone_lead), args.host, args.port, token=cfg.phone_harness_token)
+    print(f"phone harness on http://{args.host}:{args.port} (database {cfg.db_name}); start the gateway with "
+          f"HARNESS_MODE=http HARNESS_BASE_URL=http://{args.host}:{args.port}"
+          + ("" if cfg.phone_harness_token else "  [no KG_PHONE_HARNESS_TOKEN: requests are not authenticated]"))
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def _epoch(args, cfg, ap) -> int:
+    from . import adversary as A
+    from . import epoch as E
+    from .raindrop_sink import NullSink, sink_from_config
+    if not cfg.runner_url:
+        ap.error("epochs run on the runner: set KG_RUNNER_URL (a TwinForge runner with WP-C2)")
+    if cfg.db_name == "kg" and not args.real:
+        ap.error("an epoch promotes new brain versions: on the real `kg` database pass --real (the team decides when)")
+    if args.dev_events:
+        cfg.raindrop_dev = True
+    g = connect("gate", cfg, sink=NullSink() if args.no_raindrop else sink_from_config(cfg))
+    conf = A.AdversaryConfig.from_env()
+    if args.seeds:
+        conf.seeds = A.parse_seeds(args.seeds)
+    adv = A.Adversary(g, A.ClaudeProposer() if args.proposer == "claude" else A.RandomProposer(), conf)
+    imp = E.ClaudeImprover() if args.improver == "claude" else E.SuggestImprover()
+    ep = E.Epochs(g, adv, imp, E.EpochConfig(k=args.k))
+    for _ in range(args.epochs):
+        res = ep.run(adversary_turn=not args.no_adversary)
+        if args.json:
+            _print(res)
+            continue
+        print(f"Epoch {res['k']} on v{res['base_version']} ({res['wall_s']} s): "
+              + (f"promoted v{res['promoted_to']}" if res["promoted_to"] else "nothing promoted"))
+        for c in res["candidates"]:
+            t = c["train"].get("all")
+            print(f"  [{c['verdict']}] {c['edits']}  train {('%+.3f' % t) if t is not None else '-'}"
+                  f"  · {c['reason']}")
+        if res["graduated"]:
+            print(f"  graduated: {', '.join(res['graduated'])}")
+        if res["adversary_turn"]:
+            print(f"  adversary turn {res['adversary_turn']}: {res['adversary_counts']}")
+        a = res["active_after"]
+        print(f"  curriculum: {a['active']} active"
+              + (f", mean regret {a['mean_active_regret']:+.3f}" if a["mean_active_regret"] is not None else "")
+              + f"; {a['graduated_total']} graduated")
+    return 0
+
+
+def _adversary(args, cfg, ap) -> int:
+    from . import adversary as A
+    from .raindrop_sink import NullSink, sink_from_config
+    if args.dev_events:
+        cfg.raindrop_dev = True
+    if args.acmd in ("curriculum", "show", "trace", "replay"):  # reads: any client, no runner
+        g = connect("gate", cfg, sink=NullSink(), with_runner=False)
+        if args.acmd == "replay":
+            d = g.c("scenarios").find_one({"_id": args.scenario_id})
+            if d is None or not d.get("scenario_hash"):
+                ap.error(f"no valid scenario {args.scenario_id!r}")
+            _print(A.replay_url(d, seed=args.seed, base_url=args.base_url, runner=cfg.runner_url))
+        elif args.acmd == "curriculum":
+            rows = A.curriculum(g)
+            _print(rows if args.json else "\n".join(f"{r['regret']:+.3f} vs v{r['against_version']}  {r['description']}"
+                                                     for r in rows) or "no active scenarios")
+        elif args.acmd == "trace":
+            _print(A.trace(g))
+        else:
+            docs = list(g.c("scenarios").find({}, {"evals": 0, "proposals": 0}).sort("updated_at", -1).limit(args.limit))
+            _print(docs if args.json else "\n".join(
+                f"[{d['status']:<10}] {('%+.3f' % d['regret']) if d.get('regret') is not None else '   -  '} "
+                f"vs v{(d.get('against') or {}).get('version', '-')}  {d.get('description')}  · {d.get('reason') or ''}"
+                for d in docs) or "no scenarios yet")
+        return 0
+    if not cfg.runner_url:
+        ap.error("the adversary scores scenarios on the runner: set KG_RUNNER_URL (a TwinForge runner with WP-C2)")
+    g = connect("gate", cfg, sink=NullSink() if args.no_raindrop else sink_from_config(cfg))
+    conf = A.AdversaryConfig.from_env()
+    if args.seeds:
+        conf.seeds = A.parse_seeds(args.seeds)
+    proposer = None
+    if args.acmd in ("turn", "stress"):
+        if args.proposer == "claude":
+            proposer = A.ClaudeProposer()
+        elif args.proposer == "random":
+            proposer = A.RandomProposer()
+        else:
+            if not args.script:
+                ap.error("--proposer hand needs --script FILE")
+            with open(args.script) as f:
+                batch = json.load(f)
+            proposer = A.FixedProposer([batch])
+        if args.m:
+            conf.m = args.m
+    adv = A.Adversary(g, proposer, conf)
+    if args.acmd == "context":
+        V = args.against or g.latest_version()
+        cur = adv.brain_ref(V)
+        _print(A.get_adversary_context(adv, cur, adv.alternatives(cur), turn=0)["markdown"])
+        return 0
+    if args.acmd == "graduate":
+        res = adv.graduate(args.version)
+        _print(res if args.json else "\n".join([f"Re-scored {res['rescored']} active scenario(s) against v{res['version']}:"] + [
+            f"  [{r['status']}] regret {r['regret_before']:+.3f} -> {r['regret']:+.3f}  {r['description']}" for r in res["rows"]]
+            + [f"Curriculum: {res['active']} active, {res['graduated_total']} graduated"]))
+        return 0
+    if args.acmd == "stress-report":
+        _print(adv.stress_report(args.versions))
+        return 0
+    if args.acmd == "stress":
+        _print(adv.stress_turn(against=args.against or 1))
+        return 0
+    res = adv.turn(against=args.against, epoch=args.epoch)
+    if args.json:
+        _print(res)
+        return 0
+    pr = res["proposer"]
+    print(f"Turn {res['turn']} against v{res['against_version']} ({pr['name']}"
+          + (f", {pr['model']}, {pr['seconds']} s" if pr.get("model") else "") + f"; turn {res['wall_s']} s)")
+    print("Alternatives: " + "; ".join(res["alternatives"]))
+    for o in res["outcomes"]:
+        reg = f"regret {o['regret']:+.3f}" if o.get("regret") is not None else "            "
+        print(f"  [{o['status']:<10}] {reg}  {o.get('description') or ''}\n               {o.get('reason') or ''}")
+    print(f"Curriculum: {res['active']} active"
+          + (f", mean regret {res['mean_active_regret']:+.3f}" if res.get("mean_active_regret") is not None else "")
+          + f"; {res['graduated_total']} graduated")
     return 0
 
 

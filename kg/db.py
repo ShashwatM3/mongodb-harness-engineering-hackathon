@@ -17,13 +17,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pymongo import ASCENDING, MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.database import Database
 from pymongo.errors import CollectionInvalid, OperationFailure
 
 COLLECTIONS = ["brain_nodes", "brain_versions", "envelope", "concepts", "gate_runs", "shifts", "episodes",
-               "playbook", "brain_reads", "heldout_results", "heldout_seeds"]
-GATE_ONLY = ["heldout_results", "heldout_seeds"]
+               "playbook", "brain_reads", "heldout_results", "heldout_seeds",
+               "scenarios", "adversary_turns", "epochs", "heldout_stress"]
+#: heldout_stress holds the adversary's stress set (document 07, section 3.7): gate-only like the held-out seeds
+GATE_ONLY = ["heldout_results", "heldout_seeds", "heldout_stress"]
 
 #: what the improver's custom role grants, per collection (section 3 of the KG plan)
 IMPROVER_PRIVILEGES = {
@@ -36,6 +38,9 @@ IMPROVER_PRIVILEGES = {
     "episodes": ["find", "insert", "update"],
     "playbook": ["find"],
     "brain_reads": ["find", "insert"],            # get_brain_context logs reads for the dashboard
+    "scenarios": ["find"],                        # the adversary's curriculum (written by the gate-side turn)
+    "adversary_turns": ["find"],
+    "epochs": ["find"],
 }
 
 INDEXES = {
@@ -48,6 +53,10 @@ INDEXES = {
     "episodes": [[("shift_id", ASCENDING), ("type", ASCENDING), ("zone", ASCENDING)]],
     "heldout_results": [[("gate_run_id", ASCENDING)]],
     "brain_reads": [[("at", ASCENDING)]],
+    "scenarios": [[("status", ASCENDING), ("regret", DESCENDING)], [("updated_at", ASCENDING)]],
+    "adversary_turns": [[("turn", ASCENDING)]],
+    "epochs": [[("k", ASCENDING)]],
+    "heldout_stress": [[("kind", ASCENDING)]],
 }
 
 
@@ -115,12 +124,14 @@ def connect(uri: str, db_name: str, app: str = "kg") -> Database:
     return client[db_name]
 
 
-def probe_heldout_denied(db: Database) -> Optional[str]:
-    """The firewall check: returns None when this user is denied on heldout_results, else what it saw."""
-    try:
-        db["heldout_results"].find_one({})
-    except OperationFailure as e:
-        if e.code == 13 or "not authorized" in str(e).lower() or "unauthorized" in str(e).lower():
-            return None
-        raise
-    return "readable: this user can read heldout_results"
+def probe_heldout_denied(db: Database, collections: tuple = ("heldout_results", "heldout_stress")) -> Optional[str]:
+    """The firewall check: returns None when this user is denied on every held-out collection, else what it saw."""
+    for name in collections:
+        try:
+            db[name].find_one({})
+        except OperationFailure as e:
+            if e.code == 13 or "not authorized" in str(e).lower() or "unauthorized" in str(e).lower():
+                continue
+            raise
+        return f"readable: this user can read {name}"
+    return None

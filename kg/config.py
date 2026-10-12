@@ -16,6 +16,12 @@
   KG_RAINDROP_DEV          "1"/"0" forces the dev/real project (default: dev unless KG_RUNNER_URL is set)
   RAINDROP_QUERY_API_KEY   Query API key for get_signals (read side; not the write key)
   TWINFORGE_DIR            the physical-ai checkout (for the fake runner and fixtures)
+  KG_GATEWAY_URL           the Intervention Gateway (branch aseel-eleven-lab), e.g. http://127.0.0.1:8797;
+                           set, the gate calls the Robotics Lead after significant decisions (kg/phone.py)
+  KG_GATEWAY_TOKEN         the gateway's HARNESS_TOKEN
+  KG_PHONE                 "0" disables the calls even when KG_GATEWAY_URL is set
+  KG_PHONE_LEAD            who the agent greets (default "Robotics Lead")
+  KG_PHONE_HARNESS_TOKEN   bearer the gateway must send to `python -m kg phone-harness` (its HARNESS_OUTBOUND_TOKEN)
 """
 from __future__ import annotations
 
@@ -74,6 +80,11 @@ class Config:
         default_factory=lambda: {"1": True, "0": False}.get(os.getenv("KG_RAINDROP_DEV", "").strip()))
     raindrop_query_key: Optional[str] = field(default_factory=lambda: os.getenv("RAINDROP_QUERY_API_KEY") or None)
     twinforge_dir: Optional[str] = field(default_factory=lambda: os.getenv("TWINFORGE_DIR") or None)
+    gateway_url: Optional[str] = field(default_factory=lambda: os.getenv("KG_GATEWAY_URL") or None)
+    gateway_token: Optional[str] = field(default_factory=lambda: os.getenv("KG_GATEWAY_TOKEN") or None)
+    phone_enabled: bool = field(default_factory=lambda: os.getenv("KG_PHONE", "1") not in ("0", "false", "no"))
+    phone_lead: str = field(default_factory=lambda: os.getenv("KG_PHONE_LEAD") or "Robotics Lead")
+    phone_harness_token: Optional[str] = field(default_factory=lambda: os.getenv("KG_PHONE_HARNESS_TOKEN") or None)
 
     def uri_for(self, role: str) -> str:
         uri = self.improver_uri if role == "improver" else self.gate_uri

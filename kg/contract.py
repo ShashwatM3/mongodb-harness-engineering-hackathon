@@ -4,6 +4,9 @@ Source: physical-ai `src/harness/contract.ts` at c07a2c1, plus the spec_hash fie
 top of 2253f36, branch hackathon/humanoid-twin, read at 12:40. TwinForge stays out of this repo; the KG
 talks to it only through this HTTP contract.
 
+WP-C2 (physical-ai bc8b8da, branch hackathon/wp-c2): caller-supplied scenario scripts. A request may carry
+`scenario_script` instead of a profile; the response names it `scenario_profile: "script:<scenario_hash>"`.
+
 Deliberate loosening, so a runner that adds fields or failure types never breaks the KG mid-demo:
   - response models keep unknown fields (`extra="allow"`), and spec_hash is optional for older runners;
   - failure types are plain strings, with the known ones in FAILURE_TYPES.
@@ -112,6 +115,8 @@ class RunShiftRequest(BaseModel):
     seeds: list[int]
     ticks: Optional[int] = None
     scenario_profile: Optional[str] = None
+    #: WP-C2: replaces the profile; the same script runs on every seed
+    scenario_script: Optional[list[dict[str, Any]]] = None
     allow_locked: Optional[bool] = None
     held_out: Optional[bool] = None
 
@@ -220,7 +225,10 @@ class RunShiftResponse(_Open):
     brain_version: int
     patch_hash: str
     ticks: int
+    #: the profile name, or "script:<scenario_hash>" for a caller-supplied script (WP-C2)
     scenario_profile: str
+    #: WP-C2: hash of the normalized script, or the profile name (absent from older runners)
+    scenario_hash: Optional[str] = None
     per_seed: list[SeedResult]
     mean: _Mean
     pooled: _Pooled
@@ -229,12 +237,40 @@ class RunShiftResponse(_Open):
 
 # ── 422 body, /validate_brain, /settings, /health ────────────
 
+class ScenarioProblem(_Open):
+    """One problem with a script; index is the entry's position in the caller's list (-1: the whole script)."""
+    index: int
+    reason: str
+
+
 class BrainRejection(_Open):
     error: str
     message: str
     locked_edits: list[LockedEdit] = Field(default_factory=list)
     rejected: list[RejectedEdit] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    #: WP-C2: present when error is "rejected_scenario"
+    scenario_rejected: list[ScenarioProblem] = Field(default_factory=list)
+
+
+class ValidateScenarioResponse(_Open):
+    """POST /validate_scenario (WP-C2)."""
+    ok: bool
+    rejected: list[ScenarioProblem] = Field(default_factory=list)
+    scenario_hash: Optional[str] = None
+    scenario_profile: Optional[str] = None
+    #: the script as /run_shift will run it: canonical fields, defaults filled in, sorted by tick
+    scenario_script: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ScenarioEnvelope(_Open):
+    """GET /scenario_envelope (WP-C2): the limits a caller-supplied script must stay inside."""
+    ticks: int
+    ticks_per_second: int
+    min_at_tick: int
+    max_at_tick: int
+    kinds: dict[str, dict[str, Any]]
+    rules: list[str] = Field(default_factory=list)
 
 
 class ValidateBrainResponse(_Open):

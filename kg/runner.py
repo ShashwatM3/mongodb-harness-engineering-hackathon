@@ -15,8 +15,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Protocol
 
-from .contract import (Brain, BrainRejection, HealthResponse, RunShiftResponse, SettingsResponse,
-                       ValidateBrainResponse)
+from .contract import (Brain, BrainRejection, HealthResponse, RunShiftResponse, ScenarioEnvelope, SettingsResponse,
+                       ValidateBrainResponse, ValidateScenarioResponse)
 from .hashing import effective_edits
 
 KG_DIR = Path(__file__).resolve().parent
@@ -35,23 +35,34 @@ class BrainRejected(RunnerError):
         self.rejection = rejection
 
 
+class ScenarioRejected(BrainRejected):
+    """HTTP 422 rejected_scenario: the scenario_script is outside the runner's scenario envelope (WP-C2)."""
+
+
 class Runner(Protocol):
     def health(self) -> HealthResponse: ...
 
     def run_shift(self, brain: Brain, seeds: list[int], ticks: Optional[int] = None,
                   profile: Optional[str] = None, allow_locked: bool = False,
-                  held_out: bool = False) -> RunShiftResponse: ...
+                  held_out: bool = False, scenario_script: Optional[list[dict]] = None) -> RunShiftResponse: ...
 
     def validate_brain(self, brain: Brain) -> Optional[ValidateBrainResponse]: ...
 
     def settings(self) -> Optional[SettingsResponse]: ...
 
+    #: WP-C2; None when the runner predates caller-supplied scripts
+    def validate_scenario(self, script: list[dict], ticks: Optional[int] = None) -> Optional[ValidateScenarioResponse]: ...
 
-def _request(brain: Brain, seeds, ticks, profile, allow_locked, held_out) -> dict:
+    def scenario_envelope(self, ticks: Optional[int] = None) -> Optional[ScenarioEnvelope]: ...
+
+
+def _request(brain: Brain, seeds, ticks, profile, allow_locked, held_out, scenario_script=None) -> dict:
     req = {"brain": brain.model_dump(mode="json", exclude_none=True), "seeds": [int(s) for s in seeds]}
     if ticks is not None:
         req["ticks"] = int(ticks)
-    if profile is not None:
+    if scenario_script is not None:  # WP-C2: the script replaces the profile
+        req["scenario_script"] = scenario_script
+    elif profile is not None:
         req["scenario_profile"] = profile
     if allow_locked:
         req["allow_locked"] = True
@@ -72,12 +83,30 @@ class HttpRunner:
         r.raise_for_status()
         return HealthResponse.model_validate(r.json())
 
-    def run_shift(self, brain, seeds, ticks=None, profile=None, allow_locked=False, held_out=False):
-        r = self.http.post("/run_shift", json=_request(brain, seeds, ticks, profile, allow_locked, held_out))
+    def run_shift(self, brain, seeds, ticks=None, profile=None, allow_locked=False, held_out=False,
+                  scenario_script=None):
+        r = self.http.post("/run_shift", json=_request(brain, seeds, ticks, profile, allow_locked, held_out,
+                                                       scenario_script))
         if r.status_code == 422:
-            raise BrainRejected(BrainRejection.model_validate(r.json()))
+            rej = BrainRejection.model_validate(r.json())
+            raise (ScenarioRejected if rej.error == "rejected_scenario" else BrainRejected)(rej)
         r.raise_for_status()
         return RunShiftResponse.model_validate(r.json())
+
+    def validate_scenario(self, script, ticks=None):
+        body = {"scenario_script": script, **({"ticks": int(ticks)} if ticks is not None else {})}
+        r = self.http.post("/validate_scenario", json=body)
+        if r.status_code in (404, 405, 501):
+            return None  # a runner without WP-C2
+        r.raise_for_status()
+        return ValidateScenarioResponse.model_validate(r.json())
+
+    def scenario_envelope(self, ticks=None):
+        r = self.http.get("/scenario_envelope", params={"ticks": int(ticks)} if ticks is not None else None)
+        if r.status_code in (404, 405, 501):
+            return None
+        r.raise_for_status()
+        return ScenarioEnvelope.model_validate(r.json())
 
     def validate_brain(self, brain):
         r = self.http.post("/validate_brain", json={"brain": brain.model_dump(mode="json", exclude_none=True)})
@@ -121,8 +150,9 @@ class TsxFakeRunner:
     def health(self):
         return HealthResponse.model_validate(FAKE_HEALTH)
 
-    def run_shift(self, brain, seeds, ticks=None, profile=None, allow_locked=False, held_out=False):
-        req = _request(brain, seeds, ticks, profile, allow_locked, held_out)
+    def run_shift(self, brain, seeds, ticks=None, profile=None, allow_locked=False, held_out=False,
+                  scenario_script=None):
+        req = _request(brain, seeds, ticks, profile, allow_locked, held_out, scenario_script)
         p = subprocess.run([str(self.tsx), str(self.script), "--stdin"], input=json.dumps(req), text=True,
                            capture_output=True, env={**os.environ, "TWINFORGE_DIR": str(self.dir)}, timeout=120)
         if p.returncode != 0:
@@ -133,6 +163,12 @@ class TsxFakeRunner:
         return None
 
     def settings(self):
+        return None
+
+    def validate_scenario(self, script, ticks=None):
+        return None  # the fake checks scripts inside run_shift (TwinForge with WP-C2) and fails loudly
+
+    def scenario_envelope(self, ticks=None):
         return None
 
 
@@ -155,7 +191,10 @@ class FixtureRunner:
     def health(self):
         return HealthResponse.model_validate(FAKE_HEALTH)
 
-    def run_shift(self, brain, seeds, ticks=None, profile=None, allow_locked=False, held_out=False):
+    def run_shift(self, brain, seeds, ticks=None, profile=None, allow_locked=False, held_out=False,
+                  scenario_script=None):
+        if scenario_script is not None:
+            raise RunnerError("the saved fixtures have no scripted scenarios: use a runner with WP-C2")
         q = float(stair_threshold(brain))
         key = (q, tuple(sorted(int(s) for s in seeds)), ticks or 12000, profile or "standard")
         p = self.index.get(key)
@@ -173,6 +212,12 @@ class FixtureRunner:
         return None
 
     def settings(self):
+        return None
+
+    def validate_scenario(self, script, ticks=None):
+        return None
+
+    def scenario_envelope(self, ticks=None):
         return None
 
 

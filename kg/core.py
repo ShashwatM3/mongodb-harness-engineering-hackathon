@@ -4,7 +4,7 @@ Boundary rules (KG plan, section 1):
   - The gate decides; the KG records and recommends. Nothing here promotes on its own.
   - The brain the runner receives is a projection of the KG (`export_brain`).
   - Held-out data never enters a collection the improver can read.
-  - Raindrop is never on the critical path.
+  - Raindrop is never on the critical path, and neither is the phone (kg/phone.py).
 """
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ from .hashing import (Env, compile_patch, digest, edit_of, effective_edits, epis
                       sorted_seeds)
 from .ontology import (COMPONENT_KINDS, SITE_ID, SKELETON_KINDS, SKELETON_ZONES, TIME_STATES, concept_docs,
                        failure_group_of, skeleton_nodes)
+from .phone import NullPhone
 from .raindrop_sink import NullSink, Sink
 
 log = logging.getLogger("kg")
@@ -156,11 +157,12 @@ class KG:
 
     def __init__(self, db: Database, role: str = "gate", *, sink: Optional[Sink] = None, runner=None,
                  env: Optional[Env] = None, config: Optional[Config] = None,
-                 settings: Optional[list[registry.Setting]] = None):
+                 settings: Optional[list[registry.Setting]] = None, phone=None):
         if role not in ("improver", "gate"):
             raise ValueError("role must be 'improver' or 'gate'")
         self.db, self.role = db, role
         self.sink: Sink = sink or NullSink()
+        self.phone = phone or NullPhone()  # calls the Robotics Lead after significant gate decisions
         self.cfg = config or Config()
         self.runner = runner
         self._env = env
@@ -760,6 +762,7 @@ class KG:
                                        {"$set": {"gate_decision": "failed" if verdict == "rejected" else "passed"}})
         self._count_playbook(gate_run_id)
         self._sync_raindrop(gate_run_id)
+        self.phone.after_verdict(self, gate_run_id)  # needs_approval: the Lead decides on the call
         return self._result_view(self.c("gate_runs").find_one({"_id": gate_run_id}))
 
     def _count_playbook(self, gid: str):
@@ -922,6 +925,7 @@ class KG:
                                            {"$set": {"gate_decision": "passed"}})
             self._count_playbook(run["_id"])
             self._sync_raindrop(run["_id"])
+            self.phone.after_promote(self, run["_id"], N)  # the harness changed: the Lead hears what and why
         return {"version": N, "added": fields["added"], "retired": retire, "approvals": approvals}
 
     def get_brain_context(self, task_node_id: str, version: Optional[int] = None,
