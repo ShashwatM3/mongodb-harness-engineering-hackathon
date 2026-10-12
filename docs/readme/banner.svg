@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-label="Self-improving warehouse robots: a harness that rewrites its robots' brain in MongoDB Atlas">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#0c1d2e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#5eead4" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#5eead4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00ED64"/>
+      <stop offset="1" stop-color="#5eead4"/>
+    </linearGradient>
+    <style>
+      .t  { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .m  { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="300" rx="18" fill="url(#bg)"/>
+
+  <!-- the brain graph motif: site core, four zones, edges to concept nodes -->
+  <g transform="translate(1010 150)">
+    <circle r="120" fill="url(#glow)"/>
+    <ellipse rx="150" ry="58" fill="none" stroke="#f59e0b" stroke-opacity="0.55" stroke-width="1.5"/>
+    <g stroke="#5eead4" stroke-opacity="0.35" stroke-width="1.2" fill="none">
+      <path d="M0 0 L-190 -78"/><path d="M0 0 L-215 -18"/><path d="M0 0 L-205 46"/><path d="M0 0 L-170 98"/>
+      <path d="M0 0 C 60 -90, 140 -110, 205 -100"/>
+      <path d="M0 0 C 80 -40, 160 -40, 222 -30"/>
+      <path d="M0 0 C 90 30, 160 60, 215 70"/>
+    </g>
+    <path d="M0 0 C -70 30, -120 70, -170 98" stroke="#fb923c" stroke-width="2.2" fill="none"/>
+    <path d="M0 0 C 60 -90, 140 -110, 205 -100" stroke="#f472b6" stroke-width="2.2" fill="none"/>
+    <!-- component hexagons on the ring -->
+    <g fill="#38bdf8" fill-opacity="0.9">
+      <polygon points="-120,-28 -112,-33 -104,-28 -104,-19 -112,-14 -120,-19"/>
+      <polygon points="-80,-48 -72,-53 -64,-48 -64,-39 -72,-34 -80,-39"/>
+      <polygon points="64,-48 72,-53 80,-48 80,-39 72,-34 64,-39"/>
+      <polygon points="104,-28 112,-33 120,-28 120,-19 112,-14 104,-19"/>
+      <polygon points="-90,30 -82,25 -74,30 -74,39 -82,44 -90,39"/>
+      <polygon points="74,30 82,25 90,30 90,39 82,44 74,39"/>
+    </g>
+    <g fill="#2dd4bf">
+      <polygon points="-24,-54 -14,-60 -4,-54 -4,-42 -14,-36 -24,-42"/>
+      <polygon points="18,44 28,38 38,44 38,56 28,62 18,56"/>
+    </g>
+    <polygon points="30,-62 40,-68 50,-62 50,-50 40,-44 30,-50" fill="#f59e0b"/>
+    <circle r="26" fill="#ecfeff"/>
+    <circle r="34" fill="none" stroke="#5eead4" stroke-width="2"/>
+    <!-- zones -->
+    <circle cx="-190" cy="-78" r="11" fill="#14b8a6"/>
+    <circle cx="-215" cy="-18" r="11" fill="#22c55e"/>
+    <circle cx="-205" cy="46" r="11" fill="#14b8a6"/>
+    <circle cx="-170" cy="98" r="15" fill="#4ade80"/>
+    <!-- concepts -->
+    <circle cx="205" cy="-100" r="8" fill="#f43f5e"/>
+    <circle cx="222" cy="-30" r="8" fill="#a78bfa"/>
+    <circle cx="215" cy="70" r="8" fill="#14b8a6"/>
+    <text class="m" x="-158" y="122" font-size="12" fill="#a7f3d0">zone M</text>
+    <text class="m" x="-26" y="88" font-size="12" fill="#a5f3fc">site:main v5</text>
+  </g>
+
+  <!-- words -->
+  <text class="m" x="56" y="66" font-size="14" letter-spacing="3" fill="#5eead4">HARNESS ENGINEERING · SF TECH WEEK 2026</text>
+  <text class="t" x="54" y="122" font-size="44" font-weight="700" fill="#f8fafc">Self-Improving</text>
+  <text class="t" x="54" y="172" font-size="44" font-weight="700" fill="#f8fafc">Warehouse Robots</text>
+  <rect x="56" y="192" width="120" height="4" rx="2" fill="url(#accent)"/>
+  <text class="t" x="56" y="228" font-size="18" fill="#cbd5e1">The robots' brain lives in MongoDB Atlas and improves after every shift.</text>
+  <text class="t" x="56" y="254" font-size="18" fill="#cbd5e1">A supervisor agent finds their failures, learns from human CCTV clips,</text>
+  <text class="t" x="56" y="280" font-size="18" fill="#cbd5e1">and phones a person before it rewrites the brain.</text>
+</svg>
