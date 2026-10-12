@@ -30,7 +30,7 @@ export function Softphone({ ring, onClose, onOpenIncident, onAnswered }: { ring:
   const [mode, setMode] = useState<string>('');
   /** Manual mute, and optional half-duplex: mic muted while the agent is speaking so room noise can't cut it off. */
   const [muted, setMuted] = useState(false);
-  const [autoMute, setAutoMute] = useState(true);
+  const [autoMute, setAutoMute] = useState(false); // off by default: the Lead must be able to interrupt the agent
   const [loud, setLoud] = useState(true);
   const [caption, setCaption] = useState('');
   const [seconds, setSeconds] = useState(0);
