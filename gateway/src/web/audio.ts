@@ -29,7 +29,11 @@ export function installAudioUnlock(): () => void {
 }
 
 /** An original, soft marimba-style ring (not Apple's ringtone), repeated, with vibration on phones that support it. Returns stop(). */
+/** The ring is audible by default; add `?ring=0` to silence it. The visual ring and vibration are unaffected. */
+const RING_MUTED = new URLSearchParams(location.search).get("ring") === "0"; // audible unless ?ring=0
+
 export function startRingtone(): () => void {
+  if (RING_MUTED) return () => {};
   const c = audioContext();
   const output = c.createGain();
   output.connect(c.destination);
