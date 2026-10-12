@@ -66,7 +66,7 @@
   <text class="t" x="54" y="122" font-size="44" font-weight="700" fill="#f8fafc">Self-Improving</text>
   <text class="t" x="54" y="172" font-size="44" font-weight="700" fill="#f8fafc">Warehouse Robots</text>
   <rect x="56" y="192" width="120" height="4" rx="2" fill="url(#accent)"/>
-  <text class="t" x="56" y="228" font-size="18" fill="#cbd5e1">The robots' brain lives in MongoDB Atlas and rewrites itself.</text>
-  <text class="t" x="56" y="254" font-size="18" fill="#cbd5e1">Every change is tested in a digital twin, gated on sealed seeds,</text>
-  <text class="t" x="56" y="280" font-size="18" fill="#cbd5e1">and a human signs off on a phone call when it matters.</text>
+  <text class="t" x="56" y="228" font-size="18" fill="#cbd5e1">The robots' brain lives in MongoDB Atlas and improves after every shift.</text>
+  <text class="t" x="56" y="254" font-size="18" fill="#cbd5e1">A supervisor agent finds their failures, learns from human CCTV clips,</text>
+  <text class="t" x="56" y="280" font-size="18" fill="#cbd5e1">and phones a person before it rewrites the brain.</text>
 </svg>

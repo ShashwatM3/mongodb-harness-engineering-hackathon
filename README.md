@@ -23,8 +23,6 @@
 
 > [!NOTE]
 > Built at the **Harness Engineering & Model Wrangling #SFTechWeek Hackathon** (hosted by MongoDB, organized by Cerebral Valley, Shack15 San Francisco, October 11, 2026), for **Track 1: Recursive Harnessing**.
->
-> The warehouse simulator, **TwinForge**, is a pre-existing project by our teammate Shashwat Mahalanobis. It was built before the hackathon, and we reuse it only as the simulation environment.
 
 <br/>
 
@@ -43,21 +41,24 @@
 
 New warehouse workers don't learn the job from a manual. They watch the people around them: take the stairs when the lift line is long, slow down at a blind corner, give way to someone carrying something heavy. Robots get a config file.
 
-We built a **harness** in which a robot fleet's **brain** improves itself. The brain is the set of typed settings that decide when a robot takes the stairs, how long it waits before backing off, and when it goes to charge. It is stored as a versioned knowledge graph in **MongoDB Atlas**, and the harness changes it in five steps:
+We built a **harness** around a fleet of robot worker agents. Their shared **brain** is a hierarchical knowledge graph in **MongoDB Atlas**, and it improves after every shift:
 
 | | Step | What happens |
 | :-: | --- | --- |
-| 🎥 | **Learn** | A short phone clip of people becomes a habit in the playbook, for example *"skip the freight lift when two people are already waiting."* |
-| 🧪 | **Test** | The improver turns the habit into one typed brain edit and runs it in a warehouse digital twin across many seeded shifts. |
-| ⚖️ | **Gate** | The gate passes the edit only if it also wins on **held-out shifts that the improver can never see**. Database permissions enforce that. |
-| 📞 | **Ask** | If the edit touches a locked safety setting, an **ElevenLabs** voice agent phones the Robotics Lead, who can question it, change it, approve it or reject it. |
-| 🧬 | **Promote** | A new brain version is written with its full lineage: rule → clip → failures it fixed → gate result → human approval. |
+| 🚀 | **Launch** | On the dashboard, choose how many robot agents to run and give each one a task. |
+| 🤖 | **Work** | The agents work a shift in the TwinForge digital twin, using small, discrete physical actions. They can look things up in the internal docs or in the brain, and every brain lookup lights up that node on screen. |
+| 🔍 | **Review** | When the shift ends, each agent's trajectory and report go to the **supervisor agent**. It checks whether the tasks were completed, reads the metrics, and walks every trajectory step by step to find the failures. |
+| 🎥 | **Learn** | For each failure, the supervisor checks CCTV clips of people doing the same work and drafts a change to the brain. |
+| 📞 | **Call** | The supervisor phones the Robotics Lead through **ElevenLabs**: here is what went wrong, and here is what I want to change. The Lead can ask questions, push back, or add new instructions. |
+| 🧬 | **Update** | The supervisor writes the agreed change into the brain as a new version, with its evidence. The next shift starts from the improved brain. |
 
 The model underneath stays fixed. What evolves is the harness around it: its rules, guardrails and tool access. That is what Track 1 asks for.
 
 <br/>
 
 ## 🎬 See it running
+
+The dashboard wraps TwinForge. A launch screen sets the number of agents and each one's task. The shift then runs in a stripped-down 3D view with per-agent stats. A switch moves between the **3D view** and the **worker views**, a grid of each robot's on-camera view with its live, scrollable trajectory. The **brain panel** lets you navigate the knowledge graph, and a node lights up whenever an agent reads it.
 
 <div align="center">
 <img src="docs/readme/brain-live.gif" alt="Brain Live: the knowledge graph improving from brain v1 to v5" width="100%">
@@ -126,32 +127,32 @@ The sweep also showed why the held-out gate exists. **The best setting on traini
 
 ## 🔁 How it works
 
-### The loop
+### The workflow
 
 ```mermaid
 flowchart TB
-    clips["🎥 Human clips<br/>stairs · lifts · doorways"]:::human
-    playbook[("📒 playbook<br/>habits")]:::atlas
-    imp["🤖 Improver<br/>proposes one typed edit"]:::harness
-    twin["🏭 TwinForge runner<br/>POST /run_shift"]:::twin
-    kg[("🍃 Knowledge graph<br/>in MongoDB Atlas")]:::atlas
-    gate{"⚖️ Gate<br/>train + val, then<br/>sealed held-out seeds"}:::gate
-    phone["📞 ElevenLabs call<br/>to the Robotics Lead"]:::human
-    promote["🧬 promote<br/>brain v N+1"]:::atlas
-    rd["📈 Raindrop"]:::obs
+    launch["🚀 Launch screen<br/>number of agents, a task each"]:::human
+    subgraph shift["🏭 In the twin"]
+        agents["🤖 Robot worker agents<br/>discrete physical actions"]:::harness
+        sop["📄 Internal docs"]:::twin
+        brainq[("🧠 The brain<br/>hierarchical knowledge graph")]:::atlas
+    end
+    sup["🕵️ Supervisor agent<br/>tasks · metrics · trajectories"]:::gate
+    cctv["🎥 Human CCTV clips"]:::human
+    phone["📞 ElevenLabs call<br/>with the Robotics Lead"]:::human
+    update[("🧬 Brain v N+1<br/>in MongoDB Atlas")]:::atlas
+    ui["✨ Dashboard<br/>3D view · worker views · brain"]:::obs
 
-    clips -->|"add_habit"| playbook --> imp
-    imp -->|"candidate brain"| twin
-    twin -->|"per-seed metrics,<br/>failure episodes"| kg
-    kg -->|"get_context: what was tried,<br/>what to try next"| imp
-    kg --> gate
-    gate -->|"passed"| promote
-    gate -->|"needs_approval:<br/>locked setting"| phone
-    phone -->|"approve"| promote
-    phone -.->|"reject"| imp
-    gate -.->|"rejected"| imp
-    promote -->|"brain v N+1"| kg
-    kg -.->|"events and signals"| rd
+    launch --> agents
+    agents -->|"look up"| sop
+    agents -->|"look up: the node lights up"| brainq
+    agents -->|"trajectories + reports"| sup
+    sup -->|"failures"| cctv
+    cctv -->|"learnable insight,<br/>proposed change"| phone
+    phone -->|"agreed change<br/>+ the Lead's preferences"| update
+    update -->|"next shift"| agents
+    agents -.-> ui
+    brainq -.-> ui
 
     classDef atlas fill:#00684A,stroke:#00ED64,color:#ffffff
     classDef harness fill:#1e3a8a,stroke:#60a5fa,color:#ffffff
@@ -161,31 +162,34 @@ flowchart TB
     classDef obs fill:#5b21b6,stroke:#a78bfa,color:#ffffff
 ```
 
-### One improvement round, call by call
+### One shift, call by call
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant I as 🤖 Improver<br/>user: improver
-    participant K as 🍃 kg package<br/>+ Atlas
-    participant T as 🏭 TwinForge<br/>runner
-    participant G as ⚖️ Gate<br/>user: gate
-    participant R as 📈 Raindrop
+    actor U as 👤 Operator
+    participant D as ✨ Dashboard
+    participant W as 🤖 Worker agents
+    participant K as 🍃 Brain in Atlas
+    participant S as 🕵️ Supervisor
+    actor L as 👷 Robotics Lead
 
-    I->>K: get_context(v1): evidence table, untested levers ranked
-    I->>K: record_proposal(v1, sim.STAIR_MIN_LIFT_QUEUE = 2)
-    K-->>I: Proposal, status new / cached / invalid
-    I->>K: evaluate(proposal)
-    K->>T: POST /run_shift with export_brain, train + val seeds
-    T-->>K: per-seed zone scores, failures, time split
-    K->>K: record_shifts writes shifts + episodes
-    K--)R: candidate_brain event
-    G->>T: POST /run_shift on sealed held-out seeds
-    G->>K: record_heldout: only a pass/fail boolean is readable
-    G->>K: record_verdict(passed), then promote
-    K-->>G: brain v2
-    K--)R: gate_passed signal
+    U->>D: launch: number of agents, a task each
+    D->>W: start the shift in the twin
+    W->>K: get_brain_context(task node)
+    K-->>D: brain_reads: that node lights up
+    W->>W: discrete actions: move, pick, place, wait, charge
+    W->>S: trajectories + reports
+    S->>S: tasks done? metrics? step-by-step trajectories
+    S->>K: human habits from the CCTV clips for each failure
+    S->>L: call: these failed, I want to change this. Any preferences?
+    L-->>S: questions, feedback, approval
+    S->>K: commit_brain_version(add, retire, evidence)
 ```
+
+### Under the hood: checking a change before it lands
+
+Every brain change is a typed setting edit, and the knowledge graph only commits one that names the evaluation behind it. A change can be replayed in the twin on training seeds and on sealed held-out seeds before it becomes a new version.
 
 <details>
 <summary><b>🔁 Click to open: the life of one gate run</b></summary>
@@ -399,31 +403,28 @@ It has five layers, so no single mistake breaks it:
 
 ## 📞 A human signs off by phone
 
-Some edits need authority the robot doesn't have. Raising the fleet's top speed is one: `class.HUM-1.max_speed` is a locked guardrail. The gate marks such a run `needs_approval`, and the harness phones the **Robotics Lead**.
+After every shift, the supervisor phones the **Robotics Lead**. It says what the agents did, what failed, and what it wants to change in the brain, then lets the person drive the conversation. Edits to locked safety settings, like raising the fleet's top speed (`class.HUM-1.max_speed`), cannot land without that approval.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant G as ⚖️ Gate
-    participant A as 🍃 kg-approval agent<br/>Atlas Agent Engine
+    participant S as 🕵️ Supervisor
     participant W as 📞 Intervention<br/>Gateway
     participant E as 🗣️ ElevenLabs<br/>voice agent
     actor L as 👷 Robotics Lead
+    participant K as 🍃 Brain in Atlas
 
-    G->>A: gate run needs_approval, max_speed 1.2 → 1.35
-    A->>A: approval_context, then pause at human_review
-    Note over A,W: designed hand-off, not wired yet
-    A->>W: POST /v1/incidents
-    W->>E: start call with incident and proposal briefs
-    E->>L: "Hi, this is the fleet supervisor…"
+    S->>W: POST /v1/incidents: failures + proposed change
+    W->>E: start the call with the briefs
+    E->>L: "Your agents finished. Here's what failed, and here's what I'd change…"
     L->>E: "Why? Show me what happened."
     E->>W: ask_supervisor, show_trajectory
     L->>E: "Make it 1.3 instead."
     E->>W: change_plan, proposal revision 2
-    L->>E: "Approve that, but watch trip times."
+    L->>E: "Approve that, but keep an eye on trip times."
     E->>W: send_feedback(revision 2, APPROVE, their words)
-    W->>A: decision + feedback, sent exactly once
-    A->>A: record_decision: record_approval, then promote
+    W->>S: decision + feedback, sent exactly once
+    S->>K: update the brain: new version + the Lead's preferences
 ```
 
 <sub>Values are illustrative.</sub>
@@ -431,7 +432,7 @@ sequenceDiagram
 There are two pieces:
 
 - **The Intervention Gateway** ([`aseel-eleven-lab`](https://github.com/ShashwatM3/mongodb-harness-engineering-hackathon/tree/aseel-eleven-lab)) is a Fastify + React app. It places the call, gives the voice agent four webhook tools, records **APPROVE / REJECT / DEFER** against an exact plan revision, and delivers the decision back to the harness exactly once through an outbox. Silence or a dropped call is never read as a decision.
-- **The `kg-approval` agent** ([`approval_agent/`](https://github.com/ShashwatM3/mongodb-harness-engineering-hackathon/tree/kg/integration/approval_agent)) is a LangGraph workflow deployed on **Atlas Agent Engine**, with durable state and `deny_all` egress. It makes no model calls: it pauses at a `human_review` interrupt, then writes the approval and promotes the brain. An approval covers one exact value inside the setting's bounds and can never move the bounds.
+- **The `kg-approval` agent** ([`approval_agent/`](https://github.com/ShashwatM3/mongodb-harness-engineering-hackathon/tree/kg/integration/approval_agent)) is a LangGraph workflow deployed on **Atlas Agent Engine**, with durable state and `deny_all` egress. It holds a change to a locked setting: it pauses at a `human_review` interrupt, then writes the approval and promotes the brain. It makes no model calls. An approval covers one exact value inside the setting's bounds and can never move the bounds.
 
 <details>
 <summary><b>🛠️ Click to open: the voice agent's tools and the incident lifecycle</b></summary>
@@ -474,23 +475,23 @@ Telephony has three modes. `simulated` (the default) rings a softphone in the da
 
 ```mermaid
 flowchart TB
-    clips["🎥 Phone clips<br/>of human habits"]:::human
+    subgraph dash["✨ Dashboard"]
+        launch["🚀 Launch screen"]:::obs
+        views["3D view · worker views<br/>brain panel"]:::obs
+    end
 
-    subgraph harness["🧠 The harness"]
-        imp["🤖 Improver<br/>GEPA adapter / Claude"]:::harness
-        kgpkg["📦 kg Python package"]:::harness
-        gate["⚖️ Gate"]:::gate
-        adv["😈 Adversary<br/>harder scenarios"]:::harness
+    subgraph agents["🤖 Agents"]
+        workers["Robot worker agents"]:::harness
+        sup["🕵️ Supervisor agent"]:::gate
     end
 
     subgraph twin["🏭 TwinForge · pre-existing"]
-        runner["Runner API<br/>POST /run_shift"]:::twin
-        ui3d["3D twin, replay<br/>and compare"]:::twin
+        engine["Simulation engine<br/>+ runner API"]:::twin
     end
 
     subgraph atlas["🍃 MongoDB Atlas"]
-        kgdb[("kg database<br/>brain graph + evidence")]:::atlas
-        ae["Atlas Agent Engine<br/>kg-approval agent"]:::atlas
+        kgdb[("The brain · HKG<br/>+ evidence")]:::atlas
+        ae["Agent Engine<br/>kg-approval agent"]:::atlas
     end
 
     subgraph voice["📞 Intervention Gateway"]
@@ -498,23 +499,23 @@ flowchart TB
         el["🗣️ ElevenLabs<br/>voice agent"]:::human
     end
 
+    cctv["🎥 Human CCTV clips"]:::human
     lead["👷 Robotics Lead"]:::human
     rd["📈 Raindrop"]:::obs
-    bl["✨ Brain Live UI"]:::obs
 
-    clips -->|"add_habit"| kgpkg
-    imp <--> kgpkg
-    gate <--> kgpkg
-    kgpkg <--> kgdb
-    kgpkg -->|"export_brain"| runner
-    runner -->|"metrics, failures"| kgpkg
-    adv -.->|"scenario scripts"| runner
-    gate -->|"needs_approval"| ae
-    ae -.-> gw
+    launch --> workers
+    workers <--> engine
+    workers -->|"get_brain_context"| kgdb
+    workers -->|"trajectories, reports"| sup
+    cctv --> sup
+    sup -->|"call"| gw
     gw <--> el
     el <-->|"phone or softphone"| lead
-    kgpkg -.->|"events, signals"| rd
-    kgdb -.->|"brain_reads"| bl
+    sup -->|"commit_brain_version"| kgdb
+    sup -.->|"locked settings"| ae
+    kgdb -.->|"brain_reads"| views
+    engine -.-> views
+    sup -.->|"events, signals"| rd
 
     classDef atlas fill:#00684A,stroke:#00ED64,color:#ffffff
     classDef harness fill:#1e3a8a,stroke:#60a5fa,color:#ffffff
@@ -534,7 +535,7 @@ flowchart TB
 | 🤖 **Atlas Agent Engine** | Runs `kg-approval`, the durable approval workflow that pauses for a human before a locked setting changes. |
 | 🗣️ **ElevenLabs** | The conversational voice agent that phones the Robotics Lead, answers questions through webhook tools, and records the decision. |
 | 📈 **Raindrop** | Gets one `candidate_brain` event per proposal and signals (`gate_passed`, `gate_failed`, `re_proposed`, `invalid_proposal`), so the pass rate per round, repeats and wasted proposals are visible. Real and dev projects are kept apart. `get_signals(shift_id)` reads them back by category. Raindrop is never on the critical path. |
-| 🧠 **Claude** | The model behind the improver and adversary experiments, and behind the gateway's voice-agent LLM and mock supervisor. The model is held fixed while the harness improves. |
+| 🧠 **Claude** | The model behind the agents and the gateway's voice agent. The model is held fixed while the harness around it improves. |
 
 <br/>
 
@@ -731,12 +732,13 @@ The agent reaches the knowledge graph only through the gate client, with Raindro
 
 ## 🎤 The demo, in three minutes
 
-- [ ] **The problem.** Show TwinForge: zone M robots queue for the lift under brain v1.
-- [ ] **The brain.** Open it in Atlas: one aggregation loads what applies to a PICK in zone M.
-- [ ] **A habit becomes a rule.** The clip "skip the lift when it's queued" becomes a proposal, gets tested on training seeds, and passes the sealed held-out check. Brain v2 is promoted.
-- [ ] **Proof.** The side-by-side replay: same seed, two brains, zone M 0.42 → 0.65, lift jams 3 → 0.
-- [ ] **A locked change.** The improver wants faster robots. The phone rings, and the Robotics Lead asks why, changes the number, and approves.
-- [ ] **Explain any rule.** Click it: clip → failures it fixed → gate run → held-out pass → approval.
+- [ ] **Launch.** Pick the number of agents, give each a task, and launch.
+- [ ] **Watch.** The 3D view, then the switch to worker views: each robot's camera and its live, scrollable trajectory.
+- [ ] **The brain lights up.** An agent reads the brain, and that node lights up in the brain panel.
+- [ ] **Review.** The shift ends. The supervisor reads the reports, metrics and trajectories, and finds the failures, for example robots jammed at the zone M lift.
+- [ ] **Learn.** It matches the failure to a CCTV clip: people skip the lift when it's queued.
+- [ ] **Call.** The phone rings. The Robotics Lead asks why, adjusts the change, and approves.
+- [ ] **Update.** Brain v2 appears. Click the new rule: clip → failures it fixed → evidence.
 
 <br/>
 
